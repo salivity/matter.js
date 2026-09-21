@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Matter.js Raycast Sweeps to Prevent Tunneling - matter.js</title>
+    <meta name="description" content="High-speed projectiles in Matter.js frequently suffer from tunneling, an artifact where discrete physics steps allow fast-moving bodies to pass entirely through colliders without triggering a collision. This article explains how to implement predictive c">
+    <link rel="canonical" href="https://salivity.github.io/matter.js/article/matter-js-raycast-sweeps-to-prevent-tunneling">
+    <link rel="search" type="application/opensearchdescription+xml" title="matter.js" href="/matter.js/opensearch.xml">
+    <link rel="icon" href="/matter.js/favicon.ico">
+    <link rel="stylesheet" href="/matter.js/css/style.css">
+    <link media="print" rel="stylesheet" href="/matter.js/css/print.css">
+    <script src="/matter.js/js/fuse.min.js"></script>
+    <script src="/matter.js/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Matter.js Raycast Sweeps to Prevent Tunneling - matter.js" />
+    <meta property="og:url" content="https://salivity.github.io/matter.js/article/matter-js-raycast-sweeps-to-prevent-tunneling" />
+    <meta property="og:image" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="High-speed projectiles in Matter.js frequently suffer from tunneling, an artifact where discrete physics steps allow fast-moving bodies to pass entirely through colliders without triggering a collision. This article explains how to implement predictive c" />
+    <link rel="manifest" href="/matter.js/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/matter.js/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>matter.js</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/matter.js/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="matterjs-raycast-sweeps-to-prevent-tunneling">Matter.js Raycast
+Sweeps to Prevent Tunneling</h1>
+<p>High-speed projectiles in Matter.js frequently suffer from tunneling,
+an artifact where discrete physics steps allow fast-moving bodies to
+pass entirely through colliders without triggering a collision. This
+article explains how to implement predictive continuous collision
+detection (CCD) using Matter.js raycasting
+(<code>Matter.Query.ray</code>). By sweeping a ray from a projectile's
+current position to its projected next position ahead of each physics
+tick, you can anticipate collisions, position the body precisely at the
+point of impact, and handle collision responses before tunneling
+occurs.</p>
+<h3 id="the-tunneling-problem">The Tunneling Problem</h3>
+<p>Matter.js integrates physics discretely across fixed time steps. If a
+projectile moves at a speed greater than the thickness of an obstacle
+within a single frame, its position from step <span
+class="math inline">\(t\)</span> to step <span
+class="math inline">\(t+1\)</span> skips cleanly over the obstacle's
+collider. Because the bodies never overlap at the precise moment
+collision detection runs, no contact resolution or event triggers.</p>
+<h3 id="the-raycast-sweep-strategy">The Raycast Sweep Strategy</h3>
+<p>A raycast sweep acts as a predictive collision probe. Before the
+engine advances:</p>
+<ol type="1">
+<li>Calculate the projectile's target position for the upcoming frame
+based on its current velocity.</li>
+<li>Cast a ray from the current center of the projectile to the
+anticipated target point.</li>
+<li>Pass the projectile's bounding width to
+<code>Matter.Query.ray</code> to approximate a swept circle or box.</li>
+<li>If an intersection occurs, clamp the projectile to the contact
+point, adjust its velocity (e.g., stop, deflect, or destroy), and
+manually invoke any hit logic.</li>
+</ol>
+<h3 id="implementation">Implementation</h3>
+<p>Bind the sweep routine to the <code>beforeUpdate</code> event of your
+engine instance so corrections apply prior to the broadphase and
+narrowphase checks.</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> Matter <span class="im">from</span> <span class="st">&#39;matter-js&#39;</span><span class="op">;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> { Events<span class="op">,</span> Query<span class="op">,</span> Vector<span class="op">,</span> Body } <span class="op">=</span> Matter<span class="op">;</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">enableRaycastSweep</span>(engine<span class="op">,</span> projectile<span class="op">,</span> obstacles<span class="op">,</span> projectileRadius <span class="op">=</span> <span class="dv">0</span>) {</span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>    Events<span class="op">.</span><span class="fu">on</span>(engine<span class="op">,</span> <span class="st">&#39;beforeUpdate&#39;</span><span class="op">,</span> () <span class="kw">=&gt;</span> {</span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>        <span class="co">// Only sweep if the body is actively moving</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>        <span class="kw">const</span> speed <span class="op">=</span> Vector<span class="op">.</span><span class="fu">magnitude</span>(projectile<span class="op">.</span><span class="at">velocity</span>)<span class="op">;</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> (speed <span class="op">===</span> <span class="dv">0</span>) <span class="cf">return</span><span class="op">;</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>        <span class="kw">const</span> startPoint <span class="op">=</span> projectile<span class="op">.</span><span class="at">position</span><span class="op">;</span></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>        <span class="co">// Project position based on current velocity</span></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>        <span class="kw">const</span> endPoint <span class="op">=</span> Vector<span class="op">.</span><span class="fu">add</span>(startPoint<span class="op">,</span> projectile<span class="op">.</span><span class="at">velocity</span>)<span class="op">;</span></span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a>        <span class="co">// Perform raycast sweep; rayWidth accounts for projectile dimensions</span></span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a>        <span class="kw">const</span> rayWidth <span class="op">=</span> projectileRadius <span class="op">*</span> <span class="dv">2</span><span class="op">;</span></span>
+<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a>        <span class="kw">const</span> collisions <span class="op">=</span> Query<span class="op">.</span><span class="fu">ray</span>(obstacles<span class="op">,</span> startPoint<span class="op">,</span> endPoint<span class="op">,</span> rayWidth)<span class="op">;</span></span>
+<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-19"><a href="#cb1-19" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> (collisions<span class="op">.</span><span class="at">length</span> <span class="op">&gt;</span> <span class="dv">0</span>) {</span>
+<span id="cb1-20"><a href="#cb1-20" aria-hidden="true" tabindex="-1"></a>            <span class="co">// Sort collisions by distance to find the earliest impact</span></span>
+<span id="cb1-21"><a href="#cb1-21" aria-hidden="true" tabindex="-1"></a>            collisions<span class="op">.</span><span class="fu">sort</span>((a<span class="op">,</span> b) <span class="kw">=&gt;</span> {</span>
+<span id="cb1-22"><a href="#cb1-22" aria-hidden="true" tabindex="-1"></a>                <span class="kw">const</span> distA <span class="op">=</span> Vector<span class="op">.</span><span class="fu">magnitudeSquared</span>(Vector<span class="op">.</span><span class="fu">sub</span>(a<span class="op">.</span><span class="at">body</span><span class="op">.</span><span class="at">position</span><span class="op">,</span> startPoint))<span class="op">;</span></span>
+<span id="cb1-23"><a href="#cb1-23" aria-hidden="true" tabindex="-1"></a>                <span class="kw">const</span> distB <span class="op">=</span> Vector<span class="op">.</span><span class="fu">magnitudeSquared</span>(Vector<span class="op">.</span><span class="fu">sub</span>(b<span class="op">.</span><span class="at">body</span><span class="op">.</span><span class="at">position</span><span class="op">,</span> startPoint))<span class="op">;</span></span>
+<span id="cb1-24"><a href="#cb1-24" aria-hidden="true" tabindex="-1"></a>                <span class="cf">return</span> distA <span class="op">-</span> distB<span class="op">;</span></span>
+<span id="cb1-25"><a href="#cb1-25" aria-hidden="true" tabindex="-1"></a>            })<span class="op">;</span></span>
+<span id="cb1-26"><a href="#cb1-26" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-27"><a href="#cb1-27" aria-hidden="true" tabindex="-1"></a>            <span class="kw">const</span> firstHit <span class="op">=</span> collisions[<span class="dv">0</span>]<span class="op">;</span></span>
+<span id="cb1-28"><a href="#cb1-28" aria-hidden="true" tabindex="-1"></a>            </span>
+<span id="cb1-29"><a href="#cb1-29" aria-hidden="true" tabindex="-1"></a>            <span class="co">// Calculate fractional distance along trajectory to place body at impact site</span></span>
+<span id="cb1-30"><a href="#cb1-30" aria-hidden="true" tabindex="-1"></a>            <span class="co">// Query.ray returns collision objects containing point of intersection</span></span>
+<span id="cb1-31"><a href="#cb1-31" aria-hidden="true" tabindex="-1"></a>            <span class="kw">const</span> hitPoint <span class="op">=</span> {</span>
+<span id="cb1-32"><a href="#cb1-32" aria-hidden="true" tabindex="-1"></a>                <span class="dt">x</span><span class="op">:</span> (firstHit<span class="op">.</span><span class="at">bodyA</span><span class="op">.</span><span class="at">position</span><span class="op">.</span><span class="at">x</span> <span class="op">+</span> firstHit<span class="op">.</span><span class="at">bodyB</span><span class="op">.</span><span class="at">position</span><span class="op">.</span><span class="at">x</span>) <span class="op">/</span> <span class="dv">2</span><span class="op">,</span></span>
+<span id="cb1-33"><a href="#cb1-33" aria-hidden="true" tabindex="-1"></a>                <span class="dt">y</span><span class="op">:</span> (firstHit<span class="op">.</span><span class="at">bodyA</span><span class="op">.</span><span class="at">position</span><span class="op">.</span><span class="at">y</span> <span class="op">+</span> firstHit<span class="op">.</span><span class="at">bodyB</span><span class="op">.</span><span class="at">position</span><span class="op">.</span><span class="at">y</span>) <span class="op">/</span> <span class="dv">2</span></span>
+<span id="cb1-34"><a href="#cb1-34" aria-hidden="true" tabindex="-1"></a>            }<span class="op">;</span></span>
+<span id="cb1-35"><a href="#cb1-35" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-36"><a href="#cb1-36" aria-hidden="true" tabindex="-1"></a>            <span class="co">// Reposition the projectile just at the collision threshold</span></span>
+<span id="cb1-37"><a href="#cb1-37" aria-hidden="true" tabindex="-1"></a>            Body<span class="op">.</span><span class="fu">setPosition</span>(projectile<span class="op">,</span> hitPoint)<span class="op">;</span></span>
+<span id="cb1-38"><a href="#cb1-38" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-39"><a href="#cb1-39" aria-hidden="true" tabindex="-1"></a>            <span class="co">// Zero out or reflect velocity to stop further movement through the collider</span></span>
+<span id="cb1-40"><a href="#cb1-40" aria-hidden="true" tabindex="-1"></a>            Body<span class="op">.</span><span class="fu">setVelocity</span>(projectile<span class="op">,</span> { <span class="dt">x</span><span class="op">:</span> <span class="dv">0</span><span class="op">,</span> <span class="dt">y</span><span class="op">:</span> <span class="dv">0</span> })<span class="op">;</span></span>
+<span id="cb1-41"><a href="#cb1-41" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-42"><a href="#cb1-42" aria-hidden="true" tabindex="-1"></a>            <span class="co">// Trigger custom impact handling</span></span>
+<span id="cb1-43"><a href="#cb1-43" aria-hidden="true" tabindex="-1"></a>            <span class="fu">onProjectileHit</span>(projectile<span class="op">,</span> firstHit<span class="op">.</span><span class="at">body</span>)<span class="op">;</span></span>
+<span id="cb1-44"><a href="#cb1-44" aria-hidden="true" tabindex="-1"></a>        }</span>
+<span id="cb1-45"><a href="#cb1-45" aria-hidden="true" tabindex="-1"></a>    })<span class="op">;</span></span>
+<span id="cb1-46"><a href="#cb1-46" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb1-47"><a href="#cb1-47" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-48"><a href="#cb1-48" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">onProjectileHit</span>(projectile<span class="op">,</span> obstacle) {</span>
+<span id="cb1-49"><a href="#cb1-49" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Custom logic: damage calculation, particle spawning, or body removal</span></span>
+<span id="cb1-50"><a href="#cb1-50" aria-hidden="true" tabindex="-1"></a>    Matter<span class="op">.</span><span class="at">Composite</span><span class="op">.</span><span class="fu">remove</span>(engine<span class="op">.</span><span class="at">world</span><span class="op">,</span> projectile)<span class="op">;</span></span>
+<span id="cb1-51"><a href="#cb1-51" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<h3 id="critical-considerations">Critical Considerations</h3>
+<ul>
+<li><strong>Ray Width for Extruded Shapes:</strong> Passing a
+<code>rayWidth</code> argument to <code>Query.ray</code> simulates a
+capsule sweep. For non-zero-radius projectiles like bullets or
+cannonballs, set <code>rayWidth</code> to the diameter of the projectile
+to catch edge-clipping scenarios.</li>
+<li><strong>Obstacle Filtering:</strong> Avoid querying against dynamic
+entities that should not block the projectile, or against the projectile
+itself. Maintain a distinct array of valid collision targets rather than
+querying the entire <code>Composite.allBodies(engine.world)</code>
+array.</li>
+<li><strong>Sub-stepping and Time Delta:</strong> If using variable
+delta updates, compute the projected vector as
+<code>Vector.mult(projectile.velocity, delta / 1000)</code> instead of
+pure <code>velocity</code> to account for variable frame lengths.</li>
+</ul></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/matter.js'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/matter.js/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/matter.js/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

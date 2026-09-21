@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simulate AFM Cantilever Deflection in Matter.js - matter.js</title>
+    <meta name="description" content="This article explains how to simulate Atomic Force Microscope (AFM) cantilever tip deflection across atomic surfaces using the Matter.js 2D physics engine. You will learn how to model a flexible cantilever using spring constraints, create a periodic atom">
+    <link rel="canonical" href="https://salivity.github.io/matter.js/article/simulate-afm-cantilever-deflection-in-matter-js">
+    <link rel="search" type="application/opensearchdescription+xml" title="matter.js" href="/matter.js/opensearch.xml">
+    <link rel="icon" href="/matter.js/favicon.ico">
+    <link rel="stylesheet" href="/matter.js/css/style.css">
+    <link media="print" rel="stylesheet" href="/matter.js/css/print.css">
+    <script src="/matter.js/js/fuse.min.js"></script>
+    <script src="/matter.js/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Simulate AFM Cantilever Deflection in Matter.js - matter.js" />
+    <meta property="og:url" content="https://salivity.github.io/matter.js/article/simulate-afm-cantilever-deflection-in-matter-js" />
+    <meta property="og:image" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article explains how to simulate Atomic Force Microscope (AFM) cantilever tip deflection across atomic surfaces using the Matter.js 2D physics engine. You will learn how to model a flexible cantilever using spring constraints, create a periodic atom" />
+    <link rel="manifest" href="/matter.js/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/matter.js/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>matter.js</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/matter.js/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="simulate-afm-cantilever-deflection-in-matterjs">Simulate AFM
+Cantilever Deflection in Matter.js</h1>
+<p>This article explains how to simulate Atomic Force Microscope (AFM)
+cantilever tip deflection across atomic surfaces using the Matter.js 2D
+physics engine. You will learn how to model a flexible cantilever using
+spring constraints, create a periodic atomic substrate, apply non-linear
+interatomic forces (such as the Lennard-Jones potential) via custom
+engine update loops, and track the vertical deflection of the probe tip
+in real time during a lateral surface scan.</p>
+<h3 id="conceptual-overview">Conceptual Overview</h3>
+<p>An Atomic Force Microscope operates by scanning an extremely sharp
+tip attached to a flexible cantilever across a specimen. As the tip
+approaches surface atoms, interatomic forces cause the cantilever to
+bend. In Matter.js, this setup requires three core components:</p>
+<ol type="1">
+<li><strong>The Cantilever Assembly:</strong> A translating base
+attached to a flexible beam or elastic constraint with a defined spring
+constant (<span class="math inline">\(k\)</span>).</li>
+<li><strong>The Atomic Substrate:</strong> A periodic grid of static
+circular bodies representing atoms on a surface.</li>
+<li><strong>The Interaction Potential:</strong> A custom force
+calculation (typically a Lennard-Jones 12-6 potential) applied between
+the tip and the surface atoms on every engine tick.</li>
+</ol>
+<hr />
+<h3 id="step-1-initialize-the-engine-and-world">Step 1: Initialize the
+Engine and World</h3>
+<p>Set up a standard Matter.js environment, disabling global gravity to
+isolate the mechanical and interatomic forces.</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> { Engine<span class="op">,</span> Render<span class="op">,</span> Runner<span class="op">,</span> Bodies<span class="op">,</span> Composite<span class="op">,</span> Constraint<span class="op">,</span> Vector<span class="op">,</span> Body<span class="op">,</span> Events } <span class="op">=</span> Matter<span class="op">;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> engine <span class="op">=</span> Engine<span class="op">.</span><span class="fu">create</span>({</span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>    <span class="dt">gravity</span><span class="op">:</span> { <span class="dt">x</span><span class="op">:</span> <span class="dv">0</span><span class="op">,</span> <span class="dt">y</span><span class="op">:</span> <span class="dv">0</span> } <span class="co">// Microscopic simulation ignores macro gravity</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> render <span class="op">=</span> Render<span class="op">.</span><span class="fu">create</span>({</span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>    <span class="dt">element</span><span class="op">:</span> <span class="bu">document</span><span class="op">.</span><span class="at">body</span><span class="op">,</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>    <span class="dt">engine</span><span class="op">:</span> engine<span class="op">,</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>    <span class="dt">options</span><span class="op">:</span> {</span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>        <span class="dt">width</span><span class="op">:</span> <span class="dv">800</span><span class="op">,</span></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>        <span class="dt">height</span><span class="op">:</span> <span class="dv">400</span><span class="op">,</span></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>        <span class="dt">wireframes</span><span class="op">:</span> <span class="kw">false</span></span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a>Render<span class="op">.</span><span class="fu">run</span>(render)<span class="op">;</span></span>
+<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> runner <span class="op">=</span> Runner<span class="op">.</span><span class="fu">create</span>()<span class="op">;</span></span>
+<span id="cb1-19"><a href="#cb1-19" aria-hidden="true" tabindex="-1"></a>Runner<span class="op">.</span><span class="fu">run</span>(runner<span class="op">,</span> engine)<span class="op">;</span></span></code></pre></div>
+<hr />
+<h3 id="step-2-build-the-atomic-substrate">Step 2: Build the Atomic
+Substrate</h3>
+<p>Create a row of static circular bodies to act as individual atoms
+arranged in a 1D lattice.</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> surfaceAtoms <span class="op">=</span> []<span class="op">;</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> atomRadius <span class="op">=</span> <span class="dv">15</span><span class="op">;</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> spacing <span class="op">=</span> <span class="dv">35</span><span class="op">;</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> surfaceY <span class="op">=</span> <span class="dv">320</span><span class="op">;</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> (<span class="kw">let</span> x <span class="op">=</span> <span class="dv">100</span><span class="op">;</span> x <span class="op">&lt;</span> <span class="dv">700</span><span class="op">;</span> x <span class="op">+=</span> spacing) {</span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> atom <span class="op">=</span> Bodies<span class="op">.</span><span class="fu">circle</span>(x<span class="op">,</span> surfaceY<span class="op">,</span> atomRadius<span class="op">,</span> {</span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>        <span class="dt">isStatic</span><span class="op">:</span> <span class="kw">true</span><span class="op">,</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>        <span class="dt">render</span><span class="op">:</span> { <span class="dt">fillStyle</span><span class="op">:</span> <span class="st">&#39;#4a90e2&#39;</span> }</span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>    })<span class="op">;</span></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>    surfaceAtoms<span class="op">.</span><span class="fu">push</span>(atom)<span class="op">;</span></span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a>Composite<span class="op">.</span><span class="fu">add</span>(engine<span class="op">.</span><span class="at">world</span><span class="op">,</span> surfaceAtoms)<span class="op">;</span></span></code></pre></div>
+<hr />
+<h3 id="step-3-model-the-cantilever-and-probe-tip">Step 3: Model the
+Cantilever and Probe Tip</h3>
+<p>Model the cantilever using a rigid base that moves horizontally,
+connected to a dynamic probe tip through an elastic constraint
+representing the cantilever's spring constant (<span
+class="math inline">\(k\)</span>).</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Scanner stage that drives horizontal movement</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> stage <span class="op">=</span> Bodies<span class="op">.</span><span class="fu">rectangle</span>(<span class="dv">100</span><span class="op">,</span> <span class="dv">150</span><span class="op">,</span> <span class="dv">40</span><span class="op">,</span> <span class="dv">20</span><span class="op">,</span> {</span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>    <span class="dt">isStatic</span><span class="op">:</span> <span class="kw">true</span><span class="op">,</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>    <span class="dt">render</span><span class="op">:</span> { <span class="dt">fillStyle</span><span class="op">:</span> <span class="st">&#39;#333&#39;</span> }</span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a><span class="co">// AFM Tip</span></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> tip <span class="op">=</span> Bodies<span class="op">.</span><span class="fu">circle</span>(<span class="dv">100</span><span class="op">,</span> <span class="dv">220</span><span class="op">,</span> <span class="dv">8</span><span class="op">,</span> {</span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a>    <span class="dt">density</span><span class="op">:</span> <span class="fl">0.001</span><span class="op">,</span></span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a>    <span class="dt">frictionAir</span><span class="op">:</span> <span class="fl">0.05</span><span class="op">,</span></span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a>    <span class="dt">render</span><span class="op">:</span> { <span class="dt">fillStyle</span><span class="op">:</span> <span class="st">&#39;#e74c3c&#39;</span> }</span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span>
+<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-14"><a href="#cb3-14" aria-hidden="true" tabindex="-1"></a><span class="co">// Elastic Cantilever (Spring)</span></span>
+<span id="cb3-15"><a href="#cb3-15" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> cantileverSpring <span class="op">=</span> Constraint<span class="op">.</span><span class="fu">create</span>({</span>
+<span id="cb3-16"><a href="#cb3-16" aria-hidden="true" tabindex="-1"></a>    <span class="dt">bodyA</span><span class="op">:</span> stage<span class="op">,</span></span>
+<span id="cb3-17"><a href="#cb3-17" aria-hidden="true" tabindex="-1"></a>    <span class="dt">pointA</span><span class="op">:</span> { <span class="dt">x</span><span class="op">:</span> <span class="dv">0</span><span class="op">,</span> <span class="dt">y</span><span class="op">:</span> <span class="dv">0</span> }<span class="op">,</span></span>
+<span id="cb3-18"><a href="#cb3-18" aria-hidden="true" tabindex="-1"></a>    <span class="dt">bodyB</span><span class="op">:</span> tip<span class="op">,</span></span>
+<span id="cb3-19"><a href="#cb3-19" aria-hidden="true" tabindex="-1"></a>    <span class="dt">pointB</span><span class="op">:</span> { <span class="dt">x</span><span class="op">:</span> <span class="dv">0</span><span class="op">,</span> <span class="dt">y</span><span class="op">:</span> <span class="dv">0</span> }<span class="op">,</span></span>
+<span id="cb3-20"><a href="#cb3-20" aria-hidden="true" tabindex="-1"></a>    <span class="dt">stiffness</span><span class="op">:</span> <span class="fl">0.08</span><span class="op">,</span> <span class="co">// Models the spring constant (k)</span></span>
+<span id="cb3-21"><a href="#cb3-21" aria-hidden="true" tabindex="-1"></a>    <span class="dt">damping</span><span class="op">:</span> <span class="fl">0.02</span><span class="op">,</span></span>
+<span id="cb3-22"><a href="#cb3-22" aria-hidden="true" tabindex="-1"></a>    <span class="dt">render</span><span class="op">:</span> {</span>
+<span id="cb3-23"><a href="#cb3-23" aria-hidden="true" tabindex="-1"></a>        <span class="dt">strokeStyle</span><span class="op">:</span> <span class="st">&#39;#7f8c8d&#39;</span><span class="op">,</span></span>
+<span id="cb3-24"><a href="#cb3-24" aria-hidden="true" tabindex="-1"></a>        <span class="dt">lineWidth</span><span class="op">:</span> <span class="dv">3</span></span>
+<span id="cb3-25"><a href="#cb3-25" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb3-26"><a href="#cb3-26" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span>
+<span id="cb3-27"><a href="#cb3-27" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-28"><a href="#cb3-28" aria-hidden="true" tabindex="-1"></a>Composite<span class="op">.</span><span class="fu">add</span>(engine<span class="op">.</span><span class="at">world</span><span class="op">,</span> [stage<span class="op">,</span> tip<span class="op">,</span> cantileverSpring])<span class="op">;</span></span></code></pre></div>
+<hr />
+<h3 id="step-4-implement-the-lennard-jones-potential-force">Step 4:
+Implement the Lennard-Jones Potential Force</h3>
+<p>To simulate atomic interaction, calculate the Lennard-Jones force
+between the tip and nearby substrate atoms before each physics step:</p>
+<p><span class="math display">\[F(r) = 24\epsilon \left[
+2\left(\frac{\sigma}{r}\right)^{13} - \left(\frac{\sigma}{r}\right)^7
+\right] \frac{\mathbf{r}}{r}\]</span></p>
+<p>Where:</p>
+<ul>
+<li><span class="math inline">\(\epsilon\)</span> is the potential well
+depth (interaction strength).</li>
+<li><span class="math inline">\(\sigma\)</span> is the distance at which
+the inter-particle potential is zero.</li>
+<li><span class="math inline">\(r\)</span> is the Euclidean distance
+between the tip and a surface atom.</li>
+</ul>
+<div class="sourceCode" id="cb4"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> epsilon <span class="op">=</span> <span class="fl">1.2</span><span class="op">;</span> </span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> sigma <span class="op">=</span> <span class="dv">45</span><span class="op">;</span></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> cutoffDistance <span class="op">=</span> <span class="dv">90</span><span class="op">;</span> <span class="co">// Ignore atoms outside this radius for performance</span></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>Events<span class="op">.</span><span class="fu">on</span>(engine<span class="op">,</span> <span class="st">&#39;beforeUpdate&#39;</span><span class="op">,</span> () <span class="kw">=&gt;</span> {</span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a>    <span class="co">// 1. Move the stage horizontally to perform the raster scan</span></span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a>    Body<span class="op">.</span><span class="fu">setPosition</span>(stage<span class="op">,</span> { <span class="dt">x</span><span class="op">:</span> stage<span class="op">.</span><span class="at">position</span><span class="op">.</span><span class="at">x</span> <span class="op">+</span> <span class="fl">0.5</span><span class="op">,</span> <span class="dt">y</span><span class="op">:</span> stage<span class="op">.</span><span class="at">position</span><span class="op">.</span><span class="at">y</span> })<span class="op">;</span></span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a>    <span class="co">// 2. Compute interaction forces between the tip and nearby atoms</span></span>
+<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> (<span class="kw">let</span> i <span class="op">=</span> <span class="dv">0</span><span class="op">;</span> i <span class="op">&lt;</span> surfaceAtoms<span class="op">.</span><span class="at">length</span><span class="op">;</span> i<span class="op">++</span>) {</span>
+<span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a>        <span class="kw">const</span> atom <span class="op">=</span> surfaceAtoms[i]<span class="op">;</span></span>
+<span id="cb4-12"><a href="#cb4-12" aria-hidden="true" tabindex="-1"></a>        <span class="kw">const</span> delta <span class="op">=</span> Vector<span class="op">.</span><span class="fu">sub</span>(tip<span class="op">.</span><span class="at">position</span><span class="op">,</span> atom<span class="op">.</span><span class="at">position</span>)<span class="op">;</span></span>
+<span id="cb4-13"><a href="#cb4-13" aria-hidden="true" tabindex="-1"></a>        <span class="kw">const</span> distance <span class="op">=</span> Vector<span class="op">.</span><span class="fu">magnitude</span>(delta)<span class="op">;</span></span>
+<span id="cb4-14"><a href="#cb4-14" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-15"><a href="#cb4-15" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> (distance <span class="op">&gt;</span> <span class="dv">0</span> <span class="op">&amp;&amp;</span> distance <span class="op">&lt;</span> cutoffDistance) {</span>
+<span id="cb4-16"><a href="#cb4-16" aria-hidden="true" tabindex="-1"></a>            <span class="kw">const</span> normal <span class="op">=</span> Vector<span class="op">.</span><span class="fu">normalise</span>(delta)<span class="op">;</span></span>
+<span id="cb4-17"><a href="#cb4-17" aria-hidden="true" tabindex="-1"></a>            <span class="kw">const</span> termRepulsive <span class="op">=</span> <span class="dv">2</span> <span class="op">*</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">pow</span>(sigma <span class="op">/</span> distance<span class="op">,</span> <span class="dv">13</span>)<span class="op">;</span></span>
+<span id="cb4-18"><a href="#cb4-18" aria-hidden="true" tabindex="-1"></a>            <span class="kw">const</span> termAttractive <span class="op">=</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">pow</span>(sigma <span class="op">/</span> distance<span class="op">,</span> <span class="dv">7</span>)<span class="op">;</span></span>
+<span id="cb4-19"><a href="#cb4-19" aria-hidden="true" tabindex="-1"></a>            <span class="kw">const</span> forceMagnitude <span class="op">=</span> (<span class="dv">24</span> <span class="op">*</span> epsilon <span class="op">/</span> distance) <span class="op">*</span> (termRepulsive <span class="op">-</span> termAttractive)<span class="op">;</span></span>
+<span id="cb4-20"><a href="#cb4-20" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-21"><a href="#cb4-21" aria-hidden="true" tabindex="-1"></a>            <span class="co">// Apply calculated force to the cantilever tip</span></span>
+<span id="cb4-22"><a href="#cb4-22" aria-hidden="true" tabindex="-1"></a>            Body<span class="op">.</span><span class="fu">applyForce</span>(tip<span class="op">,</span> tip<span class="op">.</span><span class="at">position</span><span class="op">,</span> {</span>
+<span id="cb4-23"><a href="#cb4-23" aria-hidden="true" tabindex="-1"></a>                <span class="dt">x</span><span class="op">:</span> normal<span class="op">.</span><span class="at">x</span> <span class="op">*</span> forceMagnitude<span class="op">,</span></span>
+<span id="cb4-24"><a href="#cb4-24" aria-hidden="true" tabindex="-1"></a>                <span class="dt">y</span><span class="op">:</span> normal<span class="op">.</span><span class="at">y</span> <span class="op">*</span> forceMagnitude</span>
+<span id="cb4-25"><a href="#cb4-25" aria-hidden="true" tabindex="-1"></a>            })<span class="op">;</span></span>
+<span id="cb4-26"><a href="#cb4-26" aria-hidden="true" tabindex="-1"></a>        }</span>
+<span id="cb4-27"><a href="#cb4-27" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb4-28"><a href="#cb4-28" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div>
+<hr />
+<h3 id="step-5-measure-and-log-tip-deflection">Step 5: Measure and Log
+Tip Deflection</h3>
+<p>Cantilever deflection is defined as the deviation of the tip from its
+rest position relative to the stage. Calculate and output the deflection
+on each render frame:</p>
+<div class="sourceCode" id="cb5"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a>Events<span class="op">.</span><span class="fu">on</span>(render<span class="op">,</span> <span class="st">&#39;afterRender&#39;</span><span class="op">,</span> () <span class="kw">=&gt;</span> {</span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> equilibriumY <span class="op">=</span> stage<span class="op">.</span><span class="at">position</span><span class="op">.</span><span class="at">y</span> <span class="op">+</span> cantileverSpring<span class="op">.</span><span class="at">length</span><span class="op">;</span></span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> deflection <span class="op">=</span> tip<span class="op">.</span><span class="at">position</span><span class="op">.</span><span class="at">y</span> <span class="op">-</span> equilibriumY<span class="op">;</span></span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Optional console logging or canvas plotting</span></span>
+<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> context <span class="op">=</span> render<span class="op">.</span><span class="at">context</span><span class="op">;</span></span>
+<span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a>    context<span class="op">.</span><span class="at">fillStyle</span> <span class="op">=</span> <span class="st">&#39;#000&#39;</span><span class="op">;</span></span>
+<span id="cb5-8"><a href="#cb5-8" aria-hidden="true" tabindex="-1"></a>    context<span class="op">.</span><span class="at">font</span> <span class="op">=</span> <span class="st">&#39;14px monospace&#39;</span><span class="op">;</span></span>
+<span id="cb5-9"><a href="#cb5-9" aria-hidden="true" tabindex="-1"></a>    context<span class="op">.</span><span class="fu">fillText</span>(<span class="vs">`Deflection: </span><span class="sc">${</span>deflection<span class="op">.</span><span class="fu">toFixed</span>(<span class="dv">3</span>)<span class="sc">}</span><span class="vs"> px`</span><span class="op">,</span> <span class="dv">20</span><span class="op">,</span> <span class="dv">30</span>)<span class="op">;</span></span>
+<span id="cb5-10"><a href="#cb5-10" aria-hidden="true" tabindex="-1"></a>    context<span class="op">.</span><span class="fu">fillText</span>(<span class="vs">`Scan Position X: </span><span class="sc">${</span>stage<span class="op">.</span><span class="at">position</span><span class="op">.</span><span class="at">x</span><span class="op">.</span><span class="fu">toFixed</span>(<span class="dv">1</span>)<span class="sc">}</span><span class="vs"> px`</span><span class="op">,</span> <span class="dv">20</span><span class="op">,</span> <span class="dv">50</span>)<span class="op">;</span></span>
+<span id="cb5-11"><a href="#cb5-11" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div>
+<p>By tuning the <code>stiffness</code> of the constraint and the
+<code>epsilon</code> and <code>sigma</code> parameters of the potential,
+you can accurately reproduce both contact-mode repulsion and non-contact
+attractive regime dynamics in your browser.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/matter.js'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/matter.js/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/matter.js/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

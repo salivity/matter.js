@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Why Syncing DOM to Matter.js Hurts Performance - matter.js</title>
+    <meta name="description" content="Synchronizing HTML DOM elements with a physics engine like Matter.js often leads to severe performance degradation in web applications. While binding standard DOM nodes to physics bodies seems convenient for styling and accessibility, updating the Docume">
+    <link rel="canonical" href="https://salivity.github.io/matter.js/article/why-syncing-dom-to-matter-js-hurts-performance">
+    <link rel="search" type="application/opensearchdescription+xml" title="matter.js" href="/matter.js/opensearch.xml">
+    <link rel="icon" href="/matter.js/favicon.ico">
+    <link rel="stylesheet" href="/matter.js/css/style.css">
+    <link media="print" rel="stylesheet" href="/matter.js/css/print.css">
+    <script src="/matter.js/js/fuse.min.js"></script>
+    <script src="/matter.js/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Why Syncing DOM to Matter.js Hurts Performance - matter.js" />
+    <meta property="og:url" content="https://salivity.github.io/matter.js/article/why-syncing-dom-to-matter-js-hurts-performance" />
+    <meta property="og:image" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Synchronizing HTML DOM elements with a physics engine like Matter.js often leads to severe performance degradation in web applications. While binding standard DOM nodes to physics bodies seems convenient for styling and accessibility, updating the Docume" />
+    <link rel="manifest" href="/matter.js/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/matter.js/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>matter.js</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/matter.js/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="why-syncing-dom-to-matterjs-hurts-performance">Why Syncing DOM
+to Matter.js Hurts Performance</h1>
+<p>Synchronizing HTML DOM elements with a physics engine like Matter.js
+often leads to severe performance degradation in web applications. While
+binding standard DOM nodes to physics bodies seems convenient for
+styling and accessibility, updating the Document Object Model at 60
+frames per second creates major bottlenecks. This approach forces the
+browser through expensive layout calculations, excessive repaints, and
+main-thread congestion, making high-performance animations and complex
+simulations nearly impossible compared to canvas-based solutions.</p>
+<h3 id="forced-reflow-and-layout-thrashing">Forced Reflow and Layout
+Thrashing</h3>
+<p>The primary cause of performance loss when syncing DOM elements to
+Matter.js is layout thrashing. In a typical physics loop, the engine
+calculates new coordinates, rotations, and velocities for every body
+during each step. If you read these values and immediately update DOM
+element styles (such as <code>top</code>, <code>left</code>, or even CSS
+<code>transform</code> properties across dozens of nodes), you force the
+browser’s rendering engine to recalculate geometry and render trees
+repeatedly. When these reads and writes are interleaved across multiple
+objects, the browser triggers forced synchronous layouts (reflows),
+dropping the frame rate drastically.</p>
+<h3 id="main-thread-congestion">Main Thread Congestion</h3>
+<p>JavaScript runs on a single thread, sharing execution time with the
+browser's layout, style recalculation, and paint phases. Matter.js is
+computationally heavy, demanding substantial CPU resources for collision
+detection, constraint solving, and numerical integration. When you
+couple that mathematical workload with continuous DOM manipulation, the
+main thread becomes overloaded. Because the DOM lives entirely on the
+main thread, any frame budget exceeding 16.6 milliseconds (to maintain
+60 FPS) results in noticeable stutter, input lag, and frame drops.</p>
+<h3 id="the-heavyweight-nature-of-dom-nodes">The Heavyweight Nature of
+DOM Nodes</h3>
+<p>HTML elements are inherently complex objects containing extensive
+state, event listener attachments, accessibility trees, and style
+sheets. Moving 100 DOM elements requires the browser to manage 100
+distinct, heavy objects with cascading style rules. In contrast,
+rendering physics bodies via the HTML5 <code>&lt;canvas&gt;</code> API
+or WebGL involves drawing lightweight primitives or textures directly
+into a single bitmap context. Canvas rendering bypasses the overhead of
+the DOM tree entirely, allowing thousands of elements to be drawn in a
+fraction of the time.</p>
+<h3 id="paint-invalidation-and-layer-promotion-issues">Paint
+Invalidation and Layer Promotion Issues</h3>
+<p>Even when using GPU-accelerated CSS properties like
+<code>transform: translate3d()</code> to minimize reflows, high numbers
+of moving DOM nodes cause substantial compositor overhead. The browser
+must either constantly invalidate and repaint layers or promote every
+moving element to its own composite layer. Creating dozens or hundreds
+of independent GPU layers rapidly consumes system memory (VRAM),
+increases texture transfer costs, and eventually leads to browser
+crashes or severe throttling on mobile and low-end devices.</p>
+<h3 id="recommended-alternatives">Recommended Alternatives</h3>
+<p>To achieve smooth performance with Matter.js:</p>
+<ul>
+<li><strong>HTML5 Canvas:</strong> Use the built-in
+<code>Matter.Render</code> module, which draws physics bodies directly
+to a single <code>&lt;canvas&gt;</code> element without touching the
+DOM.</li>
+<li><strong>WebGL Engines:</strong> Pair Matter.js with specialized
+WebGL renderers like PixiJS or Three.js for hardware-accelerated batch
+rendering.</li>
+<li><strong>Hybrid Approach:</strong> If DOM interaction is strictly
+necessary (e.g., clickable UI cards), limit the physics simulation to a
+handful of elements, or render the physics purely in canvas and only
+reposition DOM elements on interaction end.</li>
+</ul></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/matter.js'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/matter.js/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/matter.js/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

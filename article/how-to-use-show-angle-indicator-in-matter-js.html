@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How to Use showAngleIndicator in Matter.js - matter.js</title>
+    <meta name="description" content="This article explains how to display the angular orientation indicator on rigid bodies using the built-in renderer in Matter.js. By enabling the showAngleIndicator flag within the renderer configuration, you can visually track rotation in your 2D physics">
+    <link rel="canonical" href="https://salivity.github.io/matter.js/article/how-to-use-show-angle-indicator-in-matter-js">
+    <link rel="search" type="application/opensearchdescription+xml" title="matter.js" href="/matter.js/opensearch.xml">
+    <link rel="icon" href="/matter.js/favicon.ico">
+    <link rel="stylesheet" href="/matter.js/css/style.css">
+    <link media="print" rel="stylesheet" href="/matter.js/css/print.css">
+    <script src="/matter.js/js/fuse.min.js"></script>
+    <script src="/matter.js/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How to Use showAngleIndicator in Matter.js - matter.js" />
+    <meta property="og:url" content="https://salivity.github.io/matter.js/article/how-to-use-show-angle-indicator-in-matter-js" />
+    <meta property="og:image" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article explains how to display the angular orientation indicator on rigid bodies using the built-in renderer in Matter.js. By enabling the showAngleIndicator flag within the renderer configuration, you can visually track rotation in your 2D physics" />
+    <link rel="manifest" href="/matter.js/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/matter.js/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>matter.js</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/matter.js/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="how-to-use-showangleindicator-in-matterjs">How to Use
+showAngleIndicator in Matter.js</h1>
+<p>This article explains how to display the angular orientation
+indicator on rigid bodies using the built-in renderer in Matter.js. By
+enabling the <code>showAngleIndicator</code> flag within the renderer
+configuration, you can visually track rotation in your 2D physics
+simulation, which is particularly beneficial for symmetrical objects
+like circles that otherwise appear static while rotating.</p>
+<h2 id="enabling-showangleindicator-in-matterrender">Enabling
+showAngleIndicator in Matter.Render</h2>
+<p>The <code>showAngleIndicator</code> setting is a boolean property
+housed within the <code>options</code> object of a
+<code>Matter.Render</code> instance. When set to <code>true</code>, the
+renderer draws a single straight line from the center of each body to
+one of its vertices or edges, providing an immediate visual cue of its
+current angle of rotation.</p>
+<h3 id="configuration-during-initialization">Configuration During
+Initialization</h3>
+<p>The most common way to display angle indicators is to define the flag
+when initializing the renderer using
+<code>Matter.Render.create()</code>:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="co">// 1. Create the engine</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> engine <span class="op">=</span> Matter<span class="op">.</span><span class="at">Engine</span><span class="op">.</span><span class="fu">create</span>()<span class="op">;</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="co">// 2. Create the renderer with showAngleIndicator enabled</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> render <span class="op">=</span> Matter<span class="op">.</span><span class="at">Render</span><span class="op">.</span><span class="fu">create</span>({</span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>    <span class="dt">element</span><span class="op">:</span> <span class="bu">document</span><span class="op">.</span><span class="at">body</span><span class="op">,</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>    <span class="dt">engine</span><span class="op">:</span> engine<span class="op">,</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>    <span class="dt">options</span><span class="op">:</span> {</span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>        <span class="dt">width</span><span class="op">:</span> <span class="dv">800</span><span class="op">,</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>        <span class="dt">height</span><span class="op">:</span> <span class="dv">600</span><span class="op">,</span></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>        <span class="dt">wireframes</span><span class="op">:</span> <span class="kw">false</span><span class="op">,</span> <span class="co">// Works in both wireframe and solid render modes</span></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>        <span class="dt">showAngleIndicator</span><span class="op">:</span> <span class="kw">true</span></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a><span class="co">// 3. Run the renderer and engine</span></span>
+<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a>Matter<span class="op">.</span><span class="at">Render</span><span class="op">.</span><span class="fu">run</span>(render)<span class="op">;</span></span>
+<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a>Matter<span class="op">.</span><span class="at">Runner</span><span class="op">.</span><span class="fu">run</span>(Matter<span class="op">.</span><span class="at">Runner</span><span class="op">.</span><span class="fu">create</span>()<span class="op">,</span> engine)<span class="op">;</span></span></code></pre></div>
+<h3 id="dynamic-toggling">Dynamic Toggling</h3>
+<p>If the simulation is already running, you can enable or disable the
+angle indicator at runtime by directly modifying the property on the
+existing render instance:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Enable angle indicators</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>render<span class="op">.</span><span class="at">options</span><span class="op">.</span><span class="at">showAngleIndicator</span> <span class="op">=</span> <span class="kw">true</span><span class="op">;</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a><span class="co">// Disable angle indicators</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>render<span class="op">.</span><span class="at">options</span><span class="op">.</span><span class="at">showAngleIndicator</span> <span class="op">=</span> <span class="kw">false</span><span class="op">;</span></span></code></pre></div>
+<h2 id="practical-use-cases">Practical Use Cases</h2>
+<ul>
+<li><strong>Circular Bodies:</strong> Circles in Matter.js have a
+uniform surface. Without a texture or an angle indicator, it is
+impossible to visually confirm whether a rolling ball is spinning or
+sliding along a surface.</li>
+<li><strong>Debugging Constraints:</strong> When connecting bodies with
+springs, pins, or revolute constraints, the angle indicator helps
+diagnose whether angular limits and rotational stiffness are functioning
+properly.</li>
+<li><strong>Prototyping Physics Behaviors:</strong> During early
+development stages before custom sprites and textures are added, the
+indicator provides clear visual feedback on body velocity and rotational
+friction.</li>
+</ul></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/matter.js'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/matter.js/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/matter.js/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

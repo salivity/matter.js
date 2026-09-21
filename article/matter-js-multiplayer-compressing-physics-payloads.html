@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Matter.js Multiplayer: Compressing Physics Payloads - matter.js</title>
+    <meta name="description" content="Synchronizing real-time 2D physics across a network using Matter.js can quickly saturate bandwidth if full rigid body states are transmitted as raw data. By default, Matter.js tracks positions, angles, velocities, and bounding data using high-precision 6">
+    <link rel="canonical" href="https://salivity.github.io/matter.js/article/matter-js-multiplayer-compressing-physics-payloads">
+    <link rel="search" type="application/opensearchdescription+xml" title="matter.js" href="/matter.js/opensearch.xml">
+    <link rel="icon" href="/matter.js/favicon.ico">
+    <link rel="stylesheet" href="/matter.js/css/style.css">
+    <link media="print" rel="stylesheet" href="/matter.js/css/print.css">
+    <script src="/matter.js/js/fuse.min.js"></script>
+    <script src="/matter.js/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Matter.js Multiplayer: Compressing Physics Payloads - matter.js" />
+    <meta property="og:url" content="https://salivity.github.io/matter.js/article/matter-js-multiplayer-compressing-physics-payloads" />
+    <meta property="og:image" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Synchronizing real-time 2D physics across a network using Matter.js can quickly saturate bandwidth if full rigid body states are transmitted as raw data. By default, Matter.js tracks positions, angles, velocities, and bounding data using high-precision 6" />
+    <link rel="manifest" href="/matter.js/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/matter.js/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>matter.js</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/matter.js/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="matterjs-multiplayer-compressing-physics-payloads">Matter.js
+Multiplayer: Compressing Physics Payloads</h1>
+<p>Synchronizing real-time 2D physics across a network using Matter.js
+can quickly saturate bandwidth if full rigid body states are transmitted
+as raw data. By default, Matter.js tracks positions, angles, velocities,
+and bounding data using high-precision 64-bit numbers, creating bulky
+payloads when serialized to standard formats like JSON. This guide
+outlines the essential techniques—including binary serialization,
+numerical quantization, bitpacking, and delta compression—to drastically
+reduce Matter.js physics state payloads and ensure smooth, low-latency
+multiplayer performance.</p>
+<h3 id="replace-json-with-binary-serialization">Replace JSON with Binary
+Serialization</h3>
+<p>Default <code>JSON.stringify()</code> approaches introduce massive
+overhead due to repetitive key strings and ASCII-encoded numbers.
+Switching to typed binary data via JavaScript's native
+<code>ArrayBuffer</code> and <code>DataView</code> (or libraries like
+MessagePack or FlatBuffers) immediately reduces payload size by 50% to
+70%.</p>
+<p>Instead of sending:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode json"><code class="sourceCode json"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="fu">{</span><span class="dt">&quot;id&quot;</span><span class="fu">:</span> <span class="dv">1</span><span class="fu">,</span> <span class="dt">&quot;x&quot;</span><span class="fu">:</span> <span class="fl">450.32</span><span class="fu">,</span> <span class="dt">&quot;y&quot;</span><span class="fu">:</span> <span class="fl">300.12</span><span class="fu">,</span> <span class="dt">&quot;angle&quot;</span><span class="fu">:</span> <span class="fl">1.57</span><span class="fu">}</span></span></code></pre></div>
+<p>You can pack these fields sequentially into an
+<code>ArrayBuffer</code> where each property is read by byte offset,
+entirely eliminating key strings.</p>
+<h3 id="quantize-floating-point-coordinates">Quantize Floating-Point
+Coordinates</h3>
+<p>Matter.js uses double-precision floats (64-bit) for position and
+orientation, which is unnecessary for visual rendering:</p>
+<ul>
+<li><strong>Positions:</strong> Convert floating-point coordinates to
+16-bit integers (<code>Int16</code>). For a 2D game world sized
+4096×4096 units, multiplying the coordinate by a scaling factor (e.g.,
+<code>x * 8</code>) and packing it into a signed 16-bit integer allows
+sub-pixel precision while cutting coordinate size from 8 bytes to 2
+bytes.</li>
+<li><strong>Angles:</strong> Rotations in Matter.js are stored in
+radians from <code>0</code> to <code>2π</code> (or unbounded). Normalize
+the angle to a range of <code>[0, 2π)</code>, map it to an unsigned
+8-bit integer (<code>Uint8</code>) representing <code>0</code> to
+<code>255</code>, and decode it on the client
+(<code>byte * (2 * Math.PI / 255)</code>). This reduces rotation data to
+a single byte with negligible visual inaccuracy.</li>
+<li><strong>Velocities:</strong> Clamp and quantize linear velocities
+(<code>vx</code>, <code>vy</code>) to 8-bit or 16-bit signed integers.
+Only transmit velocities if the client runs predictive dead reckoning;
+otherwise, omit velocities and interpolate positions directly on the
+client.</li>
+</ul>
+<h3 id="implement-bitpacking-and-bitmasks">Implement Bitpacking and
+Bitmasks</h3>
+<p>Matter.js bodies maintain multiple boolean flags, such as
+<code>isSleeping</code>, <code>isStatic</code>, and collision filter
+categories. Pack these flags into a single 8-bit unsigned integer
+(bitmask) instead of sending separate booleans:</p>
+<ul>
+<li>Bit 0: <code>isSleeping</code></li>
+<li>Bit 1: <code>isStatic</code></li>
+<li>Bit 2: Collision active</li>
+<li>Bits 3–7: Custom gameplay states or component updates</li>
+</ul>
+<p>If a body has <code>isSleeping: true</code>, its position and
+velocity are static. The server can send a 1-byte update containing the
+body ID and sleep flag, instructing the client to halt physics
+simulation for that object without streaming transform updates.</p>
+<h3 id="apply-delta-compression">Apply Delta Compression</h3>
+<p>Physics simulations produce high temporal redundancy; many bodies
+remain stationary or move along predictable trajectories. Do not
+broadcast the entire world state on every server tick:</p>
+<ol type="1">
+<li><strong>Change Detection:</strong> Compare the current tick’s
+quantized state against the previous tick's state. If a body’s position
+and angle change falls below an epsilon threshold, exclude it from the
+update.</li>
+<li><strong>Tick-Based Baseline Diffs:</strong> Transmit state changes
+relative to the last tick acknowledged by the client. Only include
+properties that changed between the acknowledged tick and the current
+tick.</li>
+<li><strong>Presence Masks:</strong> Prepend payload entries with a
+dynamic bitfield indicating which fields are included (e.g.,
+<code>[HasPosition: 1, HasRotation: 0, HasVelocity: 0]</code>). This
+avoids transmitting unchanged properties.</li>
+</ol>
+<h3 id="limit-bandwidth-with-spatial-culling">Limit Bandwidth with
+Spatial Culling</h3>
+<p>Bandwidth can be conserved before payload construction begins by
+filtering bodies based on relevance:</p>
+<ul>
+<li><strong>Area of Interest (AoI):</strong> Divide your Matter.js world
+using a spatial hash grid or quadtree. Only serialize and transmit
+bodies situated within or near the local player's camera viewport.</li>
+<li><strong>Tiered Update Rates:</strong> Update nearby dynamic bodies
+at full tick rate (e.g., 20–30 Hz), while throttling updates for distant
+bodies to 5–10 Hz, letting client-side interpolation smooth out the
+motion.</li>
+</ul></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/matter.js'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/matter.js/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/matter.js/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

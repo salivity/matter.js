@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simulate Orbital Mechanics in Matter.js - matter.js</title>
+    <meta name="description" content="This article explains how to create a 2D orbital mechanics simulation around a massive planet using Matter.js by overriding the default physics behavior. You will learn how to disable ambient engine gravity, set up a stable circular or elliptical traject">
+    <link rel="canonical" href="https://salivity.github.io/matter.js/article/simulate-orbital-mechanics-in-matter-js">
+    <link rel="search" type="application/opensearchdescription+xml" title="matter.js" href="/matter.js/opensearch.xml">
+    <link rel="icon" href="/matter.js/favicon.ico">
+    <link rel="stylesheet" href="/matter.js/css/style.css">
+    <link media="print" rel="stylesheet" href="/matter.js/css/print.css">
+    <script src="/matter.js/js/fuse.min.js"></script>
+    <script src="/matter.js/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Simulate Orbital Mechanics in Matter.js - matter.js" />
+    <meta property="og:url" content="https://salivity.github.io/matter.js/article/simulate-orbital-mechanics-in-matter-js" />
+    <meta property="og:image" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article explains how to create a 2D orbital mechanics simulation around a massive planet using Matter.js by overriding the default physics behavior. You will learn how to disable ambient engine gravity, set up a stable circular or elliptical traject" />
+    <link rel="manifest" href="/matter.js/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/matter.js/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>matter.js</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/matter.js/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="simulate-orbital-mechanics-in-matterjs">Simulate Orbital
+Mechanics in Matter.js</h1>
+<p>This article explains how to create a 2D orbital mechanics simulation
+around a massive planet using Matter.js by overriding the default
+physics behavior. You will learn how to disable ambient engine gravity,
+set up a stable circular or elliptical trajectory with initial
+tangential velocity, and compute custom gravitational acceleration
+step-by-step using Matter.js engine update hooks.</p>
+<h3 id="1-disable-default-world-gravity">1. Disable Default World
+Gravity</h3>
+<p>Matter.js defaults to a downward gravitational pull suited for
+platformer-style games. Orbital mechanics require a central, radial
+force field instead. Set the world gravity to zero during engine
+initialization:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> engine <span class="op">=</span> Matter<span class="op">.</span><span class="at">Engine</span><span class="op">.</span><span class="fu">create</span>()<span class="op">;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>engine<span class="op">.</span><span class="at">gravity</span><span class="op">.</span><span class="at">x</span> <span class="op">=</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>engine<span class="op">.</span><span class="at">gravity</span><span class="op">.</span><span class="at">y</span> <span class="op">=</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>engine<span class="op">.</span><span class="at">gravity</span><span class="op">.</span><span class="at">scale</span> <span class="op">=</span> <span class="dv">0</span><span class="op">;</span></span></code></pre></div>
+<h3 id="2-create-the-planet-and-satellite-bodies">2. Create the Planet
+and Satellite Bodies</h3>
+<p>Create the central planet as a static body with a high virtual mass
+and place the satellite at an offset position.</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> { Bodies<span class="op">,</span> World } <span class="op">=</span> Matter<span class="op">;</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="co">// Central massive body (Planet)</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> planet <span class="op">=</span> Bodies<span class="op">.</span><span class="fu">circle</span>(<span class="dv">400</span><span class="op">,</span> <span class="dv">300</span><span class="op">,</span> <span class="dv">40</span><span class="op">,</span> {</span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>  <span class="dt">isStatic</span><span class="op">:</span> <span class="kw">true</span><span class="op">,</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>  <span class="dt">mass</span><span class="op">:</span> <span class="dv">100000</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a><span class="co">// Orbiting body (Satellite)</span></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> satellite <span class="op">=</span> Bodies<span class="op">.</span><span class="fu">circle</span>(<span class="dv">400</span><span class="op">,</span> <span class="dv">100</span><span class="op">,</span> <span class="dv">10</span><span class="op">,</span> {</span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>  <span class="dt">mass</span><span class="op">:</span> <span class="dv">1</span><span class="op">,</span></span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>  <span class="dt">frictionAir</span><span class="op">:</span> <span class="dv">0</span> <span class="co">// Eliminate air resistance to preserve orbital energy</span></span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a>World<span class="op">.</span><span class="fu">add</span>(engine<span class="op">.</span><span class="at">world</span><span class="op">,</span> [planet<span class="op">,</span> satellite])<span class="op">;</span></span></code></pre></div>
+<h3 id="3-set-initial-tangential-velocity">3. Set Initial Tangential
+Velocity</h3>
+<p>An orbit requires sufficient perpendicular velocity to counterbalance
+gravitational collapse. For a circular orbit, the necessary orbital
+speed <span class="math inline">\(v\)</span> is calculated using:</p>
+<p><span class="math display">\[v = \sqrt{\frac{G \cdot
+M}{r}}\]</span></p>
+<p>Where <span class="math inline">\(G\)</span> is the gravitational
+constant, <span class="math inline">\(M\)</span> is the planet's mass,
+and <span class="math inline">\(r\)</span> is the orbital radius.</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> G <span class="op">=</span> <span class="fl">0.001</span><span class="op">;</span> <span class="co">// Gravitational constant scaled for simulation</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> dx <span class="op">=</span> planet<span class="op">.</span><span class="at">position</span><span class="op">.</span><span class="at">x</span> <span class="op">-</span> satellite<span class="op">.</span><span class="at">position</span><span class="op">.</span><span class="at">x</span><span class="op">;</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> dy <span class="op">=</span> planet<span class="op">.</span><span class="at">position</span><span class="op">.</span><span class="at">y</span> <span class="op">-</span> satellite<span class="op">.</span><span class="at">position</span><span class="op">.</span><span class="at">y</span><span class="op">;</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> distance <span class="op">=</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">hypot</span>(dx<span class="op">,</span> dy)<span class="op">;</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a><span class="co">// Velocity magnitude for a circular orbit</span></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> orbitalSpeed <span class="op">=</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">sqrt</span>((G <span class="op">*</span> planet<span class="op">.</span><span class="at">mass</span>) <span class="op">/</span> distance)<span class="op">;</span></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a><span class="co">// Assign initial perpendicular velocity vector</span></span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a>Matter<span class="op">.</span><span class="at">Body</span><span class="op">.</span><span class="fu">setVelocity</span>(satellite<span class="op">,</span> {</span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a>  <span class="dt">x</span><span class="op">:</span> orbitalSpeed<span class="op">,</span></span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a>  <span class="dt">y</span><span class="op">:</span> <span class="dv">0</span></span>
+<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div>
+<h3 id="4-implement-custom-velocity-steps-with-beforeupdate">4.
+Implement Custom Velocity Steps with <code>beforeUpdate</code></h3>
+<p>While Matter.js uses Verlet integration internally, you can execute
+custom velocity steps using the <code>beforeUpdate</code> event.
+Calculate the gravitational acceleration vector toward the planet and
+integrate it into the satellite's velocity each tick:</p>
+<div class="sourceCode" id="cb4"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a>Matter<span class="op">.</span><span class="at">Events</span><span class="op">.</span><span class="fu">on</span>(engine<span class="op">,</span> <span class="st">&#39;beforeUpdate&#39;</span><span class="op">,</span> (<span class="bu">event</span>) <span class="kw">=&gt;</span> {</span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>  <span class="co">// Use event.delta (in milliseconds) converted to seconds</span></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> dt <span class="op">=</span> <span class="bu">event</span><span class="op">.</span><span class="at">delta</span> <span class="op">/</span> <span class="dv">1000</span><span class="op">;</span></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>  <span class="co">// Vector from satellite to planet</span></span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> rx <span class="op">=</span> planet<span class="op">.</span><span class="at">position</span><span class="op">.</span><span class="at">x</span> <span class="op">-</span> satellite<span class="op">.</span><span class="at">position</span><span class="op">.</span><span class="at">x</span><span class="op">;</span></span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> ry <span class="op">=</span> planet<span class="op">.</span><span class="at">position</span><span class="op">.</span><span class="at">y</span> <span class="op">-</span> satellite<span class="op">.</span><span class="at">position</span><span class="op">.</span><span class="at">y</span><span class="op">;</span></span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> rSquared <span class="op">=</span> rx <span class="op">*</span> rx <span class="op">+</span> ry <span class="op">*</span> ry<span class="op">;</span></span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> r <span class="op">=</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">sqrt</span>(rSquared)<span class="op">;</span></span>
+<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a>  <span class="co">// Avoid division by zero or singularity at close distances</span></span>
+<span id="cb4-12"><a href="#cb4-12" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (r <span class="op">&lt;</span> <span class="dv">5</span>) <span class="cf">return</span><span class="op">;</span></span>
+<span id="cb4-13"><a href="#cb4-13" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-14"><a href="#cb4-14" aria-hidden="true" tabindex="-1"></a>  <span class="co">// Gravitational acceleration: a = (G * M) / r^2</span></span>
+<span id="cb4-15"><a href="#cb4-15" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> accelerationMagnitude <span class="op">=</span> (G <span class="op">*</span> planet<span class="op">.</span><span class="at">mass</span>) <span class="op">/</span> rSquared<span class="op">;</span></span>
+<span id="cb4-16"><a href="#cb4-16" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-17"><a href="#cb4-17" aria-hidden="true" tabindex="-1"></a>  <span class="co">// Normalized direction vector multiplied by acceleration</span></span>
+<span id="cb4-18"><a href="#cb4-18" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> ax <span class="op">=</span> (rx <span class="op">/</span> r) <span class="op">*</span> accelerationMagnitude<span class="op">;</span></span>
+<span id="cb4-19"><a href="#cb4-19" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> ay <span class="op">=</span> (ry <span class="op">/</span> r) <span class="op">*</span> accelerationMagnitude<span class="op">;</span></span>
+<span id="cb4-20"><a href="#cb4-20" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-21"><a href="#cb4-21" aria-hidden="true" tabindex="-1"></a>  <span class="co">// Update satellite velocity (Semi-Implicit Euler step)</span></span>
+<span id="cb4-22"><a href="#cb4-22" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> currentVelocity <span class="op">=</span> satellite<span class="op">.</span><span class="at">velocity</span><span class="op">;</span></span>
+<span id="cb4-23"><a href="#cb4-23" aria-hidden="true" tabindex="-1"></a>  Matter<span class="op">.</span><span class="at">Body</span><span class="op">.</span><span class="fu">setVelocity</span>(satellite<span class="op">,</span> {</span>
+<span id="cb4-24"><a href="#cb4-24" aria-hidden="true" tabindex="-1"></a>    <span class="dt">x</span><span class="op">:</span> currentVelocity<span class="op">.</span><span class="at">x</span> <span class="op">+</span> ax <span class="op">*</span> dt <span class="op">*</span> <span class="dv">60</span><span class="op">,</span> <span class="co">// Scale by frame rate factor</span></span>
+<span id="cb4-25"><a href="#cb4-25" aria-hidden="true" tabindex="-1"></a>    <span class="dt">y</span><span class="op">:</span> currentVelocity<span class="op">.</span><span class="at">y</span> <span class="op">+</span> ay <span class="op">*</span> dt <span class="op">*</span> <span class="dv">60</span></span>
+<span id="cb4-26"><a href="#cb4-26" aria-hidden="true" tabindex="-1"></a>  })<span class="op">;</span></span>
+<span id="cb4-27"><a href="#cb4-27" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div>
+<h3 id="5-managing-numerical-stability">5. Managing Numerical
+Stability</h3>
+<p>Standard Euler velocity integration introduces slight energy drift
+over long simulations. To maintain a stable orbit in Matter.js:</p>
+<ul>
+<li>Set <code>satellite.frictionAir = 0</code> to prevent decay from
+drag.</li>
+<li>Maintain small, fixed time steps
+(<code>engine.timing.isFixed = true</code>).</li>
+<li>Add a softening parameter (<span
+class="math inline">\(\epsilon\)</span>) to the distance calculation
+(<span class="math inline">\(r^2 + \epsilon^2\)</span>) to prevent
+extreme acceleration spikes if the satellite passes close to the center
+of the planet.</li>
+</ul></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/matter.js'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/matter.js/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/matter.js/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

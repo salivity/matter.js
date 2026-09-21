@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Create a Branching Domino Rally in Matter.js - matter.js</title>
+    <meta name="description" content="This guide explains how to construct a dynamic domino rally simulation featuring branching chain reactions using Matter.js. You will learn how to configure the physics engine, calculate precise spacing to maintain momentum, assemble standard linear domin">
+    <link rel="canonical" href="https://salivity.github.io/matter.js/article/create-a-branching-domino-rally-in-matter-js">
+    <link rel="search" type="application/opensearchdescription+xml" title="matter.js" href="/matter.js/opensearch.xml">
+    <link rel="icon" href="/matter.js/favicon.ico">
+    <link rel="stylesheet" href="/matter.js/css/style.css">
+    <link media="print" rel="stylesheet" href="/matter.js/css/print.css">
+    <script src="/matter.js/js/fuse.min.js"></script>
+    <script src="/matter.js/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Create a Branching Domino Rally in Matter.js - matter.js" />
+    <meta property="og:url" content="https://salivity.github.io/matter.js/article/create-a-branching-domino-rally-in-matter-js" />
+    <meta property="og:image" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This guide explains how to construct a dynamic domino rally simulation featuring branching chain reactions using Matter.js. You will learn how to configure the physics engine, calculate precise spacing to maintain momentum, assemble standard linear domin" />
+    <link rel="manifest" href="/matter.js/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/matter.js/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>matter.js</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/matter.js/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="create-a-branching-domino-rally-in-matterjs">Create a Branching
+Domino Rally in Matter.js</h1>
+<p>This guide explains how to construct a dynamic domino rally
+simulation featuring branching chain reactions using Matter.js. You will
+learn how to configure the physics engine, calculate precise spacing to
+maintain momentum, assemble standard linear domino runs, and engineer
+reliable branching junctions where a single impact splits into two
+distinct paths.</p>
+<h3 id="1-engine-and-world-initialization">1. Engine and World
+Initialization</h3>
+<p>Start by importing the required Matter.js modules and setting up the
+engine, renderer, and runner. A stable canvas width and height alongside
+default downward gravity provide the foundation for natural
+toppling.</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> { Engine<span class="op">,</span> Render<span class="op">,</span> Runner<span class="op">,</span> Bodies<span class="op">,</span> Composite<span class="op">,</span> Body<span class="op">,</span> Vector } <span class="op">=</span> Matter<span class="op">;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> engine <span class="op">=</span> Engine<span class="op">.</span><span class="fu">create</span>()<span class="op">;</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> world <span class="op">=</span> engine<span class="op">.</span><span class="at">world</span><span class="op">;</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> render <span class="op">=</span> Render<span class="op">.</span><span class="fu">create</span>({</span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>    <span class="dt">element</span><span class="op">:</span> <span class="bu">document</span><span class="op">.</span><span class="at">body</span><span class="op">,</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>    <span class="dt">engine</span><span class="op">:</span> engine<span class="op">,</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>    <span class="dt">options</span><span class="op">:</span> {</span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>        <span class="dt">width</span><span class="op">:</span> <span class="dv">1200</span><span class="op">,</span></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>        <span class="dt">height</span><span class="op">:</span> <span class="dv">600</span><span class="op">,</span></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>        <span class="dt">wireframes</span><span class="op">:</span> <span class="kw">false</span></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a>Render<span class="op">.</span><span class="fu">run</span>(render)<span class="op">;</span></span>
+<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> runner <span class="op">=</span> Runner<span class="op">.</span><span class="fu">create</span>()<span class="op">;</span></span>
+<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a>Runner<span class="op">.</span><span class="fu">run</span>(runner<span class="op">,</span> engine)<span class="op">;</span></span></code></pre></div>
+<h3 id="2-defining-domino-properties-and-spacing">2. Defining Domino
+Properties and Spacing</h3>
+<p>For dominoes to fall cleanly without sliding out of place or bouncing
+unnaturally, configure their physical properties with high friction,
+moderate density, and minimal restitution (bounciness).</p>
+<ul>
+<li><strong>Width:</strong> 10 px</li>
+<li><strong>Height:</strong> 60 px</li>
+<li><strong>Spacing:</strong> 30 to 35 px (roughly half to two-thirds of
+the height to ensure each domino strikes the upper half of the
+next).</li>
+<li><strong>Friction:</strong> 0.6 to 0.9 (prevents base slipping).</li>
+<li><strong>Restitution:</strong> 0.1 (minimizes energy loss to
+elasticity).</li>
+</ul>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">createDomino</span>(x<span class="op">,</span> y<span class="op">,</span> angle <span class="op">=</span> <span class="dv">0</span>) {</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> Bodies<span class="op">.</span><span class="fu">rectangle</span>(x<span class="op">,</span> y<span class="op">,</span> <span class="dv">10</span><span class="op">,</span> <span class="dv">60</span><span class="op">,</span> {</span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>        <span class="dt">angle</span><span class="op">:</span> angle<span class="op">,</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>        <span class="dt">friction</span><span class="op">:</span> <span class="fl">0.8</span><span class="op">,</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>        <span class="dt">frictionStatic</span><span class="op">:</span> <span class="fl">1.0</span><span class="op">,</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>        <span class="dt">restitution</span><span class="op">:</span> <span class="fl">0.1</span><span class="op">,</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>        <span class="dt">density</span><span class="op">:</span> <span class="fl">0.002</span><span class="op">,</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>        <span class="dt">render</span><span class="op">:</span> { <span class="dt">fillStyle</span><span class="op">:</span> <span class="st">&#39;#e74c3c&#39;</span> }</span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>    })<span class="op">;</span></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<h3 id="3-creating-linear-runs">3. Creating Linear Runs</h3>
+<p>A helper function simplifies building tracks across platforms.
+Dominoes are laid sequentially along the horizontal axis.</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">createDominoLine</span>(startX<span class="op">,</span> startY<span class="op">,</span> count<span class="op">,</span> spacing <span class="op">=</span> <span class="dv">32</span>) {</span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> dominoes <span class="op">=</span> []<span class="op">;</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> (<span class="kw">let</span> i <span class="op">=</span> <span class="dv">0</span><span class="op">;</span> i <span class="op">&lt;</span> count<span class="op">;</span> i<span class="op">++</span>) {</span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>        dominoes<span class="op">.</span><span class="fu">push</span>(<span class="fu">createDomino</span>(startX <span class="op">+</span> i <span class="op">*</span> spacing<span class="op">,</span> startY))<span class="op">;</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> dominoes<span class="op">;</span></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<h3 id="4-engineering-the-branching-mechanism">4. Engineering the
+Branching Mechanism</h3>
+<p>Because Matter.js operates in a 2D side-view environment with
+downward gravity, a single domino cannot split sideways in the Z-axis.
+Instead, branching is achieved mechanically at an intersection using
+vertical distribution:</p>
+<ol type="1">
+<li><strong>The Staggered Shelf Split:</strong> The main path terminates
+at an elevation. The final domino falls forward onto a dual-trigger
+mechanism or directly impacts an upper shelf line while its lower half
+or an intermediary falling weight triggers a lower track.</li>
+<li><strong>The Rocker / Splitter Lever:</strong> The terminal domino
+strikes a centrally pivoted lever (seesaw). The downward motion of the
+lever's struck side trips a lower tier of dominoes, while an attached
+counterweight or linked arm trips an adjacent upper run.</li>
+<li><strong>The Dual-Platform Fall:</strong> The incoming domino rests
+at the edge of a step. When it topples, it hits an intermediate angled
+block that simultaneously strikes a forward path and drops a payload
+onto a secondary path below.</li>
+</ol>
+<p>Here is the implementation of a reliable multi-level branch where a
+primary track splits into an <strong>upper straight path</strong> and a
+<strong>lower descending path</strong>:</p>
+<div class="sourceCode" id="cb4"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Ground and platforms</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> floor <span class="op">=</span> Bodies<span class="op">.</span><span class="fu">rectangle</span>(<span class="dv">600</span><span class="op">,</span> <span class="dv">580</span><span class="op">,</span> <span class="dv">1200</span><span class="op">,</span> <span class="dv">40</span><span class="op">,</span> { <span class="dt">isStatic</span><span class="op">:</span> <span class="kw">true</span> })<span class="op">;</span></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> mainPlatform <span class="op">=</span> Bodies<span class="op">.</span><span class="fu">rectangle</span>(<span class="dv">200</span><span class="op">,</span> <span class="dv">300</span><span class="op">,</span> <span class="dv">400</span><span class="op">,</span> <span class="dv">20</span><span class="op">,</span> { <span class="dt">isStatic</span><span class="op">:</span> <span class="kw">true</span> })<span class="op">;</span></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> upperPlatform <span class="op">=</span> Bodies<span class="op">.</span><span class="fu">rectangle</span>(<span class="dv">650</span><span class="op">,</span> <span class="dv">300</span><span class="op">,</span> <span class="dv">400</span><span class="op">,</span> <span class="dv">20</span><span class="op">,</span> { <span class="dt">isStatic</span><span class="op">:</span> <span class="kw">true</span> })<span class="op">;</span></span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> lowerPlatform <span class="op">=</span> Bodies<span class="op">.</span><span class="fu">rectangle</span>(<span class="dv">650</span><span class="op">,</span> <span class="dv">480</span><span class="op">,</span> <span class="dv">400</span><span class="op">,</span> <span class="dv">20</span><span class="op">,</span> { <span class="dt">isStatic</span><span class="op">:</span> <span class="kw">true</span> })<span class="op">;</span></span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a>Composite<span class="op">.</span><span class="fu">add</span>(world<span class="op">,</span> [floor<span class="op">,</span> mainPlatform<span class="op">,</span> upperPlatform<span class="op">,</span> lowerPlatform])<span class="op">;</span></span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a><span class="co">// 1. Incoming main track</span></span>
+<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> mainTrack <span class="op">=</span> <span class="fu">createDominoLine</span>(<span class="dv">50</span><span class="op">,</span> <span class="dv">260</span><span class="op">,</span> <span class="dv">10</span><span class="op">,</span> <span class="dv">32</span>)<span class="op">;</span></span>
+<span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-12"><a href="#cb4-12" aria-hidden="true" tabindex="-1"></a><span class="co">// 2. The Splitter Unit: A dynamic intermediary block at the edge</span></span>
+<span id="cb4-13"><a href="#cb4-13" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> splitter <span class="op">=</span> Bodies<span class="op">.</span><span class="fu">rectangle</span>(<span class="dv">370</span><span class="op">,</span> <span class="dv">255</span><span class="op">,</span> <span class="dv">20</span><span class="op">,</span> <span class="dv">70</span><span class="op">,</span> {</span>
+<span id="cb4-14"><a href="#cb4-14" aria-hidden="true" tabindex="-1"></a>    <span class="dt">density</span><span class="op">:</span> <span class="fl">0.004</span><span class="op">,</span></span>
+<span id="cb4-15"><a href="#cb4-15" aria-hidden="true" tabindex="-1"></a>    <span class="dt">friction</span><span class="op">:</span> <span class="fl">0.5</span><span class="op">,</span></span>
+<span id="cb4-16"><a href="#cb4-16" aria-hidden="true" tabindex="-1"></a>    <span class="dt">render</span><span class="op">:</span> { <span class="dt">fillStyle</span><span class="op">:</span> <span class="st">&#39;#f1c40f&#39;</span> }</span>
+<span id="cb4-17"><a href="#cb4-17" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span>
+<span id="cb4-18"><a href="#cb4-18" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-19"><a href="#cb4-19" aria-hidden="true" tabindex="-1"></a><span class="co">// A suspended ball acting as a transfer weight to the lower path</span></span>
+<span id="cb4-20"><a href="#cb4-20" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> lowerTrigger <span class="op">=</span> Bodies<span class="op">.</span><span class="fu">circle</span>(<span class="dv">385</span><span class="op">,</span> <span class="dv">280</span><span class="op">,</span> <span class="dv">15</span><span class="op">,</span> {</span>
+<span id="cb4-21"><a href="#cb4-21" aria-hidden="true" tabindex="-1"></a>    <span class="dt">density</span><span class="op">:</span> <span class="fl">0.005</span><span class="op">,</span></span>
+<span id="cb4-22"><a href="#cb4-22" aria-hidden="true" tabindex="-1"></a>    <span class="dt">restitution</span><span class="op">:</span> <span class="fl">0.2</span><span class="op">,</span></span>
+<span id="cb4-23"><a href="#cb4-23" aria-hidden="true" tabindex="-1"></a>    <span class="dt">render</span><span class="op">:</span> { <span class="dt">fillStyle</span><span class="op">:</span> <span class="st">&#39;#3498db&#39;</span> }</span>
+<span id="cb4-24"><a href="#cb4-24" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span>
+<span id="cb4-25"><a href="#cb4-25" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-26"><a href="#cb4-26" aria-hidden="true" tabindex="-1"></a><span class="co">// 3. Branch Paths</span></span>
+<span id="cb4-27"><a href="#cb4-27" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> upperTrack <span class="op">=</span> <span class="fu">createDominoLine</span>(<span class="dv">450</span><span class="op">,</span> <span class="dv">260</span><span class="op">,</span> <span class="dv">8</span><span class="op">,</span> <span class="dv">32</span>)<span class="op">;</span></span>
+<span id="cb4-28"><a href="#cb4-28" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> lowerTrack <span class="op">=</span> <span class="fu">createDominoLine</span>(<span class="dv">450</span><span class="op">,</span> <span class="dv">440</span><span class="op">,</span> <span class="dv">8</span><span class="op">,</span> <span class="dv">32</span>)<span class="op">;</span></span>
+<span id="cb4-29"><a href="#cb4-29" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-30"><a href="#cb4-30" aria-hidden="true" tabindex="-1"></a>Composite<span class="op">.</span><span class="fu">add</span>(world<span class="op">,</span> [<span class="op">...</span>mainTrack<span class="op">,</span> splitter<span class="op">,</span> lowerTrigger<span class="op">,</span> <span class="op">...</span>upperTrack<span class="op">,</span> <span class="op">...</span>lowerTrack])<span class="op">;</span></span></code></pre></div>
+<h3 id="5-triggering-the-rally">5. Triggering the Rally</h3>
+<p>To start the cascade, apply a forward angular velocity or a gentle
+horizontal force to the first domino in the main run.</p>
+<div class="sourceCode" id="cb5"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Apply force to the top of the first domino</span></span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> firstDomino <span class="op">=</span> mainTrack[<span class="dv">0</span>]<span class="op">;</span></span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a>Body<span class="op">.</span><span class="fu">applyForce</span>(firstDomino<span class="op">,</span> { <span class="dt">x</span><span class="op">:</span> firstDomino<span class="op">.</span><span class="at">position</span><span class="op">.</span><span class="at">x</span><span class="op">,</span> <span class="dt">y</span><span class="op">:</span> firstDomino<span class="op">.</span><span class="at">position</span><span class="op">.</span><span class="at">y</span> <span class="op">-</span> <span class="dv">25</span> }<span class="op">,</span> { <span class="dt">x</span><span class="op">:</span> <span class="fl">0.02</span><span class="op">,</span> <span class="dt">y</span><span class="op">:</span> <span class="dv">0</span> })<span class="op">;</span></span></code></pre></div>
+<h3 id="6-fine-tuning-for-reliability">6. Fine-Tuning for
+Reliability</h3>
+<ul>
+<li><strong>Constraint Stabilizers:</strong> If dominoes jitter due to
+continuous solver settling, increase
+<code>engine.positionIterations</code> and
+<code>engine.velocityIterations</code> from the default <code>6</code>
+to <code>10</code> or <code>12</code>.</li>
+<li><strong>Gap Distances:</strong> Keep the gap at the branch junction
+slightly narrower than regular gaps (around 20–25 px) to compensate for
+energy lost when pushing multiple targets.</li>
+<li><strong>Mass Scaling:</strong> Ensure the splitter or junction
+element has enough mass (via <code>density</code>) to transfer momentum
+to both outputs without stopping dead on the first contact.</li>
+</ul></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/matter.js'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/matter.js/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/matter.js/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

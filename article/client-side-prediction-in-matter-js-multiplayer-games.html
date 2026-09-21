@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Client-Side Prediction in Matter.js Multiplayer Games - matter.js</title>
+    <meta name="description" content="Client-side prediction is an essential networking technique that eliminates perceived input latency in multiplayer physics games by simulating player actions locally before receiving confirmation from the server. This guide covers the technical steps req">
+    <link rel="canonical" href="https://salivity.github.io/matter.js/article/client-side-prediction-in-matter-js-multiplayer-games">
+    <link rel="search" type="application/opensearchdescription+xml" title="matter.js" href="/matter.js/opensearch.xml">
+    <link rel="icon" href="/matter.js/favicon.ico">
+    <link rel="stylesheet" href="/matter.js/css/style.css">
+    <link media="print" rel="stylesheet" href="/matter.js/css/print.css">
+    <script src="/matter.js/js/fuse.min.js"></script>
+    <script src="/matter.js/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Client-Side Prediction in Matter.js Multiplayer Games - matter.js" />
+    <meta property="og:url" content="https://salivity.github.io/matter.js/article/client-side-prediction-in-matter-js-multiplayer-games" />
+    <meta property="og:image" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Client-side prediction is an essential networking technique that eliminates perceived input latency in multiplayer physics games by simulating player actions locally before receiving confirmation from the server. This guide covers the technical steps req" />
+    <link rel="manifest" href="/matter.js/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/matter.js/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>matter.js</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/matter.js/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1
+id="client-side-prediction-in-matterjs-multiplayer-games">Client-Side
+Prediction in Matter.js Multiplayer Games</h1>
+<p>Client-side prediction is an essential networking technique that
+eliminates perceived input latency in multiplayer physics games by
+simulating player actions locally before receiving confirmation from the
+server. This guide covers the technical steps required to implement
+client-side prediction and server reconciliation using Matter.js,
+including setting up deterministic fixed-timestep loops, managing input
+sequence buffers, replaying physics steps upon server corrections, and
+visually smoothing state discrepancies.</p>
+<h3 id="1-establish-a-fixed-timestep-loop">1. Establish a Fixed Timestep
+Loop</h3>
+<p>Matter.js defaults to using <code>Matter.Runner</code>, which relies
+on <code>requestAnimationFrame</code> and variable delta times. Variable
+time steps introduce non-deterministic physics, making client-server
+synchronization nearly impossible. You must replace the default runner
+with a fixed-timestep loop on both the client and the authoritative
+server.</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> fixedDelta <span class="op">=</span> <span class="dv">1000</span> <span class="op">/</span> <span class="dv">60</span><span class="op">;</span> <span class="co">// 60 Hz physics step</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="kw">let</span> accumulator <span class="op">=</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="kw">let</span> lastTime <span class="op">=</span> <span class="bu">performance</span><span class="op">.</span><span class="fu">now</span>()<span class="op">;</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">gameLoop</span>(currentTime) {</span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> frameDelta <span class="op">=</span> currentTime <span class="op">-</span> lastTime<span class="op">;</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>    lastTime <span class="op">=</span> currentTime<span class="op">;</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>    accumulator <span class="op">+=</span> frameDelta<span class="op">;</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>    <span class="cf">while</span> (accumulator <span class="op">&gt;=</span> fixedDelta) {</span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>        <span class="co">// Run game logic and physics</span></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>        <span class="fu">updatePhysics</span>(fixedDelta)<span class="op">;</span></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>        accumulator <span class="op">-=</span> fixedDelta<span class="op">;</span></span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a>    <span class="fu">requestAnimationFrame</span>(gameLoop)<span class="op">;</span></span>
+<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-19"><a href="#cb1-19" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">updatePhysics</span>(delta) {</span>
+<span id="cb1-20"><a href="#cb1-20" aria-hidden="true" tabindex="-1"></a>    Matter<span class="op">.</span><span class="at">Engine</span><span class="op">.</span><span class="fu">update</span>(engine<span class="op">,</span> delta)<span class="op">;</span></span>
+<span id="cb1-21"><a href="#cb1-21" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<h3 id="2-capture-and-buffer-tagged-inputs">2. Capture and Buffer Tagged
+Inputs</h3>
+<p>To reconcile states later, every input must be tagged with a
+sequential sequence number (tick) and stored in a local buffer.</p>
+<p>Each tick:</p>
+<ol type="1">
+<li>Capture user inputs (e.g., keyboard movement, mouse vectors).</li>
+<li>Assign an incrementing sequence number to the input.</li>
+<li>Apply the input immediately to the local Matter.js player body using
+methods like <code>Matter.Body.applyForce</code> or
+<code>Matter.Body.setVelocity</code>.</li>
+<li>Store the input and the generated tick in a pending input
+queue.</li>
+<li>Send the input along with its sequence number to the server.</li>
+</ol>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">let</span> sequenceNumber <span class="op">=</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> pendingInputs <span class="op">=</span> []<span class="op">;</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">handleInput</span>() {</span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>    sequenceNumber<span class="op">++;</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> input <span class="op">=</span> {</span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>        <span class="dt">sequence</span><span class="op">:</span> sequenceNumber<span class="op">,</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>        <span class="dt">dx</span><span class="op">:</span> keys<span class="op">.</span><span class="at">right</span> <span class="op">?</span> <span class="dv">1</span> <span class="op">:</span> keys<span class="op">.</span><span class="at">left</span> <span class="op">?</span> <span class="op">-</span><span class="dv">1</span> <span class="op">:</span> <span class="dv">0</span><span class="op">,</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>        <span class="dt">dy</span><span class="op">:</span> keys<span class="op">.</span><span class="at">down</span> <span class="op">?</span> <span class="dv">1</span> <span class="op">:</span> keys<span class="op">.</span><span class="at">up</span> <span class="op">?</span> <span class="op">-</span><span class="dv">1</span> <span class="op">:</span> <span class="dv">0</span></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>    }<span class="op">;</span></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Apply locally</span></span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>    <span class="fu">applyPlayerInput</span>(playerBody<span class="op">,</span> input)<span class="op">;</span></span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Save for reconciliation</span></span>
+<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a>    pendingInputs<span class="op">.</span><span class="fu">push</span>(input)<span class="op">;</span></span>
+<span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-18"><a href="#cb2-18" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Send to server</span></span>
+<span id="cb2-19"><a href="#cb2-19" aria-hidden="true" tabindex="-1"></a>    socket<span class="op">.</span><span class="fu">emit</span>(<span class="st">&#39;playerInput&#39;</span><span class="op">,</span> input)<span class="op">;</span></span>
+<span id="cb2-20"><a href="#cb2-20" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<h3 id="3-authoritative-server-processing">3. Authoritative Server
+Processing</h3>
+<p>The server runs an identical Matter.js simulation at the same fixed
+frequency. It processes incoming client inputs, steps the physics world
+forward, and periodically broadcasts the authoritative game state to
+clients.</p>
+<p>The server packet must include:</p>
+<ul>
+<li>The authoritative position, angle, velocity, and angular velocity of
+the player's body.</li>
+<li>The sequence number of the most recent input processed for that
+specific player (<code>lastProcessedInput</code>).</li>
+</ul>
+<h3 id="4-implement-server-reconciliation">4. Implement Server
+Reconciliation</h3>
+<p>When the client receives the authoritative state snapshot from the
+server, it must verify whether the predicted state matches the server
+state. If the discrepancy exceeds a defined error threshold, the client
+must roll back to the server state and replay all unacknowledged
+inputs.</p>
+<ol type="1">
+<li><strong>Prune Input Buffer:</strong> Remove all inputs from
+<code>pendingInputs</code> whose sequence number is less than or equal
+to the server's <code>lastProcessedInput</code>.</li>
+<li><strong>Detect Desynchronization:</strong> Compare the historical
+predicted position with the received server position.</li>
+<li><strong>Replay Physics:</strong> If the difference is significant:
+<ul>
+<li>Set the Matter.js player body properties (position, velocity, angle)
+to the server snapshot.</li>
+<li>Step through each remaining input in <code>pendingInputs</code>
+sequentially, re-applying the forces and manually calling
+<code>Matter.Engine.update(engine, fixedDelta)</code>.</li>
+</ul></li>
+</ol>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a>socket<span class="op">.</span><span class="fu">on</span>(<span class="st">&#39;serverState&#39;</span><span class="op">,</span> (serverState) <span class="kw">=&gt;</span> {</span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>    <span class="co">// 1. Discard acknowledged inputs</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> lastAckIndex <span class="op">=</span> pendingInputs<span class="op">.</span><span class="fu">findIndex</span>(i <span class="kw">=&gt;</span> i<span class="op">.</span><span class="at">sequence</span> <span class="op">===</span> serverState<span class="op">.</span><span class="at">lastProcessedInput</span>)<span class="op">;</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (lastAckIndex <span class="op">!==</span> <span class="op">-</span><span class="dv">1</span>) {</span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>        pendingInputs<span class="op">.</span><span class="fu">splice</span>(<span class="dv">0</span><span class="op">,</span> lastAckIndex <span class="op">+</span> <span class="dv">1</span>)<span class="op">;</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>    <span class="co">// 2. Check position error threshold</span></span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> distanceError <span class="op">=</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">hypot</span>(</span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a>        playerBody<span class="op">.</span><span class="at">position</span><span class="op">.</span><span class="at">x</span> <span class="op">-</span> serverState<span class="op">.</span><span class="at">x</span><span class="op">,</span></span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a>        playerBody<span class="op">.</span><span class="at">position</span><span class="op">.</span><span class="at">y</span> <span class="op">-</span> serverState<span class="op">.</span><span class="at">y</span></span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a>    )<span class="op">;</span></span>
+<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-14"><a href="#cb3-14" aria-hidden="true" tabindex="-1"></a>    <span class="co">// 3. Reconcile if diverged</span></span>
+<span id="cb3-15"><a href="#cb3-15" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (distanceError <span class="op">&gt;</span> <span class="fl">1.0</span>) { <span class="co">// Threshold in pixels/units</span></span>
+<span id="cb3-16"><a href="#cb3-16" aria-hidden="true" tabindex="-1"></a>        Matter<span class="op">.</span><span class="at">Body</span><span class="op">.</span><span class="fu">setPosition</span>(playerBody<span class="op">,</span> { <span class="dt">x</span><span class="op">:</span> serverState<span class="op">.</span><span class="at">x</span><span class="op">,</span> <span class="dt">y</span><span class="op">:</span> serverState<span class="op">.</span><span class="at">y</span> })<span class="op">;</span></span>
+<span id="cb3-17"><a href="#cb3-17" aria-hidden="true" tabindex="-1"></a>        Matter<span class="op">.</span><span class="at">Body</span><span class="op">.</span><span class="fu">setVelocity</span>(playerBody<span class="op">,</span> { <span class="dt">x</span><span class="op">:</span> serverState<span class="op">.</span><span class="at">vx</span><span class="op">,</span> <span class="dt">y</span><span class="op">:</span> serverState<span class="op">.</span><span class="at">vy</span> })<span class="op">;</span></span>
+<span id="cb3-18"><a href="#cb3-18" aria-hidden="true" tabindex="-1"></a>        Matter<span class="op">.</span><span class="at">Body</span><span class="op">.</span><span class="fu">setAngle</span>(playerBody<span class="op">,</span> serverState<span class="op">.</span><span class="at">angle</span>)<span class="op">;</span></span>
+<span id="cb3-19"><a href="#cb3-19" aria-hidden="true" tabindex="-1"></a>        Matter<span class="op">.</span><span class="at">Body</span><span class="op">.</span><span class="fu">setAngularVelocity</span>(playerBody<span class="op">,</span> serverState<span class="op">.</span><span class="at">angularVelocity</span>)<span class="op">;</span></span>
+<span id="cb3-20"><a href="#cb3-20" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-21"><a href="#cb3-21" aria-hidden="true" tabindex="-1"></a>        <span class="co">// Replay all unacknowledged inputs</span></span>
+<span id="cb3-22"><a href="#cb3-22" aria-hidden="true" tabindex="-1"></a>        <span class="cf">for</span> (<span class="kw">const</span> input <span class="kw">of</span> pendingInputs) {</span>
+<span id="cb3-23"><a href="#cb3-23" aria-hidden="true" tabindex="-1"></a>            <span class="fu">applyPlayerInput</span>(playerBody<span class="op">,</span> input)<span class="op">;</span></span>
+<span id="cb3-24"><a href="#cb3-24" aria-hidden="true" tabindex="-1"></a>            Matter<span class="op">.</span><span class="at">Engine</span><span class="op">.</span><span class="fu">update</span>(engine<span class="op">,</span> fixedDelta)<span class="op">;</span></span>
+<span id="cb3-25"><a href="#cb3-25" aria-hidden="true" tabindex="-1"></a>        }</span>
+<span id="cb3-26"><a href="#cb3-26" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb3-27"><a href="#cb3-27" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div>
+<h3 id="5-apply-visual-smoothing">5. Apply Visual Smoothing</h3>
+<p>Hard snaps during reconciliation cause visible jitter. To ensure
+smooth gameplay, decouple the visual rendering from the physical
+Matter.js body.</p>
+<p>When a reconciliation offset occurs, store the difference between the
+corrected physical position and the prior visual position as an offset
+vector. In your render loop, draw the player sprite at
+<code>playerBody.position + visualOffset</code>, and decay
+<code>visualOffset</code> toward zero over several frames using linear
+interpolation:</p>
+<div class="sourceCode" id="cb4"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="kw">let</span> visualOffset <span class="op">=</span> { <span class="dt">x</span><span class="op">:</span> <span class="dv">0</span><span class="op">,</span> <span class="dt">y</span><span class="op">:</span> <span class="dv">0</span> }<span class="op">;</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">reconcilePosition</span>(serverX<span class="op">,</span> serverY) {</span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> prevX <span class="op">=</span> playerBody<span class="op">.</span><span class="at">position</span><span class="op">.</span><span class="at">x</span><span class="op">;</span></span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> prevY <span class="op">=</span> playerBody<span class="op">.</span><span class="at">position</span><span class="op">.</span><span class="at">y</span><span class="op">;</span></span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Reset physics body to server position</span></span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a>    Matter<span class="op">.</span><span class="at">Body</span><span class="op">.</span><span class="fu">setPosition</span>(playerBody<span class="op">,</span> { <span class="dt">x</span><span class="op">:</span> serverX<span class="op">,</span> <span class="dt">y</span><span class="op">:</span> serverY })<span class="op">;</span></span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Store the delta for smoothing</span></span>
+<span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a>    visualOffset<span class="op">.</span><span class="at">x</span> <span class="op">=</span> prevX <span class="op">-</span> serverX<span class="op">;</span></span>
+<span id="cb4-12"><a href="#cb4-12" aria-hidden="true" tabindex="-1"></a>    visualOffset<span class="op">.</span><span class="at">y</span> <span class="op">=</span> prevY <span class="op">-</span> serverY<span class="op">;</span></span>
+<span id="cb4-13"><a href="#cb4-13" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb4-14"><a href="#cb4-14" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-15"><a href="#cb4-15" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">render</span>() {</span>
+<span id="cb4-16"><a href="#cb4-16" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Exponentially decay the visual offset</span></span>
+<span id="cb4-17"><a href="#cb4-17" aria-hidden="true" tabindex="-1"></a>    visualOffset<span class="op">.</span><span class="at">x</span> <span class="op">*=</span> <span class="fl">0.85</span><span class="op">;</span></span>
+<span id="cb4-18"><a href="#cb4-18" aria-hidden="true" tabindex="-1"></a>    visualOffset<span class="op">.</span><span class="at">y</span> <span class="op">*=</span> <span class="fl">0.85</span><span class="op">;</span></span>
+<span id="cb4-19"><a href="#cb4-19" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-20"><a href="#cb4-20" aria-hidden="true" tabindex="-1"></a>    <span class="fu">renderSprite</span>(</span>
+<span id="cb4-21"><a href="#cb4-21" aria-hidden="true" tabindex="-1"></a>        playerBody<span class="op">.</span><span class="at">position</span><span class="op">.</span><span class="at">x</span> <span class="op">+</span> visualOffset<span class="op">.</span><span class="at">x</span><span class="op">,</span></span>
+<span id="cb4-22"><a href="#cb4-22" aria-hidden="true" tabindex="-1"></a>        playerBody<span class="op">.</span><span class="at">position</span><span class="op">.</span><span class="at">y</span> <span class="op">+</span> visualOffset<span class="op">.</span><span class="at">y</span></span>
+<span id="cb4-23"><a href="#cb4-23" aria-hidden="true" tabindex="-1"></a>    )<span class="op">;</span></span>
+<span id="cb4-24"><a href="#cb4-24" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<h3 id="best-practices-for-matterjs">Best Practices for Matter.js</h3>
+<ul>
+<li><strong>Disable Inertia and Friction for Direct Controls:</strong>
+Platformers or top-down games with direct input should set
+<code>inertia: Infinity</code> and zero air friction on the player body
+to prevent non-deterministic rotational accumulation.</li>
+<li><strong>Isolate Player Collisions During Replay:</strong> When
+running re-simulation loops via <code>Matter.Engine.update</code>, avoid
+triggering duplicate game-logic events (such as damage or sound effects)
+by wrapping reconciliation steps in a flag that suppresses game event
+listeners.</li>
+</ul></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/matter.js'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/matter.js/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/matter.js/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

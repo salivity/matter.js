@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How to Calculate Tire Slip Angle in Matter.js - matter.js</title>
+    <meta name="description" content="This article explains how to simulate realistic vehicle handling in Matter.js by calculating tire slip angles and applying corrective lateral grip forces. You will learn the underlying physics of tire slip, how to decompose a wheel body's velocity into l">
+    <link rel="canonical" href="https://salivity.github.io/matter.js/article/how-to-calculate-tire-slip-angle-in-matter-js">
+    <link rel="search" type="application/opensearchdescription+xml" title="matter.js" href="/matter.js/opensearch.xml">
+    <link rel="icon" href="/matter.js/favicon.ico">
+    <link rel="stylesheet" href="/matter.js/css/style.css">
+    <link media="print" rel="stylesheet" href="/matter.js/css/print.css">
+    <script src="/matter.js/js/fuse.min.js"></script>
+    <script src="/matter.js/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How to Calculate Tire Slip Angle in Matter.js - matter.js" />
+    <meta property="og:url" content="https://salivity.github.io/matter.js/article/how-to-calculate-tire-slip-angle-in-matter-js" />
+    <meta property="og:image" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article explains how to simulate realistic vehicle handling in Matter.js by calculating tire slip angles and applying corrective lateral grip forces. You will learn the underlying physics of tire slip, how to decompose a wheel body's velocity into l" />
+    <link rel="manifest" href="/matter.js/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/matter.js/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>matter.js</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/matter.js/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="how-to-calculate-tire-slip-angle-in-matterjs">How to Calculate
+Tire Slip Angle in Matter.js</h1>
+<p>This article explains how to simulate realistic vehicle handling in
+Matter.js by calculating tire slip angles and applying corrective
+lateral grip forces. You will learn the underlying physics of tire slip,
+how to decompose a wheel body's velocity into local coordinate axes, how
+to derive the slip angle using trigonometry, and how to apply the
+resulting restoring forces to prevent unrealistic sliding in a 2D
+physics simulation.</p>
+<h3 id="understanding-tire-slip-angle">Understanding Tire Slip
+Angle</h3>
+<p>In real-world vehicle dynamics, a tire does not immediately travel in
+the exact direction it is pointed during a turn. The mechanical
+deformation of the tire rubber creates a disparity between the wheel's
+pointing direction (heading vector) and its actual path of travel
+(velocity vector). This difference is the <strong>slip angle</strong>
+(<span class="math inline">\(\alpha\)</span>).</p>
+<p>The slip angle generates a perpendicular restoring force known as
+<strong>cornering force</strong>. This force resists lateral skidding
+and pushes the vehicle toward its steering direction. Without modeling
+slip angle in Matter.js, vehicles tend to slide like ice pucks or
+experience jittery lateral snapping if you simply cancel lateral
+velocity directly.</p>
+<h3 id="step-1-define-wheel-vectors">Step 1: Define Wheel Vectors</h3>
+<p>To determine the slip angle, first resolve the wheel body's
+orientation into unit vectors representing its forward (longitudinal)
+and sideways (lateral) directions based on <code>wheel.angle</code>:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> forwardVector <span class="op">=</span> {</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>    <span class="dt">x</span><span class="op">:</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">cos</span>(wheel<span class="op">.</span><span class="at">angle</span>)<span class="op">,</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>    <span class="dt">y</span><span class="op">:</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">sin</span>(wheel<span class="op">.</span><span class="at">angle</span>)</span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>}<span class="op">;</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> lateralVector <span class="op">=</span> {</span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>    <span class="dt">x</span><span class="op">:</span> <span class="op">-</span><span class="bu">Math</span><span class="op">.</span><span class="fu">sin</span>(wheel<span class="op">.</span><span class="at">angle</span>)<span class="op">,</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>    <span class="dt">y</span><span class="op">:</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">cos</span>(wheel<span class="op">.</span><span class="at">angle</span>)</span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>}<span class="op">;</span></span></code></pre></div>
+<h3 id="step-2-decompose-wheel-velocity">Step 2: Decompose Wheel
+Velocity</h3>
+<p>Matter.js provides global velocities (<code>wheel.velocity.x</code>
+and <code>wheel.velocity.y</code>). Use dot products to project this
+global velocity vector onto the wheel’s local axes:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> velocity <span class="op">=</span> wheel<span class="op">.</span><span class="at">velocity</span><span class="op">;</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="co">// Project velocity onto forward and lateral vectors</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> forwardVelocity <span class="op">=</span> (velocity<span class="op">.</span><span class="at">x</span> <span class="op">*</span> forwardVector<span class="op">.</span><span class="at">x</span>) <span class="op">+</span> (velocity<span class="op">.</span><span class="at">y</span> <span class="op">*</span> forwardVector<span class="op">.</span><span class="at">y</span>)<span class="op">;</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> lateralVelocity <span class="op">=</span> (velocity<span class="op">.</span><span class="at">x</span> <span class="op">*</span> lateralVector<span class="op">.</span><span class="at">x</span>) <span class="op">+</span> (velocity<span class="op">.</span><span class="at">y</span> <span class="op">*</span> lateralVector<span class="op">.</span><span class="at">y</span>)<span class="op">;</span></span></code></pre></div>
+<h3 id="step-3-compute-the-slip-angle">Step 3: Compute the Slip
+Angle</h3>
+<p>The slip angle <span class="math inline">\(\alpha\)</span> is
+calculated as the arctangent of lateral velocity over the absolute
+forward velocity:</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Add a small epsilon to avoid division by zero when the car is stationary</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> epsilon <span class="op">=</span> <span class="fl">0.0001</span><span class="op">;</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> slipAngle <span class="op">=</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">atan2</span>(lateralVelocity<span class="op">,</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">abs</span>(forwardVelocity) <span class="op">+</span> epsilon)<span class="op">;</span></span></code></pre></div>
+<p>Using <code>Math.abs(forwardVelocity)</code> ensures that reversing
+does not invert the steering geometry unintentionally.</p>
+<h3 id="step-4-calculate-the-restoring-cornering-force">Step 4:
+Calculate the Restoring Cornering Force</h3>
+<p>At low to moderate slip angles, lateral force is roughly linear and
+proportional to the slip angle multiplied by a cornering stiffness
+coefficient (<span class="math inline">\(C_\alpha\)</span>). At high
+slip angles, the tire reaches peak friction and begins to slide.</p>
+<p>You can approximate this with a simplified linear model clamped by
+maximum grip:</p>
+<div class="sourceCode" id="cb4"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Cornering stiffness constant</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> corneringStiffness <span class="op">=</span> <span class="fl">0.5</span><span class="op">;</span> </span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> maxGrip <span class="op">=</span> <span class="fl">0.05</span><span class="op">;</span> <span class="co">// Maximum available lateral force</span></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a><span class="co">// Linear restoring force (acts opposite to lateral slide)</span></span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a><span class="kw">let</span> lateralForceMagnitude <span class="op">=</span> <span class="op">-</span>slipAngle <span class="op">*</span> corneringStiffness<span class="op">;</span></span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a><span class="co">// Clamp force to represent the limit of adhesion (friction circle)</span></span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a>lateralForceMagnitude <span class="op">=</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">max</span>(<span class="op">-</span>maxGrip<span class="op">,</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">min</span>(maxGrip<span class="op">,</span> lateralForceMagnitude))<span class="op">;</span></span></code></pre></div>
+<h3 id="step-5-apply-the-force-in-matterjs">Step 5: Apply the Force in
+Matter.js</h3>
+<p>Convert the scalar force magnitude back into a world-space vector
+along the lateral axis and apply it at the center of the wheel body
+using <code>Matter.Body.applyForce</code>:</p>
+<div class="sourceCode" id="cb5"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> restoringForce <span class="op">=</span> {</span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a>    <span class="dt">x</span><span class="op">:</span> lateralVector<span class="op">.</span><span class="at">x</span> <span class="op">*</span> lateralForceMagnitude<span class="op">,</span></span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a>    <span class="dt">y</span><span class="op">:</span> lateralVector<span class="op">.</span><span class="at">y</span> <span class="op">*</span> lateralForceMagnitude</span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a>}<span class="op">;</span></span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a><span class="co">// Apply force inside the &#39;beforeUpdate&#39; engine event loop</span></span>
+<span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a>Matter<span class="op">.</span><span class="at">Body</span><span class="op">.</span><span class="fu">applyForce</span>(wheel<span class="op">,</span> wheel<span class="op">.</span><span class="at">position</span><span class="op">,</span> restoringForce)<span class="op">;</span></span></code></pre></div>
+<h3 id="integrating-into-the-simulation-loop">Integrating into the
+Simulation Loop</h3>
+<p>Attach this calculation to the Matter.js <code>beforeUpdate</code>
+event so that forces are updated consistently before the physics engine
+integrates movement:</p>
+<div class="sourceCode" id="cb6"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a>Matter<span class="op">.</span><span class="at">Events</span><span class="op">.</span><span class="fu">on</span>(engine<span class="op">,</span> <span class="st">&#39;beforeUpdate&#39;</span><span class="op">,</span> () <span class="kw">=&gt;</span> {</span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a>    wheels<span class="op">.</span><span class="fu">forEach</span>(wheel <span class="kw">=&gt;</span> {</span>
+<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a>        <span class="kw">const</span> forwardVector <span class="op">=</span> { <span class="dt">x</span><span class="op">:</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">cos</span>(wheel<span class="op">.</span><span class="at">angle</span>)<span class="op">,</span> <span class="dt">y</span><span class="op">:</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">sin</span>(wheel<span class="op">.</span><span class="at">angle</span>) }<span class="op">;</span></span>
+<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a>        <span class="kw">const</span> lateralVector <span class="op">=</span> { <span class="dt">x</span><span class="op">:</span> <span class="op">-</span><span class="bu">Math</span><span class="op">.</span><span class="fu">sin</span>(wheel<span class="op">.</span><span class="at">angle</span>)<span class="op">,</span> <span class="dt">y</span><span class="op">:</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">cos</span>(wheel<span class="op">.</span><span class="at">angle</span>) }<span class="op">;</span></span>
+<span id="cb6-5"><a href="#cb6-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-6"><a href="#cb6-6" aria-hidden="true" tabindex="-1"></a>        <span class="kw">const</span> forwardVelocity <span class="op">=</span> (wheel<span class="op">.</span><span class="at">velocity</span><span class="op">.</span><span class="at">x</span> <span class="op">*</span> forwardVector<span class="op">.</span><span class="at">x</span>) <span class="op">+</span> (wheel<span class="op">.</span><span class="at">velocity</span><span class="op">.</span><span class="at">y</span> <span class="op">*</span> forwardVector<span class="op">.</span><span class="at">y</span>)<span class="op">;</span></span>
+<span id="cb6-7"><a href="#cb6-7" aria-hidden="true" tabindex="-1"></a>        <span class="kw">const</span> lateralVelocity <span class="op">=</span> (wheel<span class="op">.</span><span class="at">velocity</span><span class="op">.</span><span class="at">x</span> <span class="op">*</span> lateralVector<span class="op">.</span><span class="at">x</span>) <span class="op">+</span> (wheel<span class="op">.</span><span class="at">velocity</span><span class="op">.</span><span class="at">y</span> <span class="op">*</span> lateralVector<span class="op">.</span><span class="at">y</span>)<span class="op">;</span></span>
+<span id="cb6-8"><a href="#cb6-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-9"><a href="#cb6-9" aria-hidden="true" tabindex="-1"></a>        <span class="kw">const</span> slipAngle <span class="op">=</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">atan2</span>(lateralVelocity<span class="op">,</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">abs</span>(forwardVelocity) <span class="op">+</span> <span class="fl">0.001</span>)<span class="op">;</span></span>
+<span id="cb6-10"><a href="#cb6-10" aria-hidden="true" tabindex="-1"></a>        </span>
+<span id="cb6-11"><a href="#cb6-11" aria-hidden="true" tabindex="-1"></a>        <span class="kw">const</span> corneringStiffness <span class="op">=</span> <span class="fl">0.15</span><span class="op">;</span></span>
+<span id="cb6-12"><a href="#cb6-12" aria-hidden="true" tabindex="-1"></a>        <span class="kw">const</span> maxGrip <span class="op">=</span> <span class="fl">0.02</span><span class="op">;</span></span>
+<span id="cb6-13"><a href="#cb6-13" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-14"><a href="#cb6-14" aria-hidden="true" tabindex="-1"></a>        <span class="kw">let</span> lateralForceMagnitude <span class="op">=</span> <span class="op">-</span>slipAngle <span class="op">*</span> corneringStiffness<span class="op">;</span></span>
+<span id="cb6-15"><a href="#cb6-15" aria-hidden="true" tabindex="-1"></a>        lateralForceMagnitude <span class="op">=</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">max</span>(<span class="op">-</span>maxGrip<span class="op">,</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">min</span>(maxGrip<span class="op">,</span> lateralForceMagnitude))<span class="op">;</span></span>
+<span id="cb6-16"><a href="#cb6-16" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-17"><a href="#cb6-17" aria-hidden="true" tabindex="-1"></a>        Matter<span class="op">.</span><span class="at">Body</span><span class="op">.</span><span class="fu">applyForce</span>(wheel<span class="op">,</span> wheel<span class="op">.</span><span class="at">position</span><span class="op">,</span> {</span>
+<span id="cb6-18"><a href="#cb6-18" aria-hidden="true" tabindex="-1"></a>            <span class="dt">x</span><span class="op">:</span> lateralVector<span class="op">.</span><span class="at">x</span> <span class="op">*</span> lateralForceMagnitude<span class="op">,</span></span>
+<span id="cb6-19"><a href="#cb6-19" aria-hidden="true" tabindex="-1"></a>            <span class="dt">y</span><span class="op">:</span> lateralVector<span class="op">.</span><span class="at">y</span> <span class="op">*</span> lateralForceMagnitude</span>
+<span id="cb6-20"><a href="#cb6-20" aria-hidden="true" tabindex="-1"></a>        })<span class="op">;</span></span>
+<span id="cb6-21"><a href="#cb6-21" aria-hidden="true" tabindex="-1"></a>    })<span class="op">;</span></span>
+<span id="cb6-22"><a href="#cb6-22" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div>
+<p>Tuning <code>corneringStiffness</code> adjusts how sharply the
+vehicle responds to steering input, while <code>maxGrip</code> dictates
+when the vehicle breaks traction and transitions into a drift.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/matter.js'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/matter.js/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/matter.js/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

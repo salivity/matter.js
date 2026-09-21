@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Symplectic Euler Integration in Matter.js - matter.js</title>
+    <meta name="description" content="This article explores how the popular 2D physics engine Matter.js employs the Symplectic Euler integration scheme—also known as semi-implicit Euler—within its core update cycle. It outlines the step-by-step mathematical transition from forces to moti">
+    <link rel="canonical" href="https://salivity.github.io/matter.js/article/symplectic-euler-integration-in-matter-js">
+    <link rel="search" type="application/opensearchdescription+xml" title="matter.js" href="/matter.js/opensearch.xml">
+    <link rel="icon" href="/matter.js/favicon.ico">
+    <link rel="stylesheet" href="/matter.js/css/style.css">
+    <link media="print" rel="stylesheet" href="/matter.js/css/print.css">
+    <script src="/matter.js/js/fuse.min.js"></script>
+    <script src="/matter.js/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Symplectic Euler Integration in Matter.js - matter.js" />
+    <meta property="og:url" content="https://salivity.github.io/matter.js/article/symplectic-euler-integration-in-matter-js" />
+    <meta property="og:image" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article explores how the popular 2D physics engine Matter.js employs the Symplectic Euler integration scheme—also known as semi-implicit Euler—within its core update cycle. It outlines the step-by-step mathematical transition from forces to moti" />
+    <link rel="manifest" href="/matter.js/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/matter.js/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>matter.js</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/matter.js/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="symplectic-euler-integration-in-matterjs">Symplectic Euler
+Integration in Matter.js</h1>
+<p>This article explores how the popular 2D physics engine Matter.js
+employs the Symplectic Euler integration scheme—also known as
+semi-implicit Euler—within its core update cycle. It outlines the
+step-by-step mathematical transition from forces to motion, details why
+this specific integrator is chosen over standard explicit Euler, and
+demonstrates where and how integration occurs alongside collision
+detection and constraint resolution during an engine update tick.</p>
+<h3 id="the-mathematics-of-symplectic-euler">The Mathematics of
+Symplectic Euler</h3>
+<p>Standard Explicit Euler calculates a body's new position using its
+current velocity, and then updates the velocity using current
+acceleration:</p>
+<ol type="1">
+<li><span class="math inline">\(x_{t+1} = x_t + v_t \Delta
+t\)</span></li>
+<li><span class="math inline">\(v_{t+1} = v_t + a_t \Delta
+t\)</span></li>
+</ol>
+<p>While computationally cheap, Explicit Euler artificially injects
+energy into the system over time, leading to instability, exploding
+constraints, and orbital drift.</p>
+<p>Symplectic Euler solves this instability by reversing the order of
+updates. It computes the new velocity first, and then uses that
+<em>updated</em> velocity to determine the new position:</p>
+<ol type="1">
+<li><span class="math inline">\(v_{t+1} = v_t + a_t \Delta
+t\)</span></li>
+<li><span class="math inline">\(x_{t+1} = x_t + v_{t+1} \Delta
+t\)</span></li>
+</ol>
+<p>By pairing the updated velocity with the next position, Symplectic
+Euler acts as a symplectic integrator, preserving phase space volume.
+This produces pseudo-energy-conserving behavior, providing long-term
+physical stability for springs, pendulums, and resting contacts with
+negligible computational overhead.</p>
+<h3 id="the-matterjs-engine-update-cycle">The Matter.js Engine Update
+Cycle</h3>
+<p>The core loop in Matter.js is driven by
+<code>Engine.update(engine, delta)</code>. During this call, the engine
+processes world dynamics in distinct phases:</p>
+<ol type="1">
+<li><strong>Collision Detection:</strong> The broadphase (using bounding
+volume hierarchies) and narrowphase identify intersecting shapes and
+construct collision pairs with contact manifolds.</li>
+<li><strong>Velocity and Constraint Solving:</strong> The constraint
+solver iteratively resolves penetrations, friction, and joint limits
+through impulse application, modifying rigid body velocities
+directly.</li>
+<li><strong>Integration (<code>Body.update</code>):</strong> The engine
+iterates through all active bodies and applies numerical integration to
+translate accumulated forces and velocities into new world
+transformations.</li>
+</ol>
+<h3 id="symplectic-integration-inside-bodyupdate">Symplectic Integration
+Inside <code>Body.update</code></h3>
+<p>Matter.js abstracts integration inside the <code>Body.update</code>
+function. The process applies equally to linear motion and angular
+rotation:</p>
+<ul>
+<li><strong>Accumulating Forces:</strong> Any external forces (such as
+world gravity or user-applied pushes via <code>Body.applyForce</code>)
+are divided by the body's mass to calculate acceleration (<span
+class="math inline">\(a = \frac{F}{m}\)</span>).</li>
+<li><strong>Updating Velocities:</strong> The linear velocity is
+advanced using this acceleration, scaled by the time step and any
+damping factors such as air friction (<code>body.frictionAir</code>):
+<span class="math display">\[\vec{v}_{t+1} = (\vec{v}_t + \vec{a} \Delta
+t) \times (1 - \text{frictionAir})\]</span> The angular velocity (<span
+class="math inline">\(\omega\)</span>) is similarly updated using torque
+and rotational inertia.</li>
+<li><strong>Updating Positions:</strong> With <span
+class="math inline">\(\vec{v}_{t+1}\)</span> established, the position
+vector <span class="math inline">\(\vec{x}\)</span> is incremented:
+<span class="math display">\[\vec{x}_{t+1} = \vec{x}_t + \vec{v}_{t+1}
+\Delta t\]</span> The body's angle is updated in the same manner using
+the newly computed angular velocity: <span
+class="math display">\[\theta_{t+1} = \theta_t + \omega_{t+1} \Delta
+t\]</span></li>
+<li><strong>Synchronizing Bounds and Vertices:</strong> Once the new
+origin and rotation angle are set, Matter.js transforms the body's local
+vertices into world coordinates and refreshes its Axis-Aligned Bounding
+Box (AABB), preparing the body for the next cycle's collision
+detection.</li>
+</ul>
+<p>By executing the velocity modification before translating vertex
+coordinates, Matter.js ensures that constraints solved in the current
+frame directly inform the position updates of the same frame, minimizing
+lag between solver impulses and physical displacement.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/matter.js'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/matter.js/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/matter.js/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

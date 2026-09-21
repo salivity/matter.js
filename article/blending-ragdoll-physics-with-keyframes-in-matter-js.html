@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Blending Ragdoll Physics with Keyframes in Matter.js - matter.js</title>
+    <meta name="description" content="Combining keyframed bone animation with real-time physics creates dynamic, lifelike 2D character reactions such as hit impacts, stumbles, and natural transitions into death states. In Matter.js, this is achieved by pairing a skeletal hierarchy with an in">
+    <link rel="canonical" href="https://salivity.github.io/matter.js/article/blending-ragdoll-physics-with-keyframes-in-matter-js">
+    <link rel="search" type="application/opensearchdescription+xml" title="matter.js" href="/matter.js/opensearch.xml">
+    <link rel="icon" href="/matter.js/favicon.ico">
+    <link rel="stylesheet" href="/matter.js/css/style.css">
+    <link media="print" rel="stylesheet" href="/matter.js/css/print.css">
+    <script src="/matter.js/js/fuse.min.js"></script>
+    <script src="/matter.js/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Blending Ragdoll Physics with Keyframes in Matter.js - matter.js" />
+    <meta property="og:url" content="https://salivity.github.io/matter.js/article/blending-ragdoll-physics-with-keyframes-in-matter-js" />
+    <meta property="og:image" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Combining keyframed bone animation with real-time physics creates dynamic, lifelike 2D character reactions such as hit impacts, stumbles, and natural transitions into death states. In Matter.js, this is achieved by pairing a skeletal hierarchy with an in" />
+    <link rel="manifest" href="/matter.js/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/matter.js/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>matter.js</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/matter.js/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="blending-ragdoll-physics-with-keyframes-in-matterjs">Blending
+Ragdoll Physics with Keyframes in Matter.js</h1>
+<p>Combining keyframed bone animation with real-time physics creates
+dynamic, lifelike 2D character reactions such as hit impacts, stumbles,
+and natural transitions into death states. In Matter.js, this is
+achieved by pairing a skeletal hierarchy with an interconnected network
+of rigid bodies and constraints, then interpolating between animated
+keyframe targets and physics simulation using linear interpolation
+(LERP) and torque forces.</p>
+<h2 id="the-dual-rig-architecture">The Dual-Rig Architecture</h2>
+<p>To blend physics with keyframes, you must maintain two
+representations of your character simultaneously:</p>
+<ol type="1">
+<li><strong>The Kinematic Rig:</strong> An animated hierarchy of bones
+driven purely by your animation engine (e.g., Spine, DragonBones, or a
+custom matrix hierarchy) containing target positions, rotations, and
+scale values.</li>
+<li><strong>The Physics Rig:</strong> A collection of
+<code>Matter.Bodies</code> representing limbs, torso, and head, held
+together by <code>Matter.Constraint</code> joints with defined angular
+and distance limits.</li>
+</ol>
+<p>A global blend weight—typically called <code>alpha</code>, ranging
+from <code>0.0</code> (fully keyframed) to <code>1.0</code> (fully
+physics-driven)—determines which system controls the final rendered
+character.</p>
+<h2 id="step-1-mapping-bones-to-rigid-bodies">Step 1: Mapping Bones to
+Rigid Bodies</h2>
+<p>Model each bone as a simple geometric shape (typically
+<code>Matter.Bodies.rectangle</code>) centered along the bone's axis.
+Connect the bodies at their joint locations using
+<code>Matter.Constraint.create</code> with a stiffness approaching
+<code>1.0</code> to preserve the skeletal structure without
+stretching.</p>
+<p>Ensure collision categories and masks are configured to prevent
+internal self-collision between adjacent limbs (such as an upper arm
+colliding with the chest), which can introduce severe instability into
+the simulation.</p>
+<h2 id="step-2-synchronizing-states-alpha--0">Step 2: Synchronizing
+States (Alpha = 0)</h2>
+<p>When the character is purely animated, the physics bodies must follow
+the animation rather than dynamic forces. Do not simply teleport bodies
+by setting <code>body.position</code> directly, as this breaks
+Matter.js's velocity calculations. Instead, use:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a>Matter<span class="op">.</span><span class="at">Body</span><span class="op">.</span><span class="fu">setPosition</span>(body<span class="op">,</span> targetPosition)<span class="op">;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>Matter<span class="op">.</span><span class="at">Body</span><span class="op">.</span><span class="fu">setAngle</span>(body<span class="op">,</span> targetAngle)<span class="op">;</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>Matter<span class="op">.</span><span class="at">Body</span><span class="op">.</span><span class="fu">setVelocity</span>(body<span class="op">,</span> calculatedVelocity)<span class="op">;</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>Matter<span class="op">.</span><span class="at">Body</span><span class="op">.</span><span class="fu">setAngularVelocity</span>(body<span class="op">,</span> calculatedAngularVelocity)<span class="op">;</span></span></code></pre></div>
+<p>Set <code>body.isSensor = true</code> or selectively disable
+collision filtering during pure animation if you do not want the
+character interacting with world obstacles until an impact occurs.</p>
+<h2 id="step-3-active-ragdoll-via-spring-forces-0--alpha--1">Step 3:
+Active Ragdoll via Spring Forces (0 &lt; Alpha &lt; 1)</h2>
+<p>For partial impacts or "active ragdoll" behaviors, Matter.js bodies
+remain dynamic while forces pull them toward keyframed orientations.
+This is typically achieved using a Proportional-Derivative (PD)
+controller to compute torque:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Calculate angular error between physics body and keyframe target</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="kw">let</span> angleError <span class="op">=</span> targetBoneAngle <span class="op">-</span> body<span class="op">.</span><span class="at">angle</span><span class="op">;</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a><span class="co">// Normalize angle error to the range [-PI, PI]</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>angleError <span class="op">=</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">atan2</span>(<span class="bu">Math</span><span class="op">.</span><span class="fu">sin</span>(angleError)<span class="op">,</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">cos</span>(angleError))<span class="op">;</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a><span class="co">// PD controller parameters</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> kP <span class="op">=</span> <span class="fl">0.05</span> <span class="op">*</span> (<span class="dv">1</span> <span class="op">-</span> blendWeight)<span class="op">;</span> <span class="co">// Proportional gain (stiffness)</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> kD <span class="op">=</span> <span class="fl">0.005</span><span class="op">;</span>                    <span class="co">// Derivative gain (damping)</span></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a><span class="co">// Apply corrective torque</span></span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> torque <span class="op">=</span> (angleError <span class="op">*</span> kP) <span class="op">-</span> (body<span class="op">.</span><span class="at">angularVelocity</span> <span class="op">*</span> kD)<span class="op">;</span></span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>Matter<span class="op">.</span><span class="at">Body</span><span class="op">.</span><span class="fu">setAngularVelocity</span>(body<span class="op">,</span> body<span class="op">.</span><span class="at">angularVelocity</span> <span class="op">+</span> torque)<span class="op">;</span></span></code></pre></div>
+<p>By scaling <code>kP</code> with your blend factor, limbs will loosely
+struggle to maintain their keyframed posture while still deflecting
+realistically when hit by external forces.</p>
+<h2 id="step-4-full-ragdoll-and-velocity-transfer-alpha--1">Step 4: Full
+Ragdoll and Velocity Transfer (Alpha = 1)</h2>
+<p>When transitioning to a full ragdoll (such as a knockout or death),
+the keyframe animation stops updating the physics rig. Before releasing
+the rigid bodies to full gravity:</p>
+<ol type="1">
+<li>Transfer the current animated linear and angular velocities to the
+physics bodies so momentum is preserved seamlessly.</li>
+<li>Remove any corrective spring torques.</li>
+<li>Invert the control direction: read the <code>position</code> and
+<code>angle</code> of each <code>Matter.Body</code> and apply them
+directly to the visual skeleton's transformation matrices for
+rendering.</li>
+</ol>
+<h2 id="step-5-returning-from-ragdoll-to-keyframes">Step 5: Returning
+from Ragdoll to Keyframes</h2>
+<p>To stand the character back up, smoothly interpolate the visual bones
+from their resting physics positions toward a "get up" keyframe
+animation over a fixed duration (e.g., 0.5 seconds). Once the visual rig
+aligns with the starting frame of the get-up animation, snap the
+Matter.js bodies back to the bone transforms and resume kinematic
+tracking.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/matter.js'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/matter.js/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/matter.js/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

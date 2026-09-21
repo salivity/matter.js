@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Defer Entity Destruction in Matter.js - matter.js</title>
+    <meta name="description" content="Removing bodies from a Matter.js simulation directly inside collision callbacks often causes null reference exceptions and broken physics calculations. When an entity is removed mid-tick, the engine may still attempt to resolve constraints, update broadp">
+    <link rel="canonical" href="https://salivity.github.io/matter.js/article/defer-entity-destruction-in-matter-js">
+    <link rel="search" type="application/opensearchdescription+xml" title="matter.js" href="/matter.js/opensearch.xml">
+    <link rel="icon" href="/matter.js/favicon.ico">
+    <link rel="stylesheet" href="/matter.js/css/style.css">
+    <link media="print" rel="stylesheet" href="/matter.js/css/print.css">
+    <script src="/matter.js/js/fuse.min.js"></script>
+    <script src="/matter.js/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Defer Entity Destruction in Matter.js - matter.js" />
+    <meta property="og:url" content="https://salivity.github.io/matter.js/article/defer-entity-destruction-in-matter-js" />
+    <meta property="og:image" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Removing bodies from a Matter.js simulation directly inside collision callbacks often causes null reference exceptions and broken physics calculations. When an entity is removed mid-tick, the engine may still attempt to resolve constraints, update broadp" />
+    <link rel="manifest" href="/matter.js/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/matter.js/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>matter.js</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/matter.js/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="defer-entity-destruction-in-matterjs">Defer Entity Destruction
+in Matter.js</h1>
+<p>Removing bodies from a Matter.js simulation directly inside collision
+callbacks often causes null reference exceptions and broken physics
+calculations. When an entity is removed mid-tick, the engine may still
+attempt to resolve constraints, update broadphase pairs, or run
+subsequent collision steps on the now-deleted reference. This article
+explains why these errors occur and details how to implement a deferred
+destruction queue using Matter.js lifecycle events to safely dispose of
+bodies.</p>
+<h3 id="why-direct-destruction-fails">Why Direct Destruction Fails</h3>
+<p>Matter.js operates in discrete steps executed by
+<code>Engine.update()</code>. During a single tick, the engine performs
+collision detection, fires collision events, updates collision pairs,
+and resolves velocities and positions.</p>
+<p>If you invoke <code>Composite.remove(engine.world, body)</code>
+directly inside a collision listener (such as
+<code>collisionStart</code>), you mutate the underlying arrays while the
+engine is actively iterating over them. This causes subsequent internal
+loops—such as pair separation or constraint solving—to encounter
+<code>undefined</code> or <code>null</code> pointers, typically throwing
+errors such as:</p>
+<pre class="text"><code>TypeError: Cannot read properties of undefined (reading &#39;position&#39;)</code></pre>
+<h3 id="the-solution-deferred-destruction">The Solution: Deferred
+Destruction</h3>
+<p>To prevent these errors, separate the detection of an entity’s
+destruction from its actual removal from the physics world. Flag
+entities for deletion or append them to a disposal queue during
+collision events, and only remove them once the engine completes its
+calculations for that frame.</p>
+<h3 id="implementing-an-afterupdate-queue">Implementing an
+<code>afterUpdate</code> Queue</h3>
+<p>The safest place to execute physics removals is inside the
+<code>afterUpdate</code> event, which fires immediately after
+<code>Engine.update()</code> completes all internal physics
+iterations.</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> Matter <span class="im">from</span> <span class="st">&#39;matter-js&#39;</span><span class="op">;</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> { Engine<span class="op">,</span> World<span class="op">,</span> Bodies<span class="op">,</span> Events<span class="op">,</span> Composite } <span class="op">=</span> Matter<span class="op">;</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> engine <span class="op">=</span> Engine<span class="op">.</span><span class="fu">create</span>()<span class="op">;</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> destructionQueue <span class="op">=</span> <span class="kw">new</span> <span class="bu">Set</span>()<span class="op">;</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a><span class="co">// Helper to flag a body for deletion</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">destroyBody</span>(body) {</span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>    destructionQueue<span class="op">.</span><span class="fu">add</span>(body)<span class="op">;</span></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a><span class="co">// 1. Queue bodies during collision events</span></span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a>Events<span class="op">.</span><span class="fu">on</span>(engine<span class="op">,</span> <span class="st">&#39;collisionStart&#39;</span><span class="op">,</span> (<span class="bu">event</span>) <span class="kw">=&gt;</span> {</span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a>    <span class="bu">event</span><span class="op">.</span><span class="at">pairs</span><span class="op">.</span><span class="fu">forEach</span>((pair) <span class="kw">=&gt;</span> {</span>
+<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a>        <span class="kw">const</span> { bodyA<span class="op">,</span> bodyB } <span class="op">=</span> pair<span class="op">;</span></span>
+<span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-18"><a href="#cb2-18" aria-hidden="true" tabindex="-1"></a>        <span class="co">// Example condition: destroy projectile upon hitting a target</span></span>
+<span id="cb2-19"><a href="#cb2-19" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> (bodyA<span class="op">.</span><span class="at">label</span> <span class="op">===</span> <span class="st">&#39;projectile&#39;</span> <span class="op">&amp;&amp;</span> bodyB<span class="op">.</span><span class="at">label</span> <span class="op">===</span> <span class="st">&#39;target&#39;</span>) {</span>
+<span id="cb2-20"><a href="#cb2-20" aria-hidden="true" tabindex="-1"></a>            <span class="fu">destroyBody</span>(bodyA)<span class="op">;</span></span>
+<span id="cb2-21"><a href="#cb2-21" aria-hidden="true" tabindex="-1"></a>        }</span>
+<span id="cb2-22"><a href="#cb2-22" aria-hidden="true" tabindex="-1"></a>    })<span class="op">;</span></span>
+<span id="cb2-23"><a href="#cb2-23" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span>
+<span id="cb2-24"><a href="#cb2-24" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-25"><a href="#cb2-25" aria-hidden="true" tabindex="-1"></a><span class="co">// 2. Process the queue after the physics update finishes</span></span>
+<span id="cb2-26"><a href="#cb2-26" aria-hidden="true" tabindex="-1"></a>Events<span class="op">.</span><span class="fu">on</span>(engine<span class="op">,</span> <span class="st">&#39;afterUpdate&#39;</span><span class="op">,</span> () <span class="kw">=&gt;</span> {</span>
+<span id="cb2-27"><a href="#cb2-27" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (destructionQueue<span class="op">.</span><span class="at">size</span> <span class="op">===</span> <span class="dv">0</span>) <span class="cf">return</span><span class="op">;</span></span>
+<span id="cb2-28"><a href="#cb2-28" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-29"><a href="#cb2-29" aria-hidden="true" tabindex="-1"></a>    destructionQueue<span class="op">.</span><span class="fu">forEach</span>((body) <span class="kw">=&gt;</span> {</span>
+<span id="cb2-30"><a href="#cb2-30" aria-hidden="true" tabindex="-1"></a>        <span class="co">// Clean up associated constraints, if any</span></span>
+<span id="cb2-31"><a href="#cb2-31" aria-hidden="true" tabindex="-1"></a>        <span class="kw">const</span> constraints <span class="op">=</span> Composite<span class="op">.</span><span class="fu">allConstraints</span>(engine<span class="op">.</span><span class="at">world</span>)<span class="op">.</span><span class="fu">filter</span>(</span>
+<span id="cb2-32"><a href="#cb2-32" aria-hidden="true" tabindex="-1"></a>            (c) <span class="kw">=&gt;</span> c<span class="op">.</span><span class="at">bodyA</span> <span class="op">===</span> body <span class="op">||</span> c<span class="op">.</span><span class="at">bodyB</span> <span class="op">===</span> body</span>
+<span id="cb2-33"><a href="#cb2-33" aria-hidden="true" tabindex="-1"></a>        )<span class="op">;</span></span>
+<span id="cb2-34"><a href="#cb2-34" aria-hidden="true" tabindex="-1"></a>        constraints<span class="op">.</span><span class="fu">forEach</span>((constraint) <span class="kw">=&gt;</span> {</span>
+<span id="cb2-35"><a href="#cb2-35" aria-hidden="true" tabindex="-1"></a>            Composite<span class="op">.</span><span class="fu">remove</span>(engine<span class="op">.</span><span class="at">world</span><span class="op">,</span> constraint)<span class="op">;</span></span>
+<span id="cb2-36"><a href="#cb2-36" aria-hidden="true" tabindex="-1"></a>        })<span class="op">;</span></span>
+<span id="cb2-37"><a href="#cb2-37" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-38"><a href="#cb2-38" aria-hidden="true" tabindex="-1"></a>        <span class="co">// Remove the body from the world</span></span>
+<span id="cb2-39"><a href="#cb2-39" aria-hidden="true" tabindex="-1"></a>        Composite<span class="op">.</span><span class="fu">remove</span>(engine<span class="op">.</span><span class="at">world</span><span class="op">,</span> body)<span class="op">;</span></span>
+<span id="cb2-40"><a href="#cb2-40" aria-hidden="true" tabindex="-1"></a>    })<span class="op">;</span></span>
+<span id="cb2-41"><a href="#cb2-41" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-42"><a href="#cb2-42" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Clear the queue for the next frame</span></span>
+<span id="cb2-43"><a href="#cb2-43" aria-hidden="true" tabindex="-1"></a>    destructionQueue<span class="op">.</span><span class="fu">clear</span>()<span class="op">;</span></span>
+<span id="cb2-44"><a href="#cb2-44" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div>
+<h3 id="key-considerations">Key Considerations</h3>
+<ul>
+<li><strong>Use a <code>Set</code> Instead of an
+<code>Array</code>:</strong> Collisions often generate multiple events
+across overlapping pairs. Storing pending removals in a JavaScript
+<code>Set</code> automatically prevents duplicate removal attempts for
+the same entity in a single frame.</li>
+<li><strong>Remove Attached Constraints First:</strong> If the destroyed
+body is connected via springs, pins, or joints, remove those constraints
+before or alongside the body to avoid dangling references in the
+constraint solver.</li>
+<li><strong>Syncing with Game Objects:</strong> If you are pairing
+Matter.js with a rendering framework (such as PixiJS or Three.js),
+remove visual meshes and decouple physics references inside the same
+<code>afterUpdate</code> loop to ensure graphical state stays
+synchronized with the physics world.</li>
+</ul></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/matter.js'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/matter.js/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/matter.js/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

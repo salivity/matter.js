@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How to Render Custom Sprites in Matter.js - matter.js</title>
+    <meta name="description" content="Yes, you can render custom sprites using the default Matter.Render module in Matter.js. This article covers how to configure body definitions to display custom image textures, how to adjust sprite scaling and offsets, the required renderer settings, and">
+    <link rel="canonical" href="https://salivity.github.io/matter.js/article/how-to-render-custom-sprites-in-matter-js">
+    <link rel="search" type="application/opensearchdescription+xml" title="matter.js" href="/matter.js/opensearch.xml">
+    <link rel="icon" href="/matter.js/favicon.ico">
+    <link rel="stylesheet" href="/matter.js/css/style.css">
+    <link media="print" rel="stylesheet" href="/matter.js/css/print.css">
+    <script src="/matter.js/js/fuse.min.js"></script>
+    <script src="/matter.js/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How to Render Custom Sprites in Matter.js - matter.js" />
+    <meta property="og:url" content="https://salivity.github.io/matter.js/article/how-to-render-custom-sprites-in-matter-js" />
+    <meta property="og:image" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Yes, you can render custom sprites using the default Matter.Render module in Matter.js. This article covers how to configure body definitions to display custom image textures, how to adjust sprite scaling and offsets, the required renderer settings, and" />
+    <link rel="manifest" href="/matter.js/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/matter.js/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>matter.js</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/matter.js/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="how-to-render-custom-sprites-in-matterjs">How to Render Custom
+Sprites in Matter.js</h1>
+<p>Yes, you can render custom sprites using the default
+<code>Matter.Render</code> module in Matter.js. This article covers how
+to configure body definitions to display custom image textures, how to
+adjust sprite scaling and offsets, the required renderer settings, and
+the technical limitations of using the built-in canvas renderer instead
+of a dedicated graphics engine.</p>
+<h2 id="enabling-sprites-in-the-default-renderer">Enabling Sprites in
+the Default Renderer</h2>
+<p>The default renderer in Matter.js draws bodies as wireframes by
+default. To render custom images, you must first disable wireframes in
+your <code>Render.create</code> configuration:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> render <span class="op">=</span> Matter<span class="op">.</span><span class="at">Render</span><span class="op">.</span><span class="fu">create</span>({</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>  <span class="dt">element</span><span class="op">:</span> <span class="bu">document</span><span class="op">.</span><span class="at">body</span><span class="op">,</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>  <span class="dt">engine</span><span class="op">:</span> engine<span class="op">,</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>  <span class="dt">options</span><span class="op">:</span> {</span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>    <span class="dt">width</span><span class="op">:</span> <span class="dv">800</span><span class="op">,</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>    <span class="dt">height</span><span class="op">:</span> <span class="dv">600</span><span class="op">,</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>    <span class="dt">wireframes</span><span class="op">:</span> <span class="kw">false</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div>
+<p>Setting <code>wireframes: false</code> instructs the canvas renderer
+to respect fill colors and sprite properties assigned to physics
+bodies.</p>
+<h2 id="configuring-the-body-sprite">Configuring the Body Sprite</h2>
+<p>To attach a custom sprite to a body, define the
+<code>render.sprite</code> object in the body's configuration options.
+The key property is <code>texture</code>, which accepts a URL or
+relative path to an image file (PNG, JPG, or SVG).</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> spriteBody <span class="op">=</span> Matter<span class="op">.</span><span class="at">Bodies</span><span class="op">.</span><span class="fu">rectangle</span>(<span class="dv">400</span><span class="op">,</span> <span class="dv">200</span><span class="op">,</span> <span class="dv">64</span><span class="op">,</span> <span class="dv">64</span><span class="op">,</span> {</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>  <span class="dt">render</span><span class="op">:</span> {</span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>    <span class="dt">sprite</span><span class="op">:</span> {</span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>      <span class="dt">texture</span><span class="op">:</span> <span class="st">&#39;path/to/sprite.png&#39;</span><span class="op">,</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>      <span class="dt">xScale</span><span class="op">:</span> <span class="dv">1</span><span class="op">,</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>      <span class="dt">yScale</span><span class="op">:</span> <span class="dv">1</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>Matter<span class="op">.</span><span class="at">Composite</span><span class="op">.</span><span class="fu">add</span>(engine<span class="op">.</span><span class="at">world</span><span class="op">,</span> spriteBody)<span class="op">;</span></span></code></pre></div>
+<h3 id="available-sprite-properties">Available Sprite Properties</h3>
+<p>The <code>render.sprite</code> configuration supports four primary
+properties:</p>
+<ul>
+<li><strong><code>texture</code></strong> (string): The path to the
+image file to draw over the body.</li>
+<li><strong><code>xScale</code></strong> (number): Scales the image
+horizontally. A value of <code>1</code> renders the image at native
+width.</li>
+<li><strong><code>yScale</code></strong> (number): Scales the image
+vertically. A value of <code>1</code> renders the image at native
+height.</li>
+<li><strong><code>xOffset</code></strong> (number): Shifts the texture
+along the X-axis relative to the body's center. Default is
+<code>0.5</code>.</li>
+<li><strong><code>yOffset</code></strong> (number): Shifts the texture
+along the Y-axis relative to the body's center. Default is
+<code>0.5</code>.</li>
+</ul>
+<h2 id="matching-hitboxes-to-sprite-dimensions">Matching Hitboxes to
+Sprite Dimensions</h2>
+<p>Matter.js does not automatically size a physics body to match the
+dimensions of an external image file. If your sprite image is 128x128
+pixels, you must either:</p>
+<ol type="1">
+<li>Create the body with corresponding dimensions
+(<code>Bodies.rectangle(x, y, 128, 128)</code>).</li>
+<li>Use <code>xScale</code> and <code>yScale</code> to match the visual
+image to a differently sized collision geometry.</li>
+</ol>
+<p>If the collision body and the image size do not match, the physics
+boundary will not align with what is visually rendered on screen.</p>
+<h2 id="limitations-of-matterrender">Limitations of Matter.Render</h2>
+<p>While <code>Matter.Render</code> supports static image textures, it
+is designed primarily as an inspection and prototyping tool. It has
+several limitations:</p>
+<ul>
+<li><strong>No Animated Sprites:</strong> The built-in renderer does not
+support spritesheets, frame-by-frame animation, or texture atlases.</li>
+<li><strong>Canvas2D Only:</strong> It relies strictly on the HTML5
+Canvas 2D Context, which is significantly slower than WebGL for
+rendering large numbers of textured bodies.</li>
+<li><strong>No Advanced Blending:</strong> Lighting, shaders, and
+complex layer blending modes are not supported.</li>
+</ul>
+<p>For production games requiring animated characters, high draw-call
+counts, or complex visual effects, use Matter.js purely for physics
+calculation and sync the body positions to a dedicated rendering engine
+such as PixiJS, Phaser, or Three.js.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/matter.js'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/matter.js/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/matter.js/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

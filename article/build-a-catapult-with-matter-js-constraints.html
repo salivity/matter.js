@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Build a Catapult with Matter.js Constraints - matter.js</title>
+    <meta name="description" content="This guide demonstrates how to build a functional catapult in the Matter.js 2D physics engine by leveraging the Constraint module. You will learn the mechanics behind setting up a rotating lever arm, anchoring it to a fixed fulcrum point using a pin cons">
+    <link rel="canonical" href="https://salivity.github.io/matter.js/article/build-a-catapult-with-matter-js-constraints">
+    <link rel="search" type="application/opensearchdescription+xml" title="matter.js" href="/matter.js/opensearch.xml">
+    <link rel="icon" href="/matter.js/favicon.ico">
+    <link rel="stylesheet" href="/matter.js/css/style.css">
+    <link media="print" rel="stylesheet" href="/matter.js/css/print.css">
+    <script src="/matter.js/js/fuse.min.js"></script>
+    <script src="/matter.js/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Build a Catapult with Matter.js Constraints - matter.js" />
+    <meta property="og:url" content="https://salivity.github.io/matter.js/article/build-a-catapult-with-matter-js-constraints" />
+    <meta property="og:image" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This guide demonstrates how to build a functional catapult in the Matter.js 2D physics engine by leveraging the Constraint module. You will learn the mechanics behind setting up a rotating lever arm, anchoring it to a fixed fulcrum point using a pin cons" />
+    <link rel="manifest" href="/matter.js/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/matter.js/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>matter.js</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/matter.js/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="build-a-catapult-with-matterjs-constraints">Build a Catapult
+with Matter.js Constraints</h1>
+<p>This guide demonstrates how to build a functional catapult in the
+Matter.js 2D physics engine by leveraging the <code>Constraint</code>
+module. You will learn the mechanics behind setting up a rotating lever
+arm, anchoring it to a fixed fulcrum point using a pin constraint,
+placing a projectile, and applying a trigger force or counterweight to
+launch objects across the physics world.</p>
+<h3 id="understanding-the-catapult-architecture">Understanding the
+Catapult Architecture</h3>
+<p>A basic catapult requires three fundamental components in
+Matter.js:</p>
+<ol type="1">
+<li><strong>The Lever Arm:</strong> A dynamic rectangular body that
+serves as the throwing arm.</li>
+<li><strong>The Fulcrum Constraint:</strong> A point constraint that
+pins the lever arm to a fixed coordinate in the world, allowing it to
+pivot freely like a seesaw.</li>
+<li><strong>The Payload and Trigger:</strong> A projectile placed on one
+end of the arm, and either a heavy counterweight, a falling body, or an
+applied force at the opposite end to initiate the launch.</li>
+</ol>
+<hr />
+<h3 id="step-1-initialize-the-engine-and-world">Step 1: Initialize the
+Engine and World</h3>
+<p>First, import the required Matter.js modules and initialize your
+engine, renderer, and world:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> { Engine<span class="op">,</span> Render<span class="op">,</span> Runner<span class="op">,</span> Bodies<span class="op">,</span> Composite<span class="op">,</span> Constraint<span class="op">,</span> Vector } <span class="op">=</span> Matter<span class="op">;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> engine <span class="op">=</span> Engine<span class="op">.</span><span class="fu">create</span>()<span class="op">;</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> world <span class="op">=</span> engine<span class="op">.</span><span class="at">world</span><span class="op">;</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> render <span class="op">=</span> Render<span class="op">.</span><span class="fu">create</span>({</span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>  <span class="dt">element</span><span class="op">:</span> <span class="bu">document</span><span class="op">.</span><span class="at">body</span><span class="op">,</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>  <span class="dt">engine</span><span class="op">:</span> engine<span class="op">,</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>  <span class="dt">options</span><span class="op">:</span> {</span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>    <span class="dt">width</span><span class="op">:</span> <span class="dv">800</span><span class="op">,</span></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>    <span class="dt">height</span><span class="op">:</span> <span class="dv">600</span><span class="op">,</span></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>    <span class="dt">wireframes</span><span class="op">:</span> <span class="kw">false</span></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a>Render<span class="op">.</span><span class="fu">run</span>(render)<span class="op">;</span></span>
+<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a>Runner<span class="op">.</span><span class="fu">run</span>(Runner<span class="op">.</span><span class="fu">create</span>()<span class="op">,</span> engine)<span class="op">;</span></span></code></pre></div>
+<hr />
+<h3 id="step-2-create-the-lever-arm">Step 2: Create the Lever Arm</h3>
+<p>Create a dynamic rectangle to represent the catapult beam. Give it
+enough length to provide leverage:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> armX <span class="op">=</span> <span class="dv">400</span><span class="op">;</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> armY <span class="op">=</span> <span class="dv">450</span><span class="op">;</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> armWidth <span class="op">=</span> <span class="dv">320</span><span class="op">;</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> armHeight <span class="op">=</span> <span class="dv">20</span><span class="op">;</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> catapultArm <span class="op">=</span> Bodies<span class="op">.</span><span class="fu">rectangle</span>(armX<span class="op">,</span> armY<span class="op">,</span> armWidth<span class="op">,</span> armHeight<span class="op">,</span> {</span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>  <span class="dt">collisionFilter</span><span class="op">:</span> { <span class="dt">group</span><span class="op">:</span> <span class="op">-</span><span class="dv">1</span> }<span class="op">,</span> <span class="co">// Prevent unwanted self-collisions</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>  <span class="dt">density</span><span class="op">:</span> <span class="fl">0.005</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div>
+<hr />
+<h3 id="step-3-create-the-pivot-constraint">Step 3: Create the Pivot
+Constraint</h3>
+<p>To turn the rectangle into a lever, anchor it to a static coordinate
+using <code>Constraint.create()</code>. Setting <code>pointB</code> to
+the world position of the pivot and <code>pointA</code> to the arm's
+local pivot offset creates a revolving joint.</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> fulcrum <span class="op">=</span> Constraint<span class="op">.</span><span class="fu">create</span>({</span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>  <span class="dt">pointA</span><span class="op">:</span> { <span class="dt">x</span><span class="op">:</span> <span class="dv">0</span><span class="op">,</span> <span class="dt">y</span><span class="op">:</span> <span class="dv">0</span> }<span class="op">,</span> <span class="co">// Pivot point relative to catapultArm center</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>  <span class="dt">bodyB</span><span class="op">:</span> catapultArm<span class="op">,</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>  <span class="dt">pointB</span><span class="op">:</span> { <span class="dt">x</span><span class="op">:</span> <span class="dv">0</span><span class="op">,</span> <span class="dt">y</span><span class="op">:</span> <span class="dv">0</span> }<span class="op">,</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>  <span class="dt">stiffness</span><span class="op">:</span> <span class="dv">1</span><span class="op">,</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>  <span class="dt">length</span><span class="op">:</span> <span class="dv">0</span><span class="op">,</span></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>  <span class="dt">render</span><span class="op">:</span> {</span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>    <span class="dt">visible</span><span class="op">:</span> <span class="kw">true</span><span class="op">,</span></span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a>    <span class="dt">lineWidth</span><span class="op">:</span> <span class="dv">5</span><span class="op">,</span></span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a>    <span class="dt">strokeStyle</span><span class="op">:</span> <span class="st">&#39;#888888&#39;</span></span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div>
+<p>If you want an off-center pivot to achieve greater leverage, offset
+<code>pointA.x</code> (e.g., <code>{ x: -40, y: 0 }</code>).</p>
+<hr />
+<h3 id="step-4-add-stops-and-bases">Step 4: Add Stops and Bases</h3>
+<p>Without a stop, the arm can swing through full 360-degree rotations.
+Add static blocks below the arm to define the resting angle and the
+stopping angle:</p>
+<div class="sourceCode" id="cb4"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> leftStop <span class="op">=</span> Bodies<span class="op">.</span><span class="fu">rectangle</span>(<span class="dv">260</span><span class="op">,</span> <span class="dv">480</span><span class="op">,</span> <span class="dv">40</span><span class="op">,</span> <span class="dv">60</span><span class="op">,</span> { <span class="dt">isStatic</span><span class="op">:</span> <span class="kw">true</span> })<span class="op">;</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> rightStop <span class="op">=</span> Bodies<span class="op">.</span><span class="fu">rectangle</span>(<span class="dv">540</span><span class="op">,</span> <span class="dv">480</span><span class="op">,</span> <span class="dv">40</span><span class="op">,</span> <span class="dv">60</span><span class="op">,</span> { <span class="dt">isStatic</span><span class="op">:</span> <span class="kw">true</span> })<span class="op">;</span></span></code></pre></div>
+<hr />
+<h3 id="step-5-add-the-projectile-and-trigger">Step 5: Add the
+Projectile and Trigger</h3>
+<p>Place a projectile on the launching end of the arm, and create a
+heavy body to drop onto the opposite end to act as the triggering
+mechanism:</p>
+<div class="sourceCode" id="cb5"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="co">// The projectile on the right side</span></span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> projectile <span class="op">=</span> Bodies<span class="op">.</span><span class="fu">circle</span>(<span class="dv">520</span><span class="op">,</span> <span class="dv">410</span><span class="op">,</span> <span class="dv">18</span><span class="op">,</span> {</span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a>  <span class="dt">density</span><span class="op">:</span> <span class="fl">0.004</span><span class="op">,</span></span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a>  <span class="dt">render</span><span class="op">:</span> { <span class="dt">fillStyle</span><span class="op">:</span> <span class="st">&#39;#e74c3c&#39;</span> }</span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span>
+<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a><span class="co">// A heavy dropping weight positioned above the left side</span></span>
+<span id="cb5-8"><a href="#cb5-8" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> counterweight <span class="op">=</span> Bodies<span class="op">.</span><span class="fu">rectangle</span>(<span class="dv">260</span><span class="op">,</span> <span class="dv">150</span><span class="op">,</span> <span class="dv">50</span><span class="op">,</span> <span class="dv">50</span><span class="op">,</span> {</span>
+<span id="cb5-9"><a href="#cb5-9" aria-hidden="true" tabindex="-1"></a>  <span class="dt">density</span><span class="op">:</span> <span class="fl">0.05</span><span class="op">,</span> <span class="co">// High density creates substantial downward force</span></span>
+<span id="cb5-10"><a href="#cb5-10" aria-hidden="true" tabindex="-1"></a>  <span class="dt">render</span><span class="op">:</span> { <span class="dt">fillStyle</span><span class="op">:</span> <span class="st">&#39;#34495e&#39;</span> }</span>
+<span id="cb5-11"><a href="#cb5-11" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div>
+<hr />
+<h3 id="step-6-add-all-elements-to-the-world">Step 6: Add All Elements
+to the World</h3>
+<p>Finally, add all created bodies and constraints to the engine's
+composite:</p>
+<div class="sourceCode" id="cb6"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a>Composite<span class="op">.</span><span class="fu">add</span>(world<span class="op">,</span> [</span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a>  catapultArm<span class="op">,</span></span>
+<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a>  fulcrum<span class="op">,</span></span>
+<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a>  leftStop<span class="op">,</span></span>
+<span id="cb6-5"><a href="#cb6-5" aria-hidden="true" tabindex="-1"></a>  rightStop<span class="op">,</span></span>
+<span id="cb6-6"><a href="#cb6-6" aria-hidden="true" tabindex="-1"></a>  projectile<span class="op">,</span></span>
+<span id="cb6-7"><a href="#cb6-7" aria-hidden="true" tabindex="-1"></a>  counterweight</span>
+<span id="cb6-8"><a href="#cb6-8" aria-hidden="true" tabindex="-1"></a>])<span class="op">;</span></span></code></pre></div>
+<p>When the physics simulation runs, the heavy counterweight falls due
+to gravity, strikes the left side of the catapult arm, and rotates the
+lever around the fulcrum constraint, propelling the projectile from the
+right end into the air.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/matter.js'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/matter.js/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/matter.js/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

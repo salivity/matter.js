@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simulate Bowling Oil Patterns in Matter.js - matter.js</title>
+    <meta name="description" content="Simulating a realistic bowling alley lane in Matter.js requires modeling changing surface friction, as real lanes transition from heavily oiled head sections to dry backend zones that cause the ball to hook. Because Matter.js calculates friction primaril">
+    <link rel="canonical" href="https://salivity.github.io/matter.js/article/simulate-bowling-oil-patterns-in-matter-js">
+    <link rel="search" type="application/opensearchdescription+xml" title="matter.js" href="/matter.js/opensearch.xml">
+    <link rel="icon" href="/matter.js/favicon.ico">
+    <link rel="stylesheet" href="/matter.js/css/style.css">
+    <link media="print" rel="stylesheet" href="/matter.js/css/print.css">
+    <script src="/matter.js/js/fuse.min.js"></script>
+    <script src="/matter.js/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Simulate Bowling Oil Patterns in Matter.js - matter.js" />
+    <meta property="og:url" content="https://salivity.github.io/matter.js/article/simulate-bowling-oil-patterns-in-matter-js" />
+    <meta property="og:image" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Simulating a realistic bowling alley lane in Matter.js requires modeling changing surface friction, as real lanes transition from heavily oiled head sections to dry backend zones that cause the ball to hook. Because Matter.js calculates friction primaril" />
+    <link rel="manifest" href="/matter.js/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/matter.js/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>matter.js</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/matter.js/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="simulate-bowling-oil-patterns-in-matterjs">Simulate Bowling Oil
+Patterns in Matter.js</h1>
+<p>Simulating a realistic bowling alley lane in Matter.js requires
+modeling changing surface friction, as real lanes transition from
+heavily oiled head sections to dry backend zones that cause the ball to
+hook. Because Matter.js calculates friction primarily through direct
+body-to-body contact, creating a top-down bowling simulation demands
+custom logic to handle variable lane resistance, rotational momentum,
+and oil transitions. This guide details how to structure lane regions,
+dynamically adjust friction and spin transfer, and implement an update
+loop that accurately mimics dynamic oil patterns.</p>
+<h3 id="defining-lane-zones-and-the-oil-pattern">Defining Lane Zones and
+the Oil Pattern</h3>
+<p>In a typical bowling alley, the first 35 to 45 feet of the lane are
+conditioned with mineral oil, reducing surface friction and allowing the
+bowling ball to skid. The remaining distance to the pins is dry,
+providing high traction where the ball's rotational axis bites into the
+wood or synthetic surface.</p>
+<p>To represent this in a top-down Matter.js view (where the ball moves
+along the Y-axis), define distinct zones using positional
+thresholds:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> LANE_CONFIG <span class="op">=</span> {</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>  <span class="dt">length</span><span class="op">:</span> <span class="dv">1200</span><span class="op">,</span>      <span class="co">// Pixels representing the full lane length</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>  <span class="dt">width</span><span class="op">:</span> <span class="dv">200</span><span class="op">,</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>  <span class="dt">oilPatternLength</span><span class="op">:</span> <span class="dv">800</span> <span class="co">// End of oil, transition to dry backend</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>}<span class="op">;</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">getFrictionAtPosition</span>(yPosition) {</span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (yPosition <span class="op">&lt;</span> LANE_CONFIG<span class="op">.</span><span class="at">oilPatternLength</span>) {</span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Within the oil pattern: low friction (skid phase)</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="fl">0.002</span><span class="op">;</span></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>  } <span class="cf">else</span> {</span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Backend: high friction (hook and roll phase)</span></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="fl">0.05</span><span class="op">;</span></span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<p>For more complex configurations, such as "house" or "sport" patterns
+with varying oil concentrations across the lateral boards (X-axis),
+expand <code>getFrictionAtPosition(x, y)</code> to calculate oil volume
+based on both 2D coordinates.</p>
+<h3 id="modeling-ball-spin-and-hook-dynamics">Modeling Ball Spin and
+Hook Dynamics</h3>
+<p>Matter.js operates in a standard 2D physics plane and does not
+natively track three-dimensional angular momentum like the tilt and
+rotation of a bowling ball. To achieve the signature hook, store
+rotational properties directly on the ball body:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> ball <span class="op">=</span> Matter<span class="op">.</span><span class="at">Bodies</span><span class="op">.</span><span class="fu">circle</span>(<span class="dv">100</span><span class="op">,</span> <span class="dv">50</span><span class="op">,</span> <span class="dv">15</span><span class="op">,</span> {</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>  <span class="dt">restitution</span><span class="op">:</span> <span class="fl">0.1</span><span class="op">,</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>  <span class="dt">frictionAir</span><span class="op">:</span> <span class="fl">0.001</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a><span class="co">// Custom properties for ball dynamics</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>ball<span class="op">.</span><span class="at">customData</span> <span class="op">=</span> {</span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>  <span class="dt">revRate</span><span class="op">:</span> <span class="dv">350</span><span class="op">,</span>       <span class="co">// Revolutions per minute</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>  <span class="dt">axisRotation</span><span class="op">:</span> <span class="op">-</span><span class="fl">0.5</span><span class="op">,</span> <span class="co">// Direction of spin (-1 to 1: left to right hook)</span></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>  <span class="dt">hasHooked</span><span class="op">:</span> <span class="kw">false</span></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>}<span class="op">;</span></span></code></pre></div>
+<h3 id="implementing-the-dynamic-update-loop">Implementing the Dynamic
+Update Loop</h3>
+<p>Use the Matter.js <code>beforeUpdate</code> event listener to monitor
+the ball's position along the lane, evaluate the current oil density,
+and convert rotational energy into lateral acceleration when the ball
+enters dry wood.</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a>Matter<span class="op">.</span><span class="at">Events</span><span class="op">.</span><span class="fu">on</span>(engine<span class="op">,</span> <span class="st">&#39;beforeUpdate&#39;</span><span class="op">,</span> () <span class="kw">=&gt;</span> {</span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> position <span class="op">=</span> ball<span class="op">.</span><span class="at">position</span><span class="op">;</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> velocity <span class="op">=</span> ball<span class="op">.</span><span class="at">velocity</span><span class="op">;</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>  <span class="co">// Determine current friction based on lane location</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> currentFriction <span class="op">=</span> <span class="fu">getFrictionAtPosition</span>(position<span class="op">.</span><span class="at">y</span>)<span class="op">;</span></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>  <span class="co">// Apply linear deceleration relative to current lane friction</span></span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a>  Matter<span class="op">.</span><span class="at">Body</span><span class="op">.</span><span class="fu">setVelocity</span>(ball<span class="op">,</span> {</span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a>    <span class="dt">x</span><span class="op">:</span> velocity<span class="op">.</span><span class="at">x</span> <span class="op">*</span> (<span class="dv">1</span> <span class="op">-</span> currentFriction)<span class="op">,</span></span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a>    <span class="dt">y</span><span class="op">:</span> velocity<span class="op">.</span><span class="at">y</span> <span class="op">*</span> (<span class="dv">1</span> <span class="op">-</span> currentFriction <span class="op">*</span> <span class="fl">0.5</span>)</span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a>  })<span class="op">;</span></span>
+<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-14"><a href="#cb3-14" aria-hidden="true" tabindex="-1"></a>  <span class="co">// Check if ball has entered the backend transition zone</span></span>
+<span id="cb3-15"><a href="#cb3-15" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (position<span class="op">.</span><span class="at">y</span> <span class="op">&gt;=</span> LANE_CONFIG<span class="op">.</span><span class="at">oilPatternLength</span> <span class="op">&amp;&amp;</span> ball<span class="op">.</span><span class="at">customData</span><span class="op">.</span><span class="at">revRate</span> <span class="op">&gt;</span> <span class="dv">0</span>) {</span>
+<span id="cb3-16"><a href="#cb3-16" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Transfer rotational energy into lateral movement (the hook)</span></span>
+<span id="cb3-17"><a href="#cb3-17" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> lateralForce <span class="op">=</span> ball<span class="op">.</span><span class="at">customData</span><span class="op">.</span><span class="at">axisRotation</span> <span class="op">*</span> (currentFriction <span class="op">*</span> <span class="fl">0.15</span>)<span class="op">;</span></span>
+<span id="cb3-18"><a href="#cb3-18" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb3-19"><a href="#cb3-19" aria-hidden="true" tabindex="-1"></a>    Matter<span class="op">.</span><span class="at">Body</span><span class="op">.</span><span class="fu">applyForce</span>(ball<span class="op">,</span> ball<span class="op">.</span><span class="at">position</span><span class="op">,</span> {</span>
+<span id="cb3-20"><a href="#cb3-20" aria-hidden="true" tabindex="-1"></a>      <span class="dt">x</span><span class="op">:</span> lateralForce<span class="op">,</span></span>
+<span id="cb3-21"><a href="#cb3-21" aria-hidden="true" tabindex="-1"></a>      <span class="dt">y</span><span class="op">:</span> <span class="dv">0</span></span>
+<span id="cb3-22"><a href="#cb3-22" aria-hidden="true" tabindex="-1"></a>    })<span class="op">;</span></span>
+<span id="cb3-23"><a href="#cb3-23" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-24"><a href="#cb3-24" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Deplete revs as energy transfers to the lane surface</span></span>
+<span id="cb3-25"><a href="#cb3-25" aria-hidden="true" tabindex="-1"></a>    ball<span class="op">.</span><span class="at">customData</span><span class="op">.</span><span class="at">revRate</span> <span class="op">=</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">max</span>(<span class="dv">0</span><span class="op">,</span> ball<span class="op">.</span><span class="at">customData</span><span class="op">.</span><span class="at">revRate</span> <span class="op">-</span> <span class="dv">2</span>)<span class="op">;</span></span>
+<span id="cb3-26"><a href="#cb3-26" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb3-27"><a href="#cb3-27" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div>
+<h3 id="smoothing-the-oil-transition">Smoothing the Oil Transition</h3>
+<p>A hard line between the oiled and dry lane creates an abrupt,
+unnatural snap in ball motion. Implement an oil transition buffer to
+smoothly blend friction values over a designated length:</p>
+<div class="sourceCode" id="cb4"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">getSmoothFriction</span>(yPosition) {</span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> oilEnd <span class="op">=</span> LANE_CONFIG<span class="op">.</span><span class="at">oilPatternLength</span><span class="op">;</span></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> transitionZone <span class="op">=</span> <span class="dv">100</span><span class="op">;</span> <span class="co">// Pixels over which oil tapers off</span></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (yPosition <span class="op">&lt;</span> oilEnd <span class="op">-</span> transitionZone) {</span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="fl">0.002</span><span class="op">;</span> <span class="co">// Pure oil</span></span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a>  } <span class="cf">else</span> <span class="cf">if</span> (yPosition <span class="op">&gt;=</span> oilEnd) {</span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="fl">0.05</span><span class="op">;</span>  <span class="co">// Completely dry backend</span></span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a>  } <span class="cf">else</span> {</span>
+<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Linear interpolation through the buffed transition zone</span></span>
+<span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> progress <span class="op">=</span> (yPosition <span class="op">-</span> (oilEnd <span class="op">-</span> transitionZone)) <span class="op">/</span> transitionZone<span class="op">;</span></span>
+<span id="cb4-12"><a href="#cb4-12" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="fl">0.002</span> <span class="op">+</span> progress <span class="op">*</span> (<span class="fl">0.05</span> <span class="op">-</span> <span class="fl">0.002</span>)<span class="op">;</span></span>
+<span id="cb4-13"><a href="#cb4-13" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb4-14"><a href="#cb4-14" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<p>Applying this interpolated value inside your engine update loop
+produces a realistic skid, hook, and roll progression consistent with
+real-world lane conditions.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/matter.js'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/matter.js/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/matter.js/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

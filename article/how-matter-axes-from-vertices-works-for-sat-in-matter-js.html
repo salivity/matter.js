@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How Matter.Axes.fromVertices Works for SAT in Matter.js - matter.js</title>
+    <meta name="description" content="This article explains the mathematical purpose of Matter.Axes.fromVertices in Matter.js and its role in collision detection via the Separating Axis Theorem (SAT). It covers how the function transforms polygon boundary coordinates into normalized perpendi">
+    <link rel="canonical" href="https://salivity.github.io/matter.js/article/how-matter-axes-from-vertices-works-for-sat-in-matter-js">
+    <link rel="search" type="application/opensearchdescription+xml" title="matter.js" href="/matter.js/opensearch.xml">
+    <link rel="icon" href="/matter.js/favicon.ico">
+    <link rel="stylesheet" href="/matter.js/css/style.css">
+    <link media="print" rel="stylesheet" href="/matter.js/css/print.css">
+    <script src="/matter.js/js/fuse.min.js"></script>
+    <script src="/matter.js/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How Matter.Axes.fromVertices Works for SAT in Matter.js - matter.js" />
+    <meta property="og:url" content="https://salivity.github.io/matter.js/article/how-matter-axes-from-vertices-works-for-sat-in-matter-js" />
+    <meta property="og:image" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article explains the mathematical purpose of Matter.Axes.fromVertices in Matter.js and its role in collision detection via the Separating Axis Theorem (SAT). It covers how the function transforms polygon boundary coordinates into normalized perpendi" />
+    <link rel="manifest" href="/matter.js/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/matter.js/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>matter.js</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/matter.js/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="how-matteraxesfromvertices-works-for-sat-in-matterjs">How
+Matter.Axes.fromVertices Works for SAT in Matter.js</h1>
+<p>This article explains the mathematical purpose of
+<code>Matter.Axes.fromVertices</code> in Matter.js and its role in
+collision detection via the Separating Axis Theorem (SAT). It covers how
+the function transforms polygon boundary coordinates into normalized
+perpendicular edge normals, filters out redundant parallel directions,
+and provides the minimal set of one-dimensional projection axes required
+to test whether two convex bodies intersect.</p>
+<h2 id="the-separating-axis-theorem-sat-requirement">The Separating Axis
+Theorem (SAT) Requirement</h2>
+<p>The Separating Axis Theorem states that two convex polygons do not
+intersect if there exists a line—called a separating axis—along which
+the 1D projections of the two shapes do not overlap.</p>
+<p>For two-dimensional convex polygons, the only candidate axes that
+must be tested are the lines perpendicular to each edge of the polygons.
+If any edge normal yields non-overlapping projections, the polygons are
+fully separated. The purpose of <code>Matter.Axes.fromVertices</code> is
+to construct these candidate axes directly from an ordered sequence of
+polygonal vertices.</p>
+<h2 id="edge-vector-calculation">Edge Vector Calculation</h2>
+<p>A 2D polygon in Matter.js is defined by an array of ordered
+coordinate vertices:</p>
+<p><span class="math display">\[V = [v_0, v_1, v_2, \dots,
+v_{n-1}]\]</span></p>
+<p>where each vertex <span class="math inline">\(v_i = (x_i,
+y_i)\)</span>.</p>
+<p>To evaluate each boundary segment,
+<code>Matter.Axes.fromVertices</code> computes the directional vector
+<span class="math inline">\(\vec{e}_i\)</span> for every consecutive
+pair of vertices:</p>
+<p><span class="math display">\[\vec{e}_i = v_{i+1} - v_i = (x_{i+1} -
+x_i, \; y_{i+1} - y_i)\]</span></p>
+<p>For the final edge connecting <span
+class="math inline">\(v_{n-1}\)</span> back to <span
+class="math inline">\(v_0\)</span>, the index wraps around
+cyclically:</p>
+<p><span class="math display">\[\vec{e}_{n-1} = v_0 -
+v_{n-1}\]</span></p>
+<h2 id="orthogonal-normal-derivation">Orthogonal Normal Derivation</h2>
+<p>SAT requires axes that are perpendicular (orthogonal) to each
+boundary segment <span class="math inline">\(\vec{e}_i = (dx,
+dy)\)</span>. Two vectors are orthogonal if their dot product equals
+zero.</p>
+<p><code>Matter.Axes.fromVertices</code> derives the orthogonal vector
+<span class="math inline">\(\vec{n}_i\)</span> by swapping components
+and negating one:</p>
+<p><span class="math display">\[\vec{n}_i = (-dy, \; dx)\]</span></p>
+<p>This satisfies the orthogonality condition:</p>
+<p><span class="math display">\[\vec{e}_i \cdot \vec{n}_i = (dx)(-dy) +
+(dy)(dx) = 0\]</span></p>
+<p>Geometrically, <span class="math inline">\(\vec{n}_i\)</span>
+represents an outward (or inward) facing normal vector perpendicular to
+the edge <span class="math inline">\(\vec{e}_i\)</span>.</p>
+<h2 id="vector-normalization">Vector Normalization</h2>
+<p>Projection along an arbitrary axis <span
+class="math inline">\(\vec{u}\)</span> requires converting vertices into
+scalar values via the dot product:</p>
+<p><span class="math display">\[s = v \cdot \vec{u}\]</span></p>
+<p>If <span class="math inline">\(\vec{u}\)</span> is not a unit vector,
+the resulting scalar values scale proportionally with the length of the
+edge, distorting minimum translation distance (penetration depth)
+calculations.</p>
+<p>To ensure consistent geometric projections,
+<code>Matter.Axes.fromVertices</code> normalizes each perpendicular
+vector to unit length (<span class="math inline">\(\|\hat{n}\| =
+1\)</span>):</p>
+<p><span class="math display">\[\|\vec{n}_i\| = \sqrt{(-dy)^2 + (dx)^2}
+= \sqrt{dx^2 + dy^2}\]</span></p>
+<p><span class="math display">\[\hat{n}_i =
+\frac{\vec{n}_i}{\|\vec{n}_i\|} = \left(\frac{-dy}{\sqrt{dx^2 + dy^2}},
+\; \frac{dx}{\sqrt{dx^2 + dy^2}}\right)\]</span></p>
+<h2 id="redundancy-elimination">Redundancy Elimination</h2>
+<p>Testing opposite parallel edges is computationally redundant. For
+instance, a rectangle has four edges, but opposite edges produce normals
+that point in exactly opposite directions (<span
+class="math inline">\(\hat{n}\)</span> and <span
+class="math inline">\(-\hat{n}\)</span>). Projecting a body onto <span
+class="math inline">\(-\hat{n}\)</span> yields the same overlap interval
+as projecting onto <span class="math inline">\(\hat{n}\)</span>,
+mirrored across the origin.</p>
+<p><code>Matter.Axes.fromVertices</code> compares newly generated unit
+normals against previously stored ones. If a new normal vector is
+parallel or anti-parallel to an existing axis:</p>
+<p><span class="math display">\[|\hat{n}_a \cdot \hat{n}_b| \approx
+1\]</span></p>
+<p>the redundant axis is discarded. This reduces the number of
+projection axes:</p>
+<ul>
+<li>A rectangle is reduced from 4 candidate axes to 2.</li>
+<li>A regular hexagon is reduced from 6 candidate axes to 3.</li>
+</ul>
+<h2 id="summary-of-the-output">Summary of the Output</h2>
+<p>The output of <code>Matter.Axes.fromVertices</code> is an array of
+unique, normalized 2D vectors:</p>
+<p><span class="math display">\[A = [\hat{n}_0, \hat{n}_1, \dots,
+\hat{n}_{k-1}]\]</span></p>
+<p>where <span class="math inline">\(k \le n\)</span>. This minimal set
+of unit axes is cached on the rigid body, allowing the Matter.js
+collision engine to execute the SAT overlap tests with the fewest scalar
+projections possible during every physics frame.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/matter.js'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/matter.js/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/matter.js/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

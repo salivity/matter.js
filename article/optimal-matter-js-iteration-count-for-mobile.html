@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Optimal Matter.js Iteration Count for Mobile - matter.js</title>
+    <meta name="description" content="Configuring iteration counts in Matter.js is essential for maintaining a stable 60 frames per second on resource-constrained mobile devices. While desktop browsers easily handle default solver calculations, mobile hardware requires reducing constraint, p">
+    <link rel="canonical" href="https://salivity.github.io/matter.js/article/optimal-matter-js-iteration-count-for-mobile">
+    <link rel="search" type="application/opensearchdescription+xml" title="matter.js" href="/matter.js/opensearch.xml">
+    <link rel="icon" href="/matter.js/favicon.ico">
+    <link rel="stylesheet" href="/matter.js/css/style.css">
+    <link media="print" rel="stylesheet" href="/matter.js/css/print.css">
+    <script src="/matter.js/js/fuse.min.js"></script>
+    <script src="/matter.js/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Optimal Matter.js Iteration Count for Mobile - matter.js" />
+    <meta property="og:url" content="https://salivity.github.io/matter.js/article/optimal-matter-js-iteration-count-for-mobile" />
+    <meta property="og:image" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Configuring iteration counts in Matter.js is essential for maintaining a stable 60 frames per second on resource-constrained mobile devices. While desktop browsers easily handle default solver calculations, mobile hardware requires reducing constraint, p" />
+    <link rel="manifest" href="/matter.js/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/matter.js/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>matter.js</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/matter.js/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="optimal-matterjs-iteration-count-for-mobile">Optimal Matter.js
+Iteration Count for Mobile</h1>
+<p>Configuring iteration counts in Matter.js is essential for
+maintaining a stable 60 frames per second on resource-constrained mobile
+devices. While desktop browsers easily handle default solver
+calculations, mobile hardware requires reducing constraint, position,
+and velocity iterations to lower CPU overhead and prevent thermal
+throttling. This guide outlines the ideal iteration settings for mobile
+environments, explains the balance between performance and physics
+stability, and provides best practices for implementation.</p>
+<h3 id="the-optimal-settings-for-mobile-devices">The Optimal Settings
+for Mobile Devices</h3>
+<p>For standard mobile 2D games and interactive websites, the sweet spot
+between physical stability and smooth rendering is:</p>
+<ul>
+<li><strong><code>positionIterations</code></strong>: 2 to 4 (Default is
+6)</li>
+<li><strong><code>velocityIterations</code></strong>: 2 to 3 (Default is
+4)</li>
+<li><strong><code>constraintIterations</code></strong>: 1 to 2 (Default
+is 2)</li>
+</ul>
+<p>Setting both <code>positionIterations</code> to <strong>3</strong>
+and <code>velocityIterations</code> to <strong>2</strong> provides the
+best baseline for mid-range and low-end mobile devices. This
+configuration reduces solver computational load by roughly 40% to 50%
+compared to default values, freeing up critical CPU time for rendering
+and game logic.</p>
+<h3 id="understanding-the-iteration-parameters">Understanding the
+Iteration Parameters</h3>
+<p>Matter.js uses iterative solvers to simulate rigid-body mechanics.
+Every iteration adds a calculation pass over the active physical
+bodies:</p>
+<ul>
+<li><strong>Position Iterations:</strong> Determines how strictly
+overlapping bodies are pushed apart. Lowering this value saves
+significant processing power, but values below 2 can lead to visible
+jittering, sinking, or tunneling (objects passing through one another)
+during high-velocity impacts.</li>
+<li><strong>Velocity Iterations:</strong> Calculates the momentum and
+bounce exchange between colliding bodies. Dropping this to 2 maintains
+convincing collision dynamics for most games without wasting cycles on
+micro-velocity adjustments.</li>
+<li><strong>Constraint Iterations:</strong> Controls the stiffness and
+precision of joints, springs, and composite ropes. If your scene does
+not rely on complex rope or bridge mechanics, setting this to 1 is
+sufficient.</li>
+</ul>
+<h3 id="implementing-mobile-configurations">Implementing Mobile
+Configurations</h3>
+<p>Apply these settings directly when creating the engine instance or
+modify them at runtime based on device detection:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> engine <span class="op">=</span> Matter<span class="op">.</span><span class="at">Engine</span><span class="op">.</span><span class="fu">create</span>({</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>  <span class="dt">positionIterations</span><span class="op">:</span> <span class="dv">3</span><span class="op">,</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>  <span class="dt">velocityIterations</span><span class="op">:</span> <span class="dv">2</span><span class="op">,</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>  <span class="dt">constraintIterations</span><span class="op">:</span> <span class="dv">1</span><span class="op">,</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>  <span class="dt">enableSleeping</span><span class="op">:</span> <span class="kw">true</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div>
+<p>Enabling <code>enableSleeping: true</code> is equally crucial for
+mobile performance. It puts static and resting bodies to sleep,
+preventing the iteration solver from spending processing cycles on
+objects that are not moving.</p>
+<h3 id="handling-trade-offs-and-tunneling">Handling Trade-Offs and
+Tunneling</h3>
+<p>Lower iteration counts reduce collision resolution precision. If
+fast-moving objects begin tunneling through floors or static barriers
+under these reduced settings, avoid immediately raising the global
+iteration counts back up. Instead:</p>
+<ul>
+<li><strong>Increase Boundary Thickness:</strong> Make floor, wall, and
+boundary colliders thicker so fast objects cannot cross them in a single
+frame.</li>
+<li><strong>Limit Maximum Velocity:</strong> Cap body velocities within
+your update loop to prevent objects from traveling distances larger than
+their own bounding box between frames.</li>
+<li><strong>Simplify Collision Geometry:</strong> Replace complex
+concave or multi-vertex polygons with circles and standard rectangles,
+which resolve much faster within fewer solver cycles.</li>
+</ul></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/matter.js'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/matter.js/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/matter.js/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Grappling Hook Swing Momentum in Matter.js - matter.js</title>
+    <meta name="description" content="This article explains how to create realistic swinging momentum for a grappling hook mechanic using the Matter.js 2D physics engine. By configuring distance constraints, tuning body damping and friction, and applying tangential forces during player input">
+    <link rel="canonical" href="https://salivity.github.io/matter.js/article/grappling-hook-swing-momentum-in-matter-js">
+    <link rel="search" type="application/opensearchdescription+xml" title="matter.js" href="/matter.js/opensearch.xml">
+    <link rel="icon" href="/matter.js/favicon.ico">
+    <link rel="stylesheet" href="/matter.js/css/style.css">
+    <link media="print" rel="stylesheet" href="/matter.js/css/print.css">
+    <script src="/matter.js/js/fuse.min.js"></script>
+    <script src="/matter.js/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Grappling Hook Swing Momentum in Matter.js - matter.js" />
+    <meta property="og:url" content="https://salivity.github.io/matter.js/article/grappling-hook-swing-momentum-in-matter-js" />
+    <meta property="og:image" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article explains how to create realistic swinging momentum for a grappling hook mechanic using the Matter.js 2D physics engine. By configuring distance constraints, tuning body damping and friction, and applying tangential forces during player input" />
+    <link rel="manifest" href="/matter.js/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/matter.js/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>matter.js</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/matter.js/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="grappling-hook-swing-momentum-in-matterjs">Grappling Hook Swing
+Momentum in Matter.js</h1>
+<p>This article explains how to create realistic swinging momentum for a
+grappling hook mechanic using the Matter.js 2D physics engine. By
+configuring distance constraints, tuning body damping and friction, and
+applying tangential forces during player input, you can replicate
+authentic pendulum physics and cable-based momentum in your web
+games.</p>
+<h2 id="1-setting-up-the-cable-with-matterconstraint">1. Setting Up the
+Cable with Matter.Constraint</h2>
+<p>A grappling hook cable is represented in Matter.js using
+<code>Matter.Constraint</code>. This connects the player’s body to an
+anchor point in the game world.</p>
+<p>To maintain swinging momentum rather than creating an elastic
+bouncing effect, set the <code>stiffness</code> high and the
+<code>damping</code> low:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> { Bodies<span class="op">,</span> Constraint<span class="op">,</span> World } <span class="op">=</span> Matter<span class="op">;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="co">// Create the player body</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> player <span class="op">=</span> Bodies<span class="op">.</span><span class="fu">circle</span>(<span class="dv">100</span><span class="op">,</span> <span class="dv">200</span><span class="op">,</span> <span class="dv">20</span><span class="op">,</span> {</span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>    <span class="dt">density</span><span class="op">:</span> <span class="fl">0.004</span><span class="op">,</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>    <span class="dt">frictionAir</span><span class="op">:</span> <span class="fl">0.005</span> <span class="co">// Lower value preserves swinging momentum</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a><span class="co">// Define the anchor point where the hook hits</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> hookPoint <span class="op">=</span> { <span class="dt">x</span><span class="op">:</span> <span class="dv">300</span><span class="op">,</span> <span class="dt">y</span><span class="op">:</span> <span class="dv">50</span> }<span class="op">;</span></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a><span class="co">// Calculate distance between player and hook point</span></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> distance <span class="op">=</span> Matter<span class="op">.</span><span class="at">Vector</span><span class="op">.</span><span class="fu">magnitude</span>(</span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>    Matter<span class="op">.</span><span class="at">Vector</span><span class="op">.</span><span class="fu">sub</span>(player<span class="op">.</span><span class="at">position</span><span class="op">,</span> hookPoint)</span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a>)<span class="op">;</span></span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a><span class="co">// Create the cable constraint</span></span>
+<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> cable <span class="op">=</span> Constraint<span class="op">.</span><span class="fu">create</span>({</span>
+<span id="cb1-19"><a href="#cb1-19" aria-hidden="true" tabindex="-1"></a>    <span class="dt">pointA</span><span class="op">:</span> hookPoint<span class="op">,</span></span>
+<span id="cb1-20"><a href="#cb1-20" aria-hidden="true" tabindex="-1"></a>    <span class="dt">bodyB</span><span class="op">:</span> player<span class="op">,</span></span>
+<span id="cb1-21"><a href="#cb1-21" aria-hidden="true" tabindex="-1"></a>    <span class="dt">length</span><span class="op">:</span> distance<span class="op">,</span></span>
+<span id="cb1-22"><a href="#cb1-22" aria-hidden="true" tabindex="-1"></a>    <span class="dt">stiffness</span><span class="op">:</span> <span class="fl">0.9</span><span class="op">,</span>   <span class="co">// High stiffness creates a taut cable</span></span>
+<span id="cb1-23"><a href="#cb1-23" aria-hidden="true" tabindex="-1"></a>    <span class="dt">damping</span><span class="op">:</span> <span class="fl">0.01</span>     <span class="co">// Low damping preserves kinetic energy</span></span>
+<span id="cb1-24"><a href="#cb1-24" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span>
+<span id="cb1-25"><a href="#cb1-25" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-26"><a href="#cb1-26" aria-hidden="true" tabindex="-1"></a>World<span class="op">.</span><span class="fu">add</span>(engine<span class="op">.</span><span class="at">world</span><span class="op">,</span> [player<span class="op">,</span> cable])<span class="op">;</span></span></code></pre></div>
+<h2 id="2-tuning-air-resistance-and-friction">2. Tuning Air Resistance
+and Friction</h2>
+<p>By default, Matter.js bodies have an air resistance
+(<code>frictionAir: 0.01</code>) that quickly bleeds momentum, causing a
+pendulum swing to come to a halt prematurely.</p>
+<p>To simulate authentic swinging:</p>
+<ul>
+<li><strong>Lower <code>frictionAir</code> while attached:</strong> Set
+<code>player.frictionAir</code> to a lower value (between
+<code>0.001</code> and <code>0.005</code>) when the hook is active.</li>
+<li><strong>Restore <code>frictionAir</code> upon release:</strong>
+Return <code>player.frictionAir</code> to standard levels when detaching
+to prevent uncontrollable floating.</li>
+</ul>
+<h2 id="3-adding-swing-momentum-pumping-the-swing">3. Adding Swing
+Momentum (Pumping the Swing)</h2>
+<p>In real pendulums, swinging higher requires injecting energy into the
+system. You can simulate player control by applying a force
+perpendicular to the cable vector (tangential force).</p>
+<p>Inside your game loop, detect input and apply a tangential
+impulse:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">applySwingForce</span>(direction) {</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Vector from anchor to player</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> arm <span class="op">=</span> Matter<span class="op">.</span><span class="at">Vector</span><span class="op">.</span><span class="fu">sub</span>(player<span class="op">.</span><span class="at">position</span><span class="op">,</span> hookPoint)<span class="op">;</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Perpendicular vector for tangential direction</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> tangent <span class="op">=</span> Matter<span class="op">.</span><span class="at">Vector</span><span class="op">.</span><span class="fu">normalise</span>({</span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>        <span class="dt">x</span><span class="op">:</span> <span class="op">-</span>arm<span class="op">.</span><span class="at">y</span><span class="op">,</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>        <span class="dt">y</span><span class="op">:</span> arm<span class="op">.</span><span class="at">x</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>    })<span class="op">;</span></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Determine direction: 1 for clockwise, -1 for counter-clockwise</span></span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> forceMagnitude <span class="op">=</span> <span class="fl">0.002</span> <span class="op">*</span> direction<span class="op">;</span></span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> force <span class="op">=</span> Matter<span class="op">.</span><span class="at">Vector</span><span class="op">.</span><span class="fu">mult</span>(tangent<span class="op">,</span> forceMagnitude)<span class="op">;</span></span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a>    Matter<span class="op">.</span><span class="at">Body</span><span class="op">.</span><span class="fu">applyForce</span>(player<span class="op">,</span> player<span class="op">.</span><span class="at">position</span><span class="op">,</span> force)<span class="op">;</span></span>
+<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<h2 id="4-retracting-and-extending-the-cable">4. Retracting and
+Extending the Cable</h2>
+<p>Adjusting the cable length while swinging alters angular velocity
+naturally due to the conservation of angular momentum (similar to a
+figure skater pulling in their arms):</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Shorten cable (reel in)</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> (reelIn <span class="op">&amp;&amp;</span> cable<span class="op">.</span><span class="at">length</span> <span class="op">&gt;</span> <span class="dv">50</span>) {</span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>    cable<span class="op">.</span><span class="at">length</span> <span class="op">-=</span> <span class="dv">2</span><span class="op">;</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a><span class="co">// Lengthen cable (reel out)</span></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> (reelOut <span class="op">&amp;&amp;</span> cable<span class="op">.</span><span class="at">length</span> <span class="op">&lt;</span> <span class="dv">500</span>) {</span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>    cable<span class="op">.</span><span class="at">length</span> <span class="op">+=</span> <span class="dv">2</span><span class="op">;</span></span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<p>Shortening the constraint naturally pulls the player closer to the
+pivot, accelerating their swing speed without requiring artificial
+velocity modifications.</p>
+<h2 id="5-releasing-the-hook">5. Releasing the Hook</h2>
+<p>When releasing the grappling hook, remove the constraint from the
+world. The player's existing linear velocity will carry over
+automatically, allowing the momentum gathered during the swing to launch
+them through the air:</p>
+<div class="sourceCode" id="cb4"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">releaseHook</span>() {</span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>    World<span class="op">.</span><span class="fu">remove</span>(engine<span class="op">.</span><span class="at">world</span><span class="op">,</span> cable)<span class="op">;</span></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>    player<span class="op">.</span><span class="at">frictionAir</span> <span class="op">=</span> <span class="fl">0.01</span><span class="op">;</span> <span class="co">// Reset to default air friction</span></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/matter.js'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/matter.js/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/matter.js/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

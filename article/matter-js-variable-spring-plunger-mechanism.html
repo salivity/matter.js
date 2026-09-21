@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Matter.js Variable Spring Plunger Mechanism - matter.js</title>
+    <meta name="description" content="This article explains how to build a pinball-style plunger launch mechanism with variable spring compression in Matter.js. You will learn how to configure the physics bodies, attach an elastic constraint to act as a spring, control pull-back distance thr">
+    <link rel="canonical" href="https://salivity.github.io/matter.js/article/matter-js-variable-spring-plunger-mechanism">
+    <link rel="search" type="application/opensearchdescription+xml" title="matter.js" href="/matter.js/opensearch.xml">
+    <link rel="icon" href="/matter.js/favicon.ico">
+    <link rel="stylesheet" href="/matter.js/css/style.css">
+    <link media="print" rel="stylesheet" href="/matter.js/css/print.css">
+    <script src="/matter.js/js/fuse.min.js"></script>
+    <script src="/matter.js/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Matter.js Variable Spring Plunger Mechanism - matter.js" />
+    <meta property="og:url" content="https://salivity.github.io/matter.js/article/matter-js-variable-spring-plunger-mechanism" />
+    <meta property="og:image" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article explains how to build a pinball-style plunger launch mechanism with variable spring compression in Matter.js. You will learn how to configure the physics bodies, attach an elastic constraint to act as a spring, control pull-back distance thr" />
+    <link rel="manifest" href="/matter.js/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/matter.js/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>matter.js</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/matter.js/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="matterjs-variable-spring-plunger-mechanism">Matter.js Variable
+Spring Plunger Mechanism</h1>
+<p>This article explains how to build a pinball-style plunger launch
+mechanism with variable spring compression in Matter.js. You will learn
+how to configure the physics bodies, attach an elastic constraint to act
+as a spring, control pull-back distance through user input, and release
+accumulated potential energy to launch a ball with varying force.</p>
+<h3 id="1-conceptual-overview">1. Conceptual Overview</h3>
+<p>A functional variable plunger consists of three primary
+components:</p>
+<ul>
+<li><strong>Plunger Head/Rod:</strong> A dynamic body restricted to move
+along a single linear axis (typically the Y-axis).</li>
+<li><strong>Spring Constraint:</strong> An elastic
+<code>Constraint</code> connecting the plunger to a fixed anchor
+point.</li>
+<li><strong>Compression Control:</strong> Logic that pulls the plunger
+away from its resting state based on user input, increasing the spring
+displacement before releasing it to transfer momentum to a dynamic
+projectile.</li>
+</ul>
+<h3 id="2-setting-up-the-bodies-and-constraint">2. Setting Up the Bodies
+and Constraint</h3>
+<p>Define the plunger head as a dynamic rectangle and anchor it using an
+elastic constraint. An additional static stopper body prevents the
+plunger from flying past its resting position into the playfield.</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> { Engine<span class="op">,</span> Render<span class="op">,</span> Runner<span class="op">,</span> Bodies<span class="op">,</span> Composite<span class="op">,</span> Constraint<span class="op">,</span> Body } <span class="op">=</span> Matter<span class="op">;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="co">// Create engine and world</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> engine <span class="op">=</span> Engine<span class="op">.</span><span class="fu">create</span>()<span class="op">;</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> world <span class="op">=</span> engine<span class="op">.</span><span class="at">world</span><span class="op">;</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a><span class="co">// Resting coordinates</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> restX <span class="op">=</span> <span class="dv">300</span><span class="op">;</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> restY <span class="op">=</span> <span class="dv">500</span><span class="op">;</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a><span class="co">// Plunger body</span></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> plunger <span class="op">=</span> Bodies<span class="op">.</span><span class="fu">rectangle</span>(restX<span class="op">,</span> restY<span class="op">,</span> <span class="dv">40</span><span class="op">,</span> <span class="dv">20</span><span class="op">,</span> {</span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>    <span class="dt">density</span><span class="op">:</span> <span class="fl">0.05</span><span class="op">,</span></span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>    <span class="dt">frictionAir</span><span class="op">:</span> <span class="fl">0.001</span><span class="op">,</span></span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a>    <span class="dt">restitution</span><span class="op">:</span> <span class="dv">0</span></span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span>
+<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a><span class="co">// Fixed anchor behind the plunger</span></span>
+<span id="cb1-19"><a href="#cb1-19" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> anchor <span class="op">=</span> { <span class="dt">x</span><span class="op">:</span> restX<span class="op">,</span> <span class="dt">y</span><span class="op">:</span> restY <span class="op">+</span> <span class="dv">100</span> }<span class="op">;</span></span>
+<span id="cb1-20"><a href="#cb1-20" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-21"><a href="#cb1-21" aria-hidden="true" tabindex="-1"></a><span class="co">// Spring constraint</span></span>
+<span id="cb1-22"><a href="#cb1-22" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> spring <span class="op">=</span> Constraint<span class="op">.</span><span class="fu">create</span>({</span>
+<span id="cb1-23"><a href="#cb1-23" aria-hidden="true" tabindex="-1"></a>    <span class="dt">pointA</span><span class="op">:</span> anchor<span class="op">,</span></span>
+<span id="cb1-24"><a href="#cb1-24" aria-hidden="true" tabindex="-1"></a>    <span class="dt">bodyB</span><span class="op">:</span> plunger<span class="op">,</span></span>
+<span id="cb1-25"><a href="#cb1-25" aria-hidden="true" tabindex="-1"></a>    <span class="dt">pointB</span><span class="op">:</span> { <span class="dt">x</span><span class="op">:</span> <span class="dv">0</span><span class="op">,</span> <span class="dt">y</span><span class="op">:</span> <span class="dv">0</span> }<span class="op">,</span></span>
+<span id="cb1-26"><a href="#cb1-26" aria-hidden="true" tabindex="-1"></a>    <span class="dt">stiffness</span><span class="op">:</span> <span class="fl">0.08</span><span class="op">,</span></span>
+<span id="cb1-27"><a href="#cb1-27" aria-hidden="true" tabindex="-1"></a>    <span class="dt">damping</span><span class="op">:</span> <span class="fl">0.02</span><span class="op">,</span></span>
+<span id="cb1-28"><a href="#cb1-28" aria-hidden="true" tabindex="-1"></a>    <span class="dt">render</span><span class="op">:</span> {</span>
+<span id="cb1-29"><a href="#cb1-29" aria-hidden="true" tabindex="-1"></a>        <span class="dt">visible</span><span class="op">:</span> <span class="kw">true</span><span class="op">,</span></span>
+<span id="cb1-30"><a href="#cb1-30" aria-hidden="true" tabindex="-1"></a>        <span class="dt">lineWidth</span><span class="op">:</span> <span class="dv">4</span><span class="op">,</span></span>
+<span id="cb1-31"><a href="#cb1-31" aria-hidden="true" tabindex="-1"></a>        <span class="dt">strokeStyle</span><span class="op">:</span> <span class="st">&#39;#ff5722&#39;</span></span>
+<span id="cb1-32"><a href="#cb1-32" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb1-33"><a href="#cb1-33" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span>
+<span id="cb1-34"><a href="#cb1-34" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-35"><a href="#cb1-35" aria-hidden="true" tabindex="-1"></a><span class="co">// Mechanical stops to limit movement</span></span>
+<span id="cb1-36"><a href="#cb1-36" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> topStopper <span class="op">=</span> Bodies<span class="op">.</span><span class="fu">rectangle</span>(restX<span class="op">,</span> restY <span class="op">-</span> <span class="dv">5</span><span class="op">,</span> <span class="dv">60</span><span class="op">,</span> <span class="dv">5</span><span class="op">,</span> {</span>
+<span id="cb1-37"><a href="#cb1-37" aria-hidden="true" tabindex="-1"></a>    <span class="dt">isStatic</span><span class="op">:</span> <span class="kw">true</span><span class="op">,</span></span>
+<span id="cb1-38"><a href="#cb1-38" aria-hidden="true" tabindex="-1"></a>    <span class="dt">isSensor</span><span class="op">:</span> <span class="kw">true</span> <span class="co">// Set to false if you want hard collision instead of scripted limitation</span></span>
+<span id="cb1-39"><a href="#cb1-39" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span>
+<span id="cb1-40"><a href="#cb1-40" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-41"><a href="#cb1-41" aria-hidden="true" tabindex="-1"></a>Composite<span class="op">.</span><span class="fu">add</span>(world<span class="op">,</span> [plunger<span class="op">,</span> spring<span class="op">,</span> topStopper])<span class="op">;</span></span></code></pre></div>
+<h3 id="3-implementing-variable-compression-logic">3. Implementing
+Variable Compression Logic</h3>
+<p>To achieve variable compression, track the duration of a key press
+(such as the spacebar or down arrow). As the key is held, apply a
+continuous displacement downward until a maximum compression distance is
+reached.</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">let</span> isCompressing <span class="op">=</span> <span class="kw">false</span><span class="op">;</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> maxCompression <span class="op">=</span> <span class="dv">80</span><span class="op">;</span> <span class="co">// Maximum pixels the spring can be pulled back</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> pullSpeed <span class="op">=</span> <span class="dv">2</span><span class="op">;</span>       <span class="co">// Distance pulled per frame</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a><span class="bu">window</span><span class="op">.</span><span class="fu">addEventListener</span>(<span class="st">&#39;keydown&#39;</span><span class="op">,</span> (<span class="bu">event</span>) <span class="kw">=&gt;</span> {</span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (<span class="bu">event</span><span class="op">.</span><span class="at">code</span> <span class="op">===</span> <span class="st">&#39;Space&#39;</span>) {</span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>        isCompressing <span class="op">=</span> <span class="kw">true</span><span class="op">;</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a><span class="bu">window</span><span class="op">.</span><span class="fu">addEventListener</span>(<span class="st">&#39;keyup&#39;</span><span class="op">,</span> (<span class="bu">event</span>) <span class="kw">=&gt;</span> {</span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (<span class="bu">event</span><span class="op">.</span><span class="at">code</span> <span class="op">===</span> <span class="st">&#39;Space&#39;</span>) {</span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>        isCompressing <span class="op">=</span> <span class="kw">false</span><span class="op">;</span></span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div>
+<h3 id="4-updating-and-releasing-the-plunger">4. Updating and Releasing
+the Plunger</h3>
+<p>Use Matter.js's <code>beforeUpdate</code> event to handle the
+pull-back and axis-locking logic. While the compression key is active,
+smoothly shift the plunger down. When released, the physics engine takes
+over, contracting the spring and firing the plunger upward.</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a>Matter<span class="op">.</span><span class="at">Events</span><span class="op">.</span><span class="fu">on</span>(engine<span class="op">,</span> <span class="st">&#39;beforeUpdate&#39;</span><span class="op">,</span> () <span class="kw">=&gt;</span> {</span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Keep plunger locked strictly to the vertical axis</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>    Body<span class="op">.</span><span class="fu">setPosition</span>(plunger<span class="op">,</span> { <span class="dt">x</span><span class="op">:</span> restX<span class="op">,</span> <span class="dt">y</span><span class="op">:</span> plunger<span class="op">.</span><span class="at">position</span><span class="op">.</span><span class="at">y</span> })<span class="op">;</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>    Body<span class="op">.</span><span class="fu">setVelocity</span>(plunger<span class="op">,</span> { <span class="dt">x</span><span class="op">:</span> <span class="dv">0</span><span class="op">,</span> <span class="dt">y</span><span class="op">:</span> plunger<span class="op">.</span><span class="at">velocity</span><span class="op">.</span><span class="at">y</span> })<span class="op">;</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>    Body<span class="op">.</span><span class="fu">setAngle</span>(plunger<span class="op">,</span> <span class="dv">0</span>)<span class="op">;</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>    Body<span class="op">.</span><span class="fu">setAngularVelocity</span>(plunger<span class="op">,</span> <span class="dv">0</span>)<span class="op">;</span></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (isCompressing) {</span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a>        <span class="co">// Compress the spring by moving the plunger backward</span></span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> (plunger<span class="op">.</span><span class="at">position</span><span class="op">.</span><span class="at">y</span> <span class="op">&lt;</span> restY <span class="op">+</span> maxCompression) {</span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a>            Body<span class="op">.</span><span class="fu">setPosition</span>(plunger<span class="op">,</span> {</span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a>                <span class="dt">x</span><span class="op">:</span> restX<span class="op">,</span></span>
+<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a>                <span class="dt">y</span><span class="op">:</span> plunger<span class="op">.</span><span class="at">position</span><span class="op">.</span><span class="at">y</span> <span class="op">+</span> pullSpeed</span>
+<span id="cb3-14"><a href="#cb3-14" aria-hidden="true" tabindex="-1"></a>            })<span class="op">;</span></span>
+<span id="cb3-15"><a href="#cb3-15" aria-hidden="true" tabindex="-1"></a>            Body<span class="op">.</span><span class="fu">setVelocity</span>(plunger<span class="op">,</span> { <span class="dt">x</span><span class="op">:</span> <span class="dv">0</span><span class="op">,</span> <span class="dt">y</span><span class="op">:</span> <span class="dv">0</span> })<span class="op">;</span></span>
+<span id="cb3-16"><a href="#cb3-16" aria-hidden="true" tabindex="-1"></a>        }</span>
+<span id="cb3-17"><a href="#cb3-17" aria-hidden="true" tabindex="-1"></a>    } <span class="cf">else</span> {</span>
+<span id="cb3-18"><a href="#cb3-18" aria-hidden="true" tabindex="-1"></a>        <span class="co">// Prevent the spring from launching the plunger beyond its resting position</span></span>
+<span id="cb3-19"><a href="#cb3-19" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> (plunger<span class="op">.</span><span class="at">position</span><span class="op">.</span><span class="at">y</span> <span class="op">&lt;</span> restY) {</span>
+<span id="cb3-20"><a href="#cb3-20" aria-hidden="true" tabindex="-1"></a>            Body<span class="op">.</span><span class="fu">setPosition</span>(plunger<span class="op">,</span> { <span class="dt">x</span><span class="op">:</span> restX<span class="op">,</span> <span class="dt">y</span><span class="op">:</span> restY })<span class="op">;</span></span>
+<span id="cb3-21"><a href="#cb3-21" aria-hidden="true" tabindex="-1"></a>            Body<span class="op">.</span><span class="fu">setVelocity</span>(plunger<span class="op">,</span> { <span class="dt">x</span><span class="op">:</span> <span class="dv">0</span><span class="op">,</span> <span class="dt">y</span><span class="op">:</span> <span class="dv">0</span> })<span class="op">;</span></span>
+<span id="cb3-22"><a href="#cb3-22" aria-hidden="true" tabindex="-1"></a>        }</span>
+<span id="cb3-23"><a href="#cb3-23" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb3-24"><a href="#cb3-24" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div>
+<h3 id="5-transferring-momentum-to-the-ball">5. Transferring Momentum to
+the Ball</h3>
+<p>Place a dynamic ball resting directly on top of the plunger head:</p>
+<div class="sourceCode" id="cb4"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> ball <span class="op">=</span> Bodies<span class="op">.</span><span class="fu">circle</span>(restX<span class="op">,</span> restY <span class="op">-</span> <span class="dv">20</span><span class="op">,</span> <span class="dv">15</span><span class="op">,</span> {</span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>    <span class="dt">density</span><span class="op">:</span> <span class="fl">0.004</span><span class="op">,</span></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>    <span class="dt">restitution</span><span class="op">:</span> <span class="fl">0.2</span></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a>Composite<span class="op">.</span><span class="fu">add</span>(world<span class="op">,</span> ball)<span class="op">;</span></span></code></pre></div>
+<p>When the plunger is pulled back and released, the stored tension in
+the constraint snaps the plunger upward to <code>restY</code>,
+transferring kinetic energy directly to the ball upon collision before
+the plunger stops at its rest boundary. Longer hold times yield greater
+displacement, delivering higher launch velocities.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/matter.js'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/matter.js/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/matter.js/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

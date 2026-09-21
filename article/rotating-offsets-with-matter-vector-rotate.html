@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rotating Offsets with Matter.Vector.rotate - matter.js</title>
+    <meta name="description" content="In Matter.js, positioning an element relative to a rotating rigid body requires translating local coordinates into world coordinates. The Matter.Vector.rotate utility facilitates this by applying a 2D rotation matrix to an offset vector using the body’">
+    <link rel="canonical" href="https://salivity.github.io/matter.js/article/rotating-offsets-with-matter-vector-rotate">
+    <link rel="search" type="application/opensearchdescription+xml" title="matter.js" href="/matter.js/opensearch.xml">
+    <link rel="icon" href="/matter.js/favicon.ico">
+    <link rel="stylesheet" href="/matter.js/css/style.css">
+    <link media="print" rel="stylesheet" href="/matter.js/css/print.css">
+    <script src="/matter.js/js/fuse.min.js"></script>
+    <script src="/matter.js/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Rotating Offsets with Matter.Vector.rotate - matter.js" />
+    <meta property="og:url" content="https://salivity.github.io/matter.js/article/rotating-offsets-with-matter-vector-rotate" />
+    <meta property="og:image" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="In Matter.js, positioning an element relative to a rotating rigid body requires translating local coordinates into world coordinates. The Matter.Vector.rotate utility facilitates this by applying a 2D rotation matrix to an offset vector using the body’" />
+    <link rel="manifest" href="/matter.js/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/matter.js/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>matter.js</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/matter.js/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="rotating-offsets-with-mattervectorrotate">Rotating Offsets with
+Matter.Vector.rotate</h1>
+<p>In Matter.js, positioning an element relative to a rotating rigid
+body requires translating local coordinates into world coordinates. The
+<code>Matter.Vector.rotate</code> utility facilitates this by applying a
+2D rotation matrix to an offset vector using the body’s current angle.
+When this rotated offset is added to the body’s world position, it
+yields the exact world coordinate of any point anchored to the body,
+regardless of how the body moves or turns.</p>
+<h2 id="understanding-relative-offsets">Understanding Relative
+Offsets</h2>
+<p>When working with physics simulations, rigid bodies possess a center
+of mass defined by <code>body.position</code> and an orientation defined
+by <code>body.angle</code> (measured in radians).</p>
+<p>A relative offset is a fixed coordinate pair <code>(x, y)</code>
+representing distance from the body's center in its untranslated,
+unrotated state (local space). For example, a weapon mounted on the nose
+of a vehicle might have an offset of <code>{ x: 40, y: 0 }</code>. If
+the vehicle remains upright at an angle of <code>0</code>, the weapon's
+world position is simply <code>body.position.x + 40</code>. However, as
+the vehicle rotates, this fixed point must orbit the center point to
+maintain its relative attachment position.</p>
+<h2 id="how-mattervectorrotate-works">How
+<code>Matter.Vector.rotate</code> Works</h2>
+<p>The <code>Matter.Vector.rotate</code> function takes two
+arguments:</p>
+<ol type="1">
+<li><code>vector</code>: The vector to rotate, representing
+<code>{ x, y }</code>.</li>
+<li><code>angle</code>: The angle of rotation in radians.</li>
+</ol>
+<p>Mathematically, it calculates the new coordinates using standard
+Euclidean 2D rotation formulas:</p>
+<p><span class="math display">\[x&#39; = x \cdot \cos(\theta) - y \cdot
+\sin(\theta)\]</span> <span class="math display">\[y&#39; = x \cdot
+\sin(\theta) + y \cdot \cos(\theta)\]</span></p>
+<p>When you pass the local offset and <code>body.angle</code> into
+<code>Matter.Vector.rotate</code>, it reorients the offset vector along
+the directional heading of the body while preserving its magnitude
+(distance from the center).</p>
+<h2 id="implementation-pattern">Implementation Pattern</h2>
+<p>To compute a dynamic point in world space relative to a rotating
+body:</p>
+<ol type="1">
+<li><strong>Define the static offset:</strong> Establish the local
+offset vector relative to <code>(0, 0)</code>.</li>
+<li><strong>Rotate the offset:</strong> Pass the local offset and
+<code>body.angle</code> into <code>Matter.Vector.rotate</code>.</li>
+<li><strong>Translate to world space:</strong> Add the rotated offset to
+<code>body.position</code> using <code>Matter.Vector.add</code>.</li>
+</ol>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Step 1: Define local offset (e.g., 50 units forward, 10 units up)</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> localOffset <span class="op">=</span> { <span class="dt">x</span><span class="op">:</span> <span class="dv">50</span><span class="op">,</span> <span class="dt">y</span><span class="op">:</span> <span class="op">-</span><span class="dv">10</span> }<span class="op">;</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="co">// Step 2: Rotate the offset by the body&#39;s current orientation</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> rotatedOffset <span class="op">=</span> Matter<span class="op">.</span><span class="at">Vector</span><span class="op">.</span><span class="fu">rotate</span>(localOffset<span class="op">,</span> body<span class="op">.</span><span class="at">angle</span>)<span class="op">;</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a><span class="co">// Step 3: Combine with the body&#39;s center position in the world</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> worldPoint <span class="op">=</span> Matter<span class="op">.</span><span class="at">Vector</span><span class="op">.</span><span class="fu">add</span>(body<span class="op">.</span><span class="at">position</span><span class="op">,</span> rotatedOffset)<span class="op">;</span></span></code></pre></div>
+<h2 id="practical-use-cases">Practical Use Cases</h2>
+<ul>
+<li><strong>Projectile Launch Points:</strong> Calculating the barrel
+exit coordinate of a cannon or spaceship so spawned bullets appear at
+the correct tip regardless of rotation.</li>
+<li><strong>Sensors and Rays:</strong> Anchoring Raycast origins or
+detection sensors around perimeter points of irregular bodies.</li>
+<li><strong>Compound Visuals and Particle Emitters:</strong> Aligning
+engine exhaust particles, lights, or floating UI bars to specific edges
+of a rotating chassis.</li>
+<li><strong>Constraint Anchors:</strong> Finding dynamic points for
+ropes, springs, or elastic constraints where bodies connect
+off-center.</li>
+</ul></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/matter.js'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/matter.js/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/matter.js/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Matter.js Sleeping Objects Optimization Explained - matter.js</title>
+    <meta name="description" content="Matter.js incorporates a body sleeping system designed to drastically reduce CPU overhead in physics simulations containing numerous stationary or settled entities. This article explores how Matter.js detects inactive bodies, removes them from expensive">
+    <link rel="canonical" href="https://salivity.github.io/matter.js/article/matter-js-sleeping-objects-optimization-explained">
+    <link rel="search" type="application/opensearchdescription+xml" title="matter.js" href="/matter.js/opensearch.xml">
+    <link rel="icon" href="/matter.js/favicon.ico">
+    <link rel="stylesheet" href="/matter.js/css/style.css">
+    <link media="print" rel="stylesheet" href="/matter.js/css/print.css">
+    <script src="/matter.js/js/fuse.min.js"></script>
+    <script src="/matter.js/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Matter.js Sleeping Objects Optimization Explained - matter.js" />
+    <meta property="og:url" content="https://salivity.github.io/matter.js/article/matter-js-sleeping-objects-optimization-explained" />
+    <meta property="og:image" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Matter.js incorporates a body sleeping system designed to drastically reduce CPU overhead in physics simulations containing numerous stationary or settled entities. This article explores how Matter.js detects inactive bodies, removes them from expensive" />
+    <link rel="manifest" href="/matter.js/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/matter.js/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>matter.js</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/matter.js/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="matterjs-sleeping-objects-optimization-explained">Matter.js
+Sleeping Objects Optimization Explained</h1>
+<p>Matter.js incorporates a body sleeping system designed to drastically
+reduce CPU overhead in physics simulations containing numerous
+stationary or settled entities. This article explores how Matter.js
+detects inactive bodies, removes them from expensive computational
+pipelines like narrowphase collision resolution, wakes them upon dynamic
+interaction, and provides the configuration parameters developers need
+to fine-tune this optimization.</p>
+<h3 id="what-is-sleeping-in-matterjs">What is Sleeping in
+Matter.js?</h3>
+<p>In standard physics simulations, the engine continuously calculates
+gravity, velocity, and potential collisions for every active body in the
+world, even if that body is resting on the floor. For scenes with
+hundreds of stacked or settled objects, these calculations cause
+noticeable frame-rate drops.</p>
+<p>The "sleeping" state is an optimization pattern where Matter.js
+temporarily deactivates computational updates for bodies that have come
+to a complete rest. When a body goes to sleep, the engine skips its
+motion integration, constraint solving, and detailed collision detection
+until an external event forces it to move again.</p>
+<h3 id="how-matterjs-determines-when-a-body-sleeps">How Matter.js
+Determines When a Body Sleeps</h3>
+<p>Matter.js monitors the kinetic energy of each dynamic body across
+successive simulation ticks. It determines sleep eligibility using three
+primary factors:</p>
+<ol type="1">
+<li><p><strong>Motion Calculation:</strong> Each frame, Matter.js
+calculates a smoothed motion value based on the body's linear and
+angular velocity: <span class="math display">\[\text{motion} =
+\text{speed}^2 + \text{angularSpeed}^2\]</span> This value is smoothed
+over time to prevent bodies from sleeping prematurely during momentary
+stops (such as the peak of an arc).</p></li>
+<li><p><strong>The Motion Threshold:</strong> A body must maintain a
+motion value below a predefined minimum threshold (internally tracked
+via <code>body.motion</code>).</p></li>
+<li><p><strong>The Sleep Counter:</strong> If a body remains below the
+threshold, its internal sleep counter increments each frame. Once this
+counter exceeds the <code>sleepThreshold</code> (default is 60 ticks,
+approximately one second at 60 FPS), the engine marks
+<code>body.isSleeping = true</code>.</p></li>
+</ol>
+<h3 id="computational-savings-during-the-sleep-state">Computational
+Savings During the Sleep State</h3>
+<p>Once a body is marked as sleeping, Matter.js bypasses several
+expensive physics pipeline steps:</p>
+<ul>
+<li><strong>Broadphase and Narrowphase Collision:</strong> While
+sleeping bodies remain in the broadphase collision tree (like the
+Spatial Hash Grid or BVH), pairs composed entirely of sleeping bodies
+are discarded immediately. Narrowphase SAT (Separating Axis Theorem)
+checks are completely skipped between sleeping objects.</li>
+<li><strong>Position and Velocity Integration:</strong> The engine
+bypasses numerical integration steps for sleeping bodies, avoiding
+redundant vector mathematics.</li>
+<li><strong>Solver Iterations:</strong> Sleeping bodies are omitted from
+constraint and contact resolution loops, reducing the workload of the
+iterative solver.</li>
+</ul>
+<h3 id="how-sleeping-bodies-wake-up">How Sleeping Bodies Wake Up</h3>
+<p>Sleeping bodies do not remain dormant permanently. Matter.js
+automatically transitions a body back to an awake state
+(<code>body.isSleeping = false</code>) when:</p>
+<ul>
+<li>An active, awake body collides with it.</li>
+<li>A constraint (spring, rope, or joint) connected to the sleeping body
+experiences force from an awake body.</li>
+<li>The body is manually manipulated via code (such as modifying its
+position, angle, velocity, or applying a force using
+<code>Body.applyForce</code>).</li>
+<li>The body is clicked or dragged using a
+<code>MouseConstraint</code>.</li>
+</ul>
+<p>When an awake body collides with a sleeping body, the wake signal
+cascades through adjacent sleeping bodies, preventing unnatural behavior
+like objects hanging in mid-air when their support is knocked away.</p>
+<h3 id="enabling-and-configuring-sleeping">Enabling and Configuring
+Sleeping</h3>
+<p>Sleeping is disabled by default in Matter.js to prioritize
+predictable behavior out of the box. To activate it, set
+<code>enableSleeping</code> to <code>true</code> when initializing the
+engine:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> engine <span class="op">=</span> Engine<span class="op">.</span><span class="fu">create</span>({</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>  <span class="dt">enableSleeping</span><span class="op">:</span> <span class="kw">true</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div>
+<p>You can customize the sensitivity on individual bodies or
+globally:</p>
+<ul>
+<li><code>sleepThreshold</code>: The number of idle updates required
+before a body falls asleep (default is <code>60</code>). Lower values
+put objects to sleep faster to save performance, but may cause objects
+to freeze unnaturally mid-motion.</li>
+<li><code>body.isSleeping</code>: A boolean flag you can directly read
+or set to manually control a body's state using
+<code>Sleeping.set(body, true)</code> or
+<code>Sleeping.set(body, false)</code>.</li>
+</ul></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/matter.js'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/matter.js/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/matter.js/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

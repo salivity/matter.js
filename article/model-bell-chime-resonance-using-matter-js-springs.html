@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Model Bell Chime Resonance Using Matter.js Springs - matter.js</title>
+    <meta name="description" content="This article explains how to simulate the acoustic vibrations and exponential resonance decay of a bell chime by modeling it as a coupled mass-spring oscillator network in Matter.js. By discretizing a chime into a series of interconnected rigid bodies jo">
+    <link rel="canonical" href="https://salivity.github.io/matter.js/article/model-bell-chime-resonance-using-matter-js-springs">
+    <link rel="search" type="application/opensearchdescription+xml" title="matter.js" href="/matter.js/opensearch.xml">
+    <link rel="icon" href="/matter.js/favicon.ico">
+    <link rel="stylesheet" href="/matter.js/css/style.css">
+    <link media="print" rel="stylesheet" href="/matter.js/css/print.css">
+    <script src="/matter.js/js/fuse.min.js"></script>
+    <script src="/matter.js/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Model Bell Chime Resonance Using Matter.js Springs - matter.js" />
+    <meta property="og:url" content="https://salivity.github.io/matter.js/article/model-bell-chime-resonance-using-matter-js-springs" />
+    <meta property="og:image" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article explains how to simulate the acoustic vibrations and exponential resonance decay of a bell chime by modeling it as a coupled mass-spring oscillator network in Matter.js. By discretizing a chime into a series of interconnected rigid bodies jo" />
+    <link rel="manifest" href="/matter.js/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/matter.js/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>matter.js</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/matter.js/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="model-bell-chime-resonance-using-matterjs-springs">Model Bell
+Chime Resonance Using Matter.js Springs</h1>
+<p>This article explains how to simulate the acoustic vibrations and
+exponential resonance decay of a bell chime by modeling it as a coupled
+mass-spring oscillator network in Matter.js. By discretizing a chime
+into a series of interconnected rigid bodies joined by tuned elastic
+constraints, you can reproduce high-frequency flexural standing waves
+and capture natural decay dynamics directly within a 2D physics
+engine.</p>
+<h3 id="the-physics-of-coupled-oscillator-chimes">The Physics of Coupled
+Oscillator Chimes</h3>
+<p>A tubular bell or chime vibrates through transverse flexural modes
+rather than purely rigid-body swing. To approximate continuous beam
+vibration in Matter.js:</p>
+<ol type="1">
+<li><strong>Discretization:</strong> The chime is represented as a 1D
+chain of small point-mass bodies.</li>
+<li><strong>Coupling:</strong> Adjacent masses are linked using stiff
+linear constraints (<code>Matter.Constraint</code>) that act as
+restoring springs.</li>
+<li><strong>Cross-bracing (Shear Resistance):</strong> Secondary springs
+skipping one node (connecting mass <span
+class="math inline">\(i\)</span> to <span
+class="math inline">\(i+2\)</span>) simulate bending stiffness and beam
+elasticity.</li>
+<li><strong>Decay (Damping):</strong> Internal friction is handled by
+constraint damping, while acoustic radiation and air resistance are
+handled by body-level air friction.</li>
+</ol>
+<h3 id="step-1-configuring-engine-and-world-parameters">Step 1:
+Configuring Engine and World Parameters</h3>
+<p>Matter.js defaults to iterative relaxation designed for rigid bodies,
+which can prematurely bleed energy from small, high-frequency
+oscillations. To achieve stable, sustained resonance, increase solver
+iterations and configure an appropriate sub-stepping rate.</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> { Engine<span class="op">,</span> Render<span class="op">,</span> Runner<span class="op">,</span> Bodies<span class="op">,</span> Composite<span class="op">,</span> Constraint<span class="op">,</span> Body<span class="op">,</span> Vector } <span class="op">=</span> Matter<span class="op">;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> engine <span class="op">=</span> Engine<span class="op">.</span><span class="fu">create</span>({</span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>  <span class="dt">positionIterations</span><span class="op">:</span> <span class="dv">12</span><span class="op">,</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>  <span class="dt">velocityIterations</span><span class="op">:</span> <span class="dv">12</span><span class="op">,</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>  <span class="dt">gravity</span><span class="op">:</span> { <span class="dt">x</span><span class="op">:</span> <span class="dv">0</span><span class="op">,</span> <span class="dt">y</span><span class="op">:</span> <span class="fl">0.5</span><span class="op">,</span> <span class="dt">scale</span><span class="op">:</span> <span class="fl">0.001</span> } <span class="co">// Low gravity to emphasize vibrational dynamics</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div>
+<h3 id="step-2-building-the-discretized-chime-structure">Step 2:
+Building the Discretized Chime Structure</h3>
+<p>Create an array of small, uniform bodies aligned vertically. Anchor
+the top body to a fixed point to represent the chime's mounting string,
+leaving the lower nodes free to vibrate.</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> nodes <span class="op">=</span> []<span class="op">;</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> nodeCount <span class="op">=</span> <span class="dv">12</span><span class="op">;</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> nodeRadius <span class="op">=</span> <span class="dv">6</span><span class="op">;</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> spacing <span class="op">=</span> <span class="dv">18</span><span class="op">;</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> startX <span class="op">=</span> <span class="dv">400</span><span class="op">;</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> startY <span class="op">=</span> <span class="dv">100</span><span class="op">;</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a><span class="co">// Create mass nodes</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> (<span class="kw">let</span> i <span class="op">=</span> <span class="dv">0</span><span class="op">;</span> i <span class="op">&lt;</span> nodeCount<span class="op">;</span> i<span class="op">++</span>) {</span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> node <span class="op">=</span> Bodies<span class="op">.</span><span class="fu">circle</span>(startX<span class="op">,</span> startY <span class="op">+</span> i <span class="op">*</span> spacing<span class="op">,</span> nodeRadius<span class="op">,</span> {</span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>    <span class="dt">mass</span><span class="op">:</span> <span class="fl">1.0</span><span class="op">,</span></span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>    <span class="dt">frictionAir</span><span class="op">:</span> <span class="fl">0.0005</span><span class="op">,</span> <span class="co">// Controls global resonance decay rate</span></span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>    <span class="dt">restitution</span><span class="op">:</span> <span class="fl">0.95</span></span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a>  })<span class="op">;</span></span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a>  nodes<span class="op">.</span><span class="fu">push</span>(node)<span class="op">;</span></span>
+<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-18"><a href="#cb2-18" aria-hidden="true" tabindex="-1"></a><span class="co">// Fixed suspension anchor for the top node</span></span>
+<span id="cb2-19"><a href="#cb2-19" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> anchor <span class="op">=</span> Constraint<span class="op">.</span><span class="fu">create</span>({</span>
+<span id="cb2-20"><a href="#cb2-20" aria-hidden="true" tabindex="-1"></a>  <span class="dt">pointA</span><span class="op">:</span> { <span class="dt">x</span><span class="op">:</span> startX<span class="op">,</span> <span class="dt">y</span><span class="op">:</span> startY <span class="op">-</span> spacing }<span class="op">,</span></span>
+<span id="cb2-21"><a href="#cb2-21" aria-hidden="true" tabindex="-1"></a>  <span class="dt">bodyB</span><span class="op">:</span> nodes[<span class="dv">0</span>]<span class="op">,</span></span>
+<span id="cb2-22"><a href="#cb2-22" aria-hidden="true" tabindex="-1"></a>  <span class="dt">pointB</span><span class="op">:</span> { <span class="dt">x</span><span class="op">:</span> <span class="dv">0</span><span class="op">,</span> <span class="dt">y</span><span class="op">:</span> <span class="dv">0</span> }<span class="op">,</span></span>
+<span id="cb2-23"><a href="#cb2-23" aria-hidden="true" tabindex="-1"></a>  <span class="dt">stiffness</span><span class="op">:</span> <span class="fl">0.9</span><span class="op">,</span></span>
+<span id="cb2-24"><a href="#cb2-24" aria-hidden="true" tabindex="-1"></a>  <span class="dt">damping</span><span class="op">:</span> <span class="fl">0.01</span></span>
+<span id="cb2-25"><a href="#cb2-25" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div>
+<h3 id="step-3-coupling-nodes-with-tuned-springs">Step 3: Coupling Nodes
+with Tuned Springs</h3>
+<p>To model longitudinal tension and transverse flexural resistance,
+apply two sets of constraints:</p>
+<ul>
+<li><strong>Primary Links (<span class="math inline">\(i \leftrightarrow
+i+1\)</span>):</strong> High stiffness values to keep the chime
+cohesive.</li>
+<li><strong>Flexural Links (<span class="math inline">\(i
+\leftrightarrow i+2\)</span>):</strong> Medium stiffness values to
+provide the restoring force when the beam bends.</li>
+</ul>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> springs <span class="op">=</span> []<span class="op">;</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> (<span class="kw">let</span> i <span class="op">=</span> <span class="dv">0</span><span class="op">;</span> i <span class="op">&lt;</span> nodeCount <span class="op">-</span> <span class="dv">1</span><span class="op">;</span> i<span class="op">++</span>) {</span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>  <span class="co">// Nearest-neighbor constraint (axial stiffness)</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>  springs<span class="op">.</span><span class="fu">push</span>(Constraint<span class="op">.</span><span class="fu">create</span>({</span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>    <span class="dt">bodyA</span><span class="op">:</span> nodes[i]<span class="op">,</span></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>    <span class="dt">bodyB</span><span class="op">:</span> nodes[i <span class="op">+</span> <span class="dv">1</span>]<span class="op">,</span></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>    <span class="dt">stiffness</span><span class="op">:</span> <span class="fl">0.85</span><span class="op">,</span></span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a>    <span class="dt">damping</span><span class="op">:</span> <span class="fl">0.002</span> <span class="co">// Internal material damping</span></span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a>  }))<span class="op">;</span></span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a>  <span class="co">// Next-nearest-neighbor constraint (bending stiffness)</span></span>
+<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (i <span class="op">&lt;</span> nodeCount <span class="op">-</span> <span class="dv">2</span>) {</span>
+<span id="cb3-14"><a href="#cb3-14" aria-hidden="true" tabindex="-1"></a>    springs<span class="op">.</span><span class="fu">push</span>(Constraint<span class="op">.</span><span class="fu">create</span>({</span>
+<span id="cb3-15"><a href="#cb3-15" aria-hidden="true" tabindex="-1"></a>      <span class="dt">bodyA</span><span class="op">:</span> nodes[i]<span class="op">,</span></span>
+<span id="cb3-16"><a href="#cb3-16" aria-hidden="true" tabindex="-1"></a>      <span class="dt">bodyB</span><span class="op">:</span> nodes[i <span class="op">+</span> <span class="dv">2</span>]<span class="op">,</span></span>
+<span id="cb3-17"><a href="#cb3-17" aria-hidden="true" tabindex="-1"></a>      <span class="dt">stiffness</span><span class="op">:</span> <span class="fl">0.45</span><span class="op">,</span></span>
+<span id="cb3-18"><a href="#cb3-18" aria-hidden="true" tabindex="-1"></a>      <span class="dt">damping</span><span class="op">:</span> <span class="fl">0.005</span></span>
+<span id="cb3-19"><a href="#cb3-19" aria-hidden="true" tabindex="-1"></a>    }))<span class="op">;</span></span>
+<span id="cb3-20"><a href="#cb3-20" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb3-21"><a href="#cb3-21" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb3-22"><a href="#cb3-22" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-23"><a href="#cb3-23" aria-hidden="true" tabindex="-1"></a>Composite<span class="op">.</span><span class="fu">add</span>(engine<span class="op">.</span><span class="at">world</span><span class="op">,</span> [<span class="op">...</span>nodes<span class="op">,</span> anchor<span class="op">,</span> <span class="op">...</span>springs])<span class="op">;</span></span></code></pre></div>
+<h3 id="step-4-exciting-the-chime-impact">Step 4: Exciting the Chime
+(Impact)</h3>
+<p>A physical strike imparts a localized transverse impulse to the
+chime. Target a node near the bottom or middle to generate a combination
+of fundamental and harmonic frequencies.</p>
+<div class="sourceCode" id="cb4"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">strikeChime</span>(intensity <span class="op">=</span> <span class="fl">0.05</span>) {</span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>  <span class="co">// Strike the third node from the bottom</span></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> targetNode <span class="op">=</span> nodes[nodes<span class="op">.</span><span class="at">length</span> <span class="op">-</span> <span class="dv">3</span>]<span class="op">;</span></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>  Body<span class="op">.</span><span class="fu">applyForce</span>(targetNode<span class="op">,</span> targetNode<span class="op">.</span><span class="at">position</span><span class="op">,</span> { <span class="dt">x</span><span class="op">:</span> intensity<span class="op">,</span> <span class="dt">y</span><span class="op">:</span> <span class="dv">0</span> })<span class="op">;</span></span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<h3 id="step-5-controlling-resonance-decay">Step 5: Controlling
+Resonance Decay</h3>
+<p>Resonance decay in this coupled model follows an exponential decay
+envelope determined by two primary variables:</p>
+<ul>
+<li><strong><code>body.frictionAir</code>:</strong> Represents ambient
+acoustic loss. Set between <code>0.0001</code> and <code>0.001</code>
+for a long metallic chime sustain. Increasing this parameter shortens
+the overall decay envelope without changing the frequency.</li>
+<li><strong><code>constraint.damping</code>:</strong> Represents
+viscoelastic dissipation within the chime material. Higher damping
+suppresses high-frequency harmonics faster than the fundamental mode,
+mimicking the spectral warmth that occurs as a real chime settles.</li>
+</ul>
+<h3 id="step-6-extracting-the-vibrational-signal">Step 6: Extracting the
+Vibrational Signal</h3>
+<p>To measure the vibration or synthesize audio from the physics model,
+track the horizontal displacement or velocity of the bottom-most
+antinode over successive engine ticks:</p>
+<div class="sourceCode" id="cb5"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a>Matter<span class="op">.</span><span class="at">Events</span><span class="op">.</span><span class="fu">on</span>(engine<span class="op">,</span> <span class="st">&#39;afterUpdate&#39;</span><span class="op">,</span> () <span class="kw">=&gt;</span> {</span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> antinode <span class="op">=</span> nodes[nodes<span class="op">.</span><span class="at">length</span> <span class="op">-</span> <span class="dv">1</span>]<span class="op">;</span></span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> displacementX <span class="op">=</span> antinode<span class="op">.</span><span class="at">position</span><span class="op">.</span><span class="at">x</span> <span class="op">-</span> startX<span class="op">;</span></span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> velocityX <span class="op">=</span> antinode<span class="op">.</span><span class="at">velocity</span><span class="op">.</span><span class="at">x</span><span class="op">;</span></span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a>  <span class="co">// displacementX contains the instantaneous resonant wave amplitude</span></span>
+<span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div>
+<p>By adjusting the stiffness ratio between axial and flexural
+constraints alongside node mass, you can precisely shape the natural
+frequencies and timbre of the chime.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/matter.js'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/matter.js/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/matter.js/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

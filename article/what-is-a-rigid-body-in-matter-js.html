@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>What Is a Rigid Body in Matter.js? - matter.js</title>
+    <meta name="description" content="This article provides a comprehensive overview of rigid bodies within the Matter.js 2D physics engine. It covers the fundamental definition of a rigid body, explains its key physical properties such as mass, friction, and restitution, distinguishes betwe">
+    <link rel="canonical" href="https://salivity.github.io/matter.js/article/what-is-a-rigid-body-in-matter-js">
+    <link rel="search" type="application/opensearchdescription+xml" title="matter.js" href="/matter.js/opensearch.xml">
+    <link rel="icon" href="/matter.js/favicon.ico">
+    <link rel="stylesheet" href="/matter.js/css/style.css">
+    <link media="print" rel="stylesheet" href="/matter.js/css/print.css">
+    <script src="/matter.js/js/fuse.min.js"></script>
+    <script src="/matter.js/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="What Is a Rigid Body in Matter.js? - matter.js" />
+    <meta property="og:url" content="https://salivity.github.io/matter.js/article/what-is-a-rigid-body-in-matter-js" />
+    <meta property="og:image" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article provides a comprehensive overview of rigid bodies within the Matter.js 2D physics engine. It covers the fundamental definition of a rigid body, explains its key physical properties such as mass, friction, and restitution, distinguishes betwe" />
+    <link rel="manifest" href="/matter.js/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/matter.js/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>matter.js</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/matter.js/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="what-is-a-rigid-body-in-matterjs">What Is a Rigid Body in
+Matter.js?</h1>
+<p>This article provides a comprehensive overview of rigid bodies within
+the Matter.js 2D physics engine. It covers the fundamental definition of
+a rigid body, explains its key physical properties such as mass,
+friction, and restitution, distinguishes between static and dynamic
+types, and demonstrates how these bodies are created and manipulated to
+simulate realistic mechanics in web applications.</p>
+<p>In Matter.js, a rigid body is an idealized solid physical object that
+does not deform, bend, or change shape under any circumstances,
+regardless of the forces, torques, or collisions applied to it. The
+distance between any two given points on the body remains constant at
+all times. Represented primarily by the <code>Matter.Body</code> module,
+rigid bodies serve as the foundational building blocks for simulating 2D
+kinematics and dynamics.</p>
+<h3 id="dynamic-vs-static-rigid-bodies">Dynamic vs. Static Rigid
+Bodies</h3>
+<p>Matter.js categorizes rigid bodies into two primary operational
+states:</p>
+<ul>
+<li><strong>Dynamic Bodies:</strong> These bodies have finite mass and
+are fully influenced by the simulation's physical forces, including
+gravity, applied impulses, and collision responses. They move, rotate,
+and accelerate dynamically based on Newton's laws of motion.</li>
+<li><strong>Static Bodies:</strong> Configured by setting the
+<code>isStatic: true</code> property, static bodies have infinite mass
+and inertia. They are unaffected by gravity, forces, or collisions with
+dynamic bodies, remaining locked in place. They are typically used to
+create immovable boundaries, floors, platforms, and obstacles.</li>
+</ul>
+<h3 id="core-properties-of-a-rigid-body">Core Properties of a Rigid
+Body</h3>
+<p>When you instantiate a rigid body in Matter.js, it contains several
+distinct sets of properties that govern its behavior:</p>
+<ul>
+<li><strong>Spatial Properties:</strong>
+<ul>
+<li><code>position</code>: A vector <code>{x, y}</code> representing the
+body's center of mass in 2D space.</li>
+<li><code>angle</code>: The orientation of the body in radians.</li>
+<li><code>velocity</code> and <code>angularVelocity</code>: The current
+rates of linear and rotational displacement.</li>
+</ul></li>
+<li><strong>Mass and Inertia:</strong>
+<ul>
+<li><code>mass</code>: Determines resistance to linear acceleration.
+Matter.js automatically computes this based on the body's area and
+density.</li>
+<li><code>density</code>: The mass per unit area.</li>
+<li><code>inertia</code>: Determines resistance to rotational
+acceleration (torque).</li>
+</ul></li>
+<li><strong>Material and Surface Behaviors:</strong>
+<ul>
+<li><code>restitution</code>: The elasticity or "bounciness" of the
+body, defined on a scale from <code>0</code> (completely inelastic) to
+<code>1</code> (completely elastic).</li>
+<li><code>friction</code>: The kinetic and static friction coefficient
+determining resistance when sliding against other bodies.</li>
+<li><code>frictionAir</code>: Linear drag that slows the body down as it
+moves through space, simulating air resistance.</li>
+</ul></li>
+</ul>
+<h3 id="creating-and-using-rigid-bodies">Creating and Using Rigid
+Bodies</h3>
+<p>Rigid bodies are typically generated using the
+<code>Matter.Bodies</code> factory module, which provides pre-configured
+geometric primitives such as rectangles, circles, trapezoids, and
+regular polygons:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Creating a dynamic rectangular rigid body</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> box <span class="op">=</span> Matter<span class="op">.</span><span class="at">Bodies</span><span class="op">.</span><span class="fu">rectangle</span>(<span class="dv">400</span><span class="op">,</span> <span class="dv">200</span><span class="op">,</span> <span class="dv">80</span><span class="op">,</span> <span class="dv">80</span><span class="op">,</span> {</span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>    <span class="dt">restitution</span><span class="op">:</span> <span class="fl">0.8</span><span class="op">,</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>    <span class="dt">friction</span><span class="op">:</span> <span class="fl">0.05</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a><span class="co">// Creating a static ground surface</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> ground <span class="op">=</span> Matter<span class="op">.</span><span class="at">Bodies</span><span class="op">.</span><span class="fu">rectangle</span>(<span class="dv">400</span><span class="op">,</span> <span class="dv">600</span><span class="op">,</span> <span class="dv">810</span><span class="op">,</span> <span class="dv">60</span><span class="op">,</span> {</span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>    <span class="dt">isStatic</span><span class="op">:</span> <span class="kw">true</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a><span class="co">// Adding bodies to the simulation world</span></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>Matter<span class="op">.</span><span class="at">Composite</span><span class="op">.</span><span class="fu">add</span>(engine<span class="op">.</span><span class="at">world</span><span class="op">,</span> [box<span class="op">,</span> ground])<span class="op">;</span></span></code></pre></div>
+<p>Once added to the simulation world, the Matter.js engine continuously
+resolves collisions, updates positions via numerical integration, and
+enforces non-penetration constraints between these rigid shapes.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/matter.js'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/matter.js/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/matter.js/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

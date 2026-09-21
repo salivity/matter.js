@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Identify Memory Leaks in Matter.js Applications - matter.js</title>
+    <meta name="description" content="Detecting and resolving memory leaks in a long-running Matter.js application is essential for maintaining the reliability of smart home controllers and Matter nodes. This guide outlines how to identify unintended memory retention by capturing runtime met">
+    <link rel="canonical" href="https://salivity.github.io/matter.js/article/identify-memory-leaks-in-matter-js-applications">
+    <link rel="search" type="application/opensearchdescription+xml" title="matter.js" href="/matter.js/opensearch.xml">
+    <link rel="icon" href="/matter.js/favicon.ico">
+    <link rel="stylesheet" href="/matter.js/css/style.css">
+    <link media="print" rel="stylesheet" href="/matter.js/css/print.css">
+    <script src="/matter.js/js/fuse.min.js"></script>
+    <script src="/matter.js/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Identify Memory Leaks in Matter.js Applications - matter.js" />
+    <meta property="og:url" content="https://salivity.github.io/matter.js/article/identify-memory-leaks-in-matter-js-applications" />
+    <meta property="og:image" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Detecting and resolving memory leaks in a long-running Matter.js application is essential for maintaining the reliability of smart home controllers and Matter nodes. This guide outlines how to identify unintended memory retention by capturing runtime met" />
+    <link rel="manifest" href="/matter.js/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/matter.js/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>matter.js</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/matter.js/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="identify-memory-leaks-in-matterjs-applications">Identify Memory
+Leaks in Matter.js Applications</h1>
+<p>Detecting and resolving memory leaks in a long-running Matter.js
+application is essential for maintaining the reliability of smart home
+controllers and Matter nodes. This guide outlines how to identify
+unintended memory retention by capturing runtime metrics, generating and
+analyzing V8 heap snapshots, identifying Matter-specific retention
+vectors such as unclosed subscriptions or lingering event listeners, and
+automating leak detection in continuous deployment environments.</p>
+<h3 id="1-monitor-process-memory-metrics">1. Monitor Process Memory
+Metrics</h3>
+<p>Before diving into deep memory profiling, establish baseline metrics
+to confirm that a memory leak actually exists rather than normal garbage
+collection (GC) churn.</p>
+<p>Track the following <code>process.memoryUsage()</code> metrics over
+time:</p>
+<ul>
+<li><strong><code>heapUsed</code></strong>: Memory actively used by
+instantiated objects. If this value continuously increases over hours or
+days without dropping after idle periods, a leak is likely.</li>
+<li><strong><code>rss</code> (Resident Set Size)</strong>: Total memory
+allocated for the process, including native C++ bindings (such as mDNS,
+crypto, and UDP socket bindings).</li>
+<li><strong><code>external</code></strong>: Memory bound to C++ objects
+managed by the V8 engine (frequently relevant when dealing with heavy
+cryptographic buffers and network packets).</li>
+</ul>
+<p>Log these metrics at set intervals or export them to a metrics
+collector like Prometheus:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="pp">setInterval</span>(() <span class="kw">=&gt;</span> {</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> usage <span class="op">=</span> <span class="bu">process</span><span class="op">.</span><span class="fu">memoryUsage</span>()<span class="op">;</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>  <span class="bu">console</span><span class="op">.</span><span class="fu">log</span>({</span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>    <span class="dt">rss</span><span class="op">:</span> <span class="vs">`</span><span class="sc">${</span>(usage<span class="op">.</span><span class="at">rss</span> <span class="op">/</span> <span class="dv">1024</span> <span class="op">/</span> <span class="dv">1024</span>)<span class="op">.</span><span class="fu">toFixed</span>(<span class="dv">2</span>)<span class="sc">}</span><span class="vs"> MB`</span><span class="op">,</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>    <span class="dt">heapUsed</span><span class="op">:</span> <span class="vs">`</span><span class="sc">${</span>(usage<span class="op">.</span><span class="at">heapUsed</span> <span class="op">/</span> <span class="dv">1024</span> <span class="op">/</span> <span class="dv">1024</span>)<span class="op">.</span><span class="fu">toFixed</span>(<span class="dv">2</span>)<span class="sc">}</span><span class="vs"> MB`</span><span class="op">,</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>    <span class="dt">heapTotal</span><span class="op">:</span> <span class="vs">`</span><span class="sc">${</span>(usage<span class="op">.</span><span class="at">heapTotal</span> <span class="op">/</span> <span class="dv">1024</span> <span class="op">/</span> <span class="dv">1024</span>)<span class="op">.</span><span class="fu">toFixed</span>(<span class="dv">2</span>)<span class="sc">}</span><span class="vs"> MB`</span><span class="op">,</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>  })<span class="op">;</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>}<span class="op">,</span> <span class="dv">60000</span>)<span class="op">;</span></span></code></pre></div>
+<h3 id="2-capture-and-compare-heap-snapshots">2. Capture and Compare
+Heap Snapshots</h3>
+<p>Heap snapshots provide a frozen state of all objects currently
+allocated in the V8 heap. To locate leaks, capture snapshots at distinct
+lifecycle phases and compare them.</p>
+<ol type="1">
+<li><strong>Launch Node.js with the inspector enabled:</strong>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="ex">node</span> <span class="at">--inspect</span> app.js</span></code></pre></div></li>
+<li><strong>Open Chrome DevTools:</strong> Navigate to
+<code>chrome://inspect</code> in a Chromium-based browser and target
+your Matter.js process.</li>
+<li><strong>Take Snapshot 1 (Baseline):</strong> Allow the Matter node
+or controller to commission, connect to the fabric, and reach an idle
+state. Take the first snapshot.</li>
+<li><strong>Simulate Activity:</strong> Generate standard load—such as
+repeatedly sending attribute reads, toggling cluster states, or
+disconnecting and reconnecting Matter commissioners.</li>
+<li><strong>Force Garbage Collection:</strong> Click the trash can icon
+in DevTools to force GC.</li>
+<li><strong>Take Snapshot 2:</strong> Capture a second snapshot.</li>
+<li><strong>Compare Snapshots:</strong> In the Memory tab, change the
+view mode from "Summary" to "Comparison" and select the baseline
+snapshot as the reference. Sort by <code># Delta</code> and
+<code>Size Delta</code> to see which constructors are steadily
+growing.</li>
+</ol>
+<h3 id="3-programmatic-heap-dumps-on-memory-spikes">3. Programmatic Heap
+Dumps on Memory Spikes</h3>
+<p>For production or headless environments where interactive profiling
+is impractical, write heap snapshots to disk when memory crosses a
+critical threshold using the native <code>v8</code> module:</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> v8 <span class="im">from</span> <span class="st">&#39;node:v8&#39;</span><span class="op">;</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> fs <span class="im">from</span> <span class="st">&#39;node:fs&#39;</span><span class="op">;</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> MAX_HEAP_MB <span class="op">=</span> <span class="dv">250</span><span class="op">;</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a><span class="pp">setInterval</span>(() <span class="kw">=&gt;</span> {</span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> heapUsedMB <span class="op">=</span> <span class="bu">process</span><span class="op">.</span><span class="fu">memoryUsage</span>()<span class="op">.</span><span class="at">heapUsed</span> <span class="op">/</span> <span class="dv">1024</span> <span class="op">/</span> <span class="dv">1024</span><span class="op">;</span></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (heapUsedMB <span class="op">&gt;</span> MAX_HEAP_MB) {</span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> fileName <span class="op">=</span> <span class="vs">`heap-</span><span class="sc">${</span><span class="bu">Date</span><span class="op">.</span><span class="fu">now</span>()<span class="sc">}</span><span class="vs">.heapsnapshot`</span><span class="op">;</span></span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> snapshotStream <span class="op">=</span> v8<span class="op">.</span><span class="fu">getHeapSnapshot</span>()<span class="op">;</span></span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> fileStream <span class="op">=</span> fs<span class="op">.</span><span class="fu">createWriteStream</span>(fileName)<span class="op">;</span></span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a>    snapshotStream<span class="op">.</span><span class="fu">pipe</span>(fileStream)<span class="op">;</span></span>
+<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a>    <span class="bu">console</span><span class="op">.</span><span class="fu">warn</span>(<span class="vs">`Heap threshold exceeded (</span><span class="sc">${</span>heapUsedMB<span class="op">.</span><span class="fu">toFixed</span>(<span class="dv">2</span>)<span class="sc">}</span><span class="vs"> MB). Dumped </span><span class="sc">${</span>fileName<span class="sc">}</span><span class="vs">`</span>)<span class="op">;</span></span>
+<span id="cb3-14"><a href="#cb3-14" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb3-15"><a href="#cb3-15" aria-hidden="true" tabindex="-1"></a>}<span class="op">,</span> <span class="dv">30000</span>)<span class="op">;</span></span></code></pre></div>
+<p>You can then download and open the generated
+<code>.heapsnapshot</code> file inside Chrome DevTools.</p>
+<h3 id="4-common-leak-vectors-in-matterjs">4. Common Leak Vectors in
+Matter.js</h3>
+<p>When analyzing retainers in the snapshot comparison, focus on
+components common to the Matter protocol lifecycle:</p>
+<h4 id="uncleaned-event-listeners">Uncleaned Event Listeners</h4>
+<p>Matter.js models use event emitters extensively for state changes,
+cluster commands, and attribute reporting. Attaching listeners to
+endpoints or clusters without calling the corresponding removal methods
+will keep entire device models retained in memory:</p>
+<ul>
+<li>Look for growing counts of <code>EventEmitter</code>,
+<code>Listener</code>, or cluster-specific callbacks.</li>
+<li>Ensure every <code>.on(...)</code> call has a matching lifecycle
+hook to unsubscribe when a connection, session, or node terminates.</li>
+</ul>
+<h4 id="stale-subscriptions-and-interaction-model-handlers">Stale
+Subscriptions and Interaction Model Handlers</h4>
+<p>In the Matter Interaction Model, controllers subscribe to attribute
+reports and event streams. If peer nodes disconnect ungracefully,
+improperly tracked subscription contexts or queue buffers can
+accumulate.</p>
+<ul>
+<li>Filter the snapshot comparison by <code>SubscriptionHandler</code>,
+<code>ReadHandler</code>, or <code>ExchangeContext</code>.</li>
+<li>Verify that exchange handlers and interaction contexts are cleared
+when sessions expire or enter a timeout state.</li>
+</ul>
+<h4 id="crypto-contexts-and-secure-session-dictionaries">Crypto Contexts
+and Secure Session Dictionaries</h4>
+<p>Matter uses secure channels (PASE/CASE) with cryptographic session
+keys. When nodes commission and recommission, verify that old session
+records are cleanly purged:</p>
+<ul>
+<li>Search for retained instances of <code>SecureSession</code>,
+<code>PaseServer</code>, or raw <code>Uint8Array</code> buffers storing
+ephemeral cryptographic keys.</li>
+<li>Ensure the <code>SessionManager</code> in Matter.js is evicting
+closed or expired session IDs.</li>
+</ul>
+<h4 id="native-udp-and-network-buffers">Native UDP and Network
+Buffers</h4>
+<p>Packet fragmentation and reassembly (via Matter's Message Reception
+protocols) utilize raw buffers. If message acknowledgment fails and
+retry queues do not have strict size limits, unacknowledged packets will
+hoard native memory:</p>
+<ul>
+<li>Inspect <code>(array)</code> and <code>Buffer</code> allocations in
+DevTools.</li>
+<li>Review retainers to ensure buffers are attached to active message
+exchanges and are released upon acknowledgment or timeout.</li>
+</ul>
+<h3 id="5-verification-and-prevention">5. Verification and
+Prevention</h3>
+<p>Once a suspected leak vector is identified and modified in code:</p>
+<ol type="1">
+<li>Run the application under a synthetic stress loop mimicking real
+fabric operations (e.g., repeatedly generating attribute change
+notifications).</li>
+<li>Use the <code>node --expose-gc</code> flag to trigger
+<code>global.gc()</code> programmatically between test iterations.</li>
+<li>Assert that <code>process.memoryUsage().heapUsed</code> returns to
+the baseline value within an acceptable tolerance after every teardown
+phase.</li>
+</ol></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/matter.js'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/matter.js/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/matter.js/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

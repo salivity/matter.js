@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How to Convert Open SVG Paths to Matter.js Bodies - matter.js</title>
+    <meta name="description" content="Converting non-closed SVG paths into Matter.js rigid bodies requires transforming zero-area open lines into collidable geometry, as physics engines require defined mass and volume to calculate collisions. This article explains why open paths fail in stan">
+    <link rel="canonical" href="https://salivity.github.io/matter.js/article/how-to-convert-open-svg-paths-to-matter-js-bodies">
+    <link rel="search" type="application/opensearchdescription+xml" title="matter.js" href="/matter.js/opensearch.xml">
+    <link rel="icon" href="/matter.js/favicon.ico">
+    <link rel="stylesheet" href="/matter.js/css/style.css">
+    <link media="print" rel="stylesheet" href="/matter.js/css/print.css">
+    <script src="/matter.js/js/fuse.min.js"></script>
+    <script src="/matter.js/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How to Convert Open SVG Paths to Matter.js Bodies - matter.js" />
+    <meta property="og:url" content="https://salivity.github.io/matter.js/article/how-to-convert-open-svg-paths-to-matter-js-bodies" />
+    <meta property="og:image" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Converting non-closed SVG paths into Matter.js rigid bodies requires transforming zero-area open lines into collidable geometry, as physics engines require defined mass and volume to calculate collisions. This article explains why open paths fail in stan" />
+    <link rel="manifest" href="/matter.js/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/matter.js/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>matter.js</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/matter.js/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="how-to-convert-open-svg-paths-to-matterjs-bodies">How to Convert
+Open SVG Paths to Matter.js Bodies</h1>
+<p>Converting non-closed SVG paths into Matter.js rigid bodies requires
+transforming zero-area open lines into collidable geometry, as physics
+engines require defined mass and volume to calculate collisions. This
+article explains why open paths fail in standard conversion pipelines
+and outlines three practical solutions: expanding strokes into polygonal
+outlines, auto-closing the path geometry, and breaking open paths into
+chained compound bodies.</p>
+<h2 id="why-non-closed-svg-paths-fail-in-matterjs">Why Non-Closed SVG
+Paths Fail in Matter.js</h2>
+<p>Matter.js relies on closed, non-intersecting polygons to calculate
+mass, center of mass, inertia, and collision bounds. When using
+utilities like <code>Matter.Svg.pathToVertices()</code>, the engine
+samples points along the vector path to generate a vertex array, which
+is then passed to <code>Matter.Bodies.fromVertices()</code>.</p>
+<p>If an SVG path is open (such as a simple line, an arc, or an unclosed
+bezier curve), the resulting vertex array does not form a complete
+boundary. Passing an open set of points to the vertex decomposition
+algorithm (such as <code>poly-decomp.js</code>, which Matter.js uses
+under the hood) causes the triangulation to fail, producing inverted
+polygons, missing collision bounds, or completely collapsed bodies with
+zero mass.</p>
+<h2 id="method-1-stroke-expansion-recommended-for-thick-lines">Method 1:
+Stroke Expansion (Recommended for Thick Lines)</h2>
+<p>The most reliable way to convert an open path with visible thickness
+into a solid body is to convert its stroke into a closed boundary
+polygon before passing it to Matter.js.</p>
+<ol type="1">
+<li><strong>Calculate the Stroke Offset</strong>: Instead of using the
+raw path centerline, offset the path outward by half the stroke width on
+both sides (<code>+strokeWidth / 2</code> and
+<code>-strokeWidth / 2</code>).</li>
+<li><strong>Cap the Ends</strong>: Connect the parallel edges at the
+endpoints using either a flat cap (butt) or a series of rounded points
+(round cap).</li>
+<li><strong>Generate a Closed Polygon</strong>: Join the offset edges
+into a continuous, clockwise-oriented loop.</li>
+</ol>
+<p>You can automate this in JavaScript using vector libraries such as
+Paper.js (<code>path.strokeBounds</code> or path expansion tools) or
+ClipperLib. Once the path has an enclosed area,
+<code>Matter.Bodies.fromVertices()</code> will accurately generate the
+physical shape.</p>
+<h2 id="method-2-segment-chaining-via-compound-bodies">Method 2: Segment
+Chaining via Compound Bodies</h2>
+<p>If you are dealing with thin walls, terrain, or open tracks where
+stroke expansion creates unnecessary vertices, you can decompose the
+open path into a chain of overlapping convex rectangles.</p>
+<ol type="1">
+<li><strong>Sample Points Along the Path</strong>: Use the SVG DOM
+method <code>SVGPathElement.getPointAtLength()</code> to sample points
+at regular intervals along the open path.</li>
+<li><strong>Generate Segment Bodies</strong>: Iterate through the
+sampled points. For every pair of adjacent points <span
+class="math inline">\((P_1, P_2)\)</span>:
+<ul>
+<li>Calculate the distance <span class="math inline">\(d\)</span>
+between them: <span class="math inline">\(\sqrt{(x_2 - x_1)^2 + (y_2 -
+y_1)^2}\)</span>.</li>
+<li>Calculate the angle: <span class="math inline">\(\text{atan2}(y_2 -
+y_1, x_2 - x_1)\)</span>.</li>
+<li>Create a thin rectangle using
+<code>Matter.Bodies.rectangle(midX, midY, d, thickness, { angle })</code>.</li>
+</ul></li>
+<li><strong>Group into a Compound Body</strong>: Assemble all segment
+rectangles into a single rigid structure using
+<code>Matter.Body.create({ parts: [rect1, rect2, ...] })</code>.</li>
+</ol>
+<p>This approach ensures smooth collisions without requiring third-party
+vector-offsetting algorithms, making it ideal for procedural tracks and
+irregular static boundaries.</p>
+<h2 id="method-3-direct-path-closure-for-quasi-closed-shapes">Method 3:
+Direct Path Closure (For Quasi-Closed Shapes)</h2>
+<p>If the SVG path was intended to be a solid shape but simply omitted
+the terminal <code>Z</code> or <code>z</code> segment in its
+<code>d</code> attribute, you can manually force closure:</p>
+<ul>
+<li><strong>Append the Close Command</strong>: Modify the SVG string
+directly by appending a <code>Z</code> to the end of the <code>d</code>
+attribute before parsing it (<code>dAttribute + " Z"</code>).</li>
+<li><strong>Verify Non-Self-Intersection</strong>: Ensure that drawing a
+straight line from the end vertex back to the start vertex does not
+cross over existing path segments. Self-intersecting polygons will cause
+vertex decomposition errors in <code>poly-decomp.js</code>.</li>
+</ul>
+<h2 id="handling-concavity-and-polygon-decomposition">Handling Concavity
+and Polygon Decomposition</h2>
+<p>Regardless of the method used, the resulting closed vertex list will
+almost certainly be concave. Matter.js cannot handle concave shapes
+natively and requires the <code>poly-decomp</code> library to break
+shapes down into convex hulls.</p>
+<p>Ensure the decomposition library is registered to your environment
+before creating bodies:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Provide poly-decomp to Matter.js</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>Matter<span class="op">.</span><span class="at">Common</span><span class="op">.</span><span class="fu">setDecomp</span>(<span class="pp">require</span>(<span class="st">&#39;poly-decomp&#39;</span>))<span class="op">;</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="co">// Generate the rigid body from the closed vertices</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> body <span class="op">=</span> Matter<span class="op">.</span><span class="at">Bodies</span><span class="op">.</span><span class="fu">fromVertices</span>(x<span class="op">,</span> y<span class="op">,</span> vertexSets<span class="op">,</span> {</span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>    <span class="dt">isStatic</span><span class="op">:</span> <span class="kw">true</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div>
+<p>By ensuring every open path is either expanded into a boundary with
+area, chained into discrete segments, or cleanly closed with a terminal
+segment, you avoid degenerate physics states and achieve consistent
+collision detection.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/matter.js'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/matter.js/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/matter.js/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

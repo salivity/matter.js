@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Matter.js Position Resolver: How solvePosition Works - matter.js</title>
+    <meta name="description" content="In Matter.js, the Matter.Resolver.solvePosition function is responsible for resolving geometric overlap between colliding rigid bodies without introducing artificial kinetic energy into the physics simulation. Operating as the positional correction phase">
+    <link rel="canonical" href="https://salivity.github.io/matter.js/article/matter-js-position-resolver-how-solve-position-works">
+    <link rel="search" type="application/opensearchdescription+xml" title="matter.js" href="/matter.js/opensearch.xml">
+    <link rel="icon" href="/matter.js/favicon.ico">
+    <link rel="stylesheet" href="/matter.js/css/style.css">
+    <link media="print" rel="stylesheet" href="/matter.js/css/print.css">
+    <script src="/matter.js/js/fuse.min.js"></script>
+    <script src="/matter.js/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Matter.js Position Resolver: How solvePosition Works - matter.js" />
+    <meta property="og:url" content="https://salivity.github.io/matter.js/article/matter-js-position-resolver-how-solve-position-works" />
+    <meta property="og:image" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="In Matter.js, the Matter.Resolver.solvePosition function is responsible for resolving geometric overlap between colliding rigid bodies without introducing artificial kinetic energy into the physics simulation. Operating as the positional correction phase" />
+    <link rel="manifest" href="/matter.js/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/matter.js/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>matter.js</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/matter.js/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="matterjs-position-resolver-how-solveposition-works">Matter.js
+Position Resolver: How solvePosition Works</h1>
+<p>In Matter.js, the <code>Matter.Resolver.solvePosition</code> function
+is responsible for resolving geometric overlap between colliding rigid
+bodies without introducing artificial kinetic energy into the physics
+simulation. Operating as the positional correction phase of the engine's
+constraint solver, it directly displaces interpenetrating bodies along
+their collision normals over a configurable number of iterations. By
+weighting adjustments according to inverse mass, factoring in positional
+slop to prevent jitter, and applying a relaxation damping factor,
+<code>solvePosition</code> ensures stable, non-overlapping body
+arrangements even in complex scenarios like multi-body stacking.</p>
+<h3 id="collision-detection-and-penetration-depth">Collision Detection
+and Penetration Depth</h3>
+<p>Before <code>solvePosition</code> executes, the collision detection
+phase (using the Separating Axis Theorem) identifies colliding pairs and
+calculates two essential geometric values: the minimum translation
+vector (the collision normal) and the penetration depth. The penetration
+depth represents how deeply the shapes overlap along the normal axis.
+These metrics are stored on the collision pair objects and passed into
+the resolver.</p>
+<h3 id="mass-weighted-correction-distribution">Mass-Weighted Correction
+Distribution</h3>
+<p>When two bodies interpenetrate, <code>solvePosition</code> must
+decide how much each body should move to clear the overlap. Rather than
+splitting the separation distance equally, the function weights the
+displacement using each body's inverse mass:</p>
+<p><span class="math display">\[\text{Share}_A =
+\frac{\text{inverseMass}_A}{\text{inverseMass}_A +
+\text{inverseMass}_B}\]</span></p>
+<p><span class="math display">\[\text{Share}_B =
+\frac{\text{inverseMass}_B}{\text{inverseMass}_A +
+\text{inverseMass}_B}\]</span></p>
+<p>A static body has an inverse mass of zero, meaning its share of the
+correction is zero, forcing the dynamic body to move the entire
+distance. If both bodies are dynamic and possess equal mass, each body
+moves by half the required separation distance.</p>
+<h3 id="positional-slop-and-damping">Positional Slop and Damping</h3>
+<p>Directly applying the full separation distance in a single step often
+leads to overshooting, instability, and visual jitter. To counteract
+this, <code>solvePosition</code> incorporates two stabilization
+techniques:</p>
+<ul>
+<li><strong>Slop Allowance:</strong> A small threshold of allowable
+penetration is subtracted from the total penetration depth. By
+tolerating a microscopic amount of overlap, the engine avoids
+continuous, erratic adjustments for resting contacts.</li>
+<li><strong>Positional Damping (Baumgarte-style relaxation):</strong>
+The solver does not push bodies entirely out of collision in a single
+iteration. Instead, it multiplies the effective penetration by a damping
+factor (typically around 0.2 to 0.8 depending on configuration). This
+gradual pushing prevents aggressive displacement that could launch
+adjacent objects.</li>
+</ul>
+<h3 id="direct-position-and-vertex-translation">Direct Position and
+Vertex Translation</h3>
+<p>Unlike impulse solvers that adjust linear and angular velocity,
+<code>solvePosition</code> performs a direct geometric projection:</p>
+<ol type="1">
+<li>The calculated scalar correction is multiplied by the collision
+normal to produce a translation vector.</li>
+<li>The vector is applied directly to the body's coordinates
+(<code>body.position.x</code> and <code>body.position.y</code>).</li>
+<li>The body's vertices, axes, and bounding box are translated alongside
+the position to keep collision geometry synchronized.</li>
+</ol>
+<p>Because this displacement modifies position directly without
+increasing velocity, bodies do not accumulate velocity-based energy
+simply from being pushed out of overlapping states.</p>
+<h3 id="iterative-relaxation-loop">Iterative Relaxation Loop</h3>
+<p>A single push can resolve one collision while inadvertently creating
+or worsening another, particularly in stacks or densely clustered
+bodies. To achieve equilibrium, Matter.js executes
+<code>solvePosition</code> repeatedly within an iterative loop
+controlled by <code>engine.positionIterations</code>.</p>
+<p>During each iteration, the solver cycles through all active
+collisions, recalculates the remaining overlap, and applies incremental
+positional nudges. Across successive passes, the system converges toward
+a state where all interpenetrations fall below the slop threshold,
+successfully stabilizing the simulation.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/matter.js'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/matter.js/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/matter.js/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

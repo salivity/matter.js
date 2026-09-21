@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Model Ant Living Bridges with Matter.js - matter.js</title>
+    <meta name="description" content="This article explains how to simulate the emergent phenomenon of army ant living bridges in a 2D environment using the Matter.js physics engine. By representing individual ants as circular rigid bodies equipped with proximity-based self-attraction forces">
+    <link rel="canonical" href="https://salivity.github.io/matter.js/article/model-ant-living-bridges-with-matter-js">
+    <link rel="search" type="application/opensearchdescription+xml" title="matter.js" href="/matter.js/opensearch.xml">
+    <link rel="icon" href="/matter.js/favicon.ico">
+    <link rel="stylesheet" href="/matter.js/css/style.css">
+    <link media="print" rel="stylesheet" href="/matter.js/css/print.css">
+    <script src="/matter.js/js/fuse.min.js"></script>
+    <script src="/matter.js/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Model Ant Living Bridges with Matter.js - matter.js" />
+    <meta property="og:url" content="https://salivity.github.io/matter.js/article/model-ant-living-bridges-with-matter-js" />
+    <meta property="og:image" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article explains how to simulate the emergent phenomenon of army ant living bridges in a 2D environment using the Matter.js physics engine. By representing individual ants as circular rigid bodies equipped with proximity-based self-attraction forces" />
+    <link rel="manifest" href="/matter.js/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/matter.js/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>matter.js</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/matter.js/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="model-ant-living-bridges-with-matterjs">Model Ant Living Bridges
+with Matter.js</h1>
+<p>This article explains how to simulate the emergent phenomenon of army
+ant living bridges in a 2D environment using the Matter.js physics
+engine. By representing individual ants as circular rigid bodies
+equipped with proximity-based self-attraction forces and dynamic
+constraints, you can create a decentralized multi-agent system where
+static gaps are spanned automatically without centralized path
+planning.</p>
+<h2 id="the-underlying-mechanism">The Underlying Mechanism</h2>
+<p>Ant living bridges emerge from two basic behaviors: attraction toward
+neighboring ants and physical interlocking when tension or proximity
+reaches a specific threshold. In Matter.js, this translates to:</p>
+<ol type="1">
+<li><strong>Agent Bodies</strong>: Independent circular bodies subject
+to gravity and collision.</li>
+<li><strong>Attraction Field</strong>: A custom force applied during
+every engine update tick that pulls nearby ants toward one another.</li>
+<li><strong>Dynamic Constraints</strong>: Distance-based elastic links
+(<code>Matter.Constraint</code>) generated dynamically when ants are
+close enough to latch on, and severed when tensile stress becomes
+excessive.</li>
+</ol>
+<h2 id="step-1-environment-and-anchor-setup">Step 1: Environment and
+Anchor Setup</h2>
+<p>Before introducing ant agents, define the physical boundaries and the
+gap that needs to be bridged.</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> { Engine<span class="op">,</span> Render<span class="op">,</span> Runner<span class="op">,</span> Bodies<span class="op">,</span> Composite<span class="op">,</span> Constraint<span class="op">,</span> Vector<span class="op">,</span> Body<span class="op">,</span> Events } <span class="op">=</span> Matter<span class="op">;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> engine <span class="op">=</span> Engine<span class="op">.</span><span class="fu">create</span>()<span class="op">;</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> world <span class="op">=</span> engine<span class="op">.</span><span class="at">world</span><span class="op">;</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a><span class="co">// Create anchors representing cliffs or branches on either side of a gap</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> leftCliff <span class="op">=</span> Bodies<span class="op">.</span><span class="fu">rectangle</span>(<span class="dv">150</span><span class="op">,</span> <span class="dv">300</span><span class="op">,</span> <span class="dv">200</span><span class="op">,</span> <span class="dv">40</span><span class="op">,</span> { <span class="dt">isStatic</span><span class="op">:</span> <span class="kw">true</span> })<span class="op">;</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> rightCliff <span class="op">=</span> Bodies<span class="op">.</span><span class="fu">rectangle</span>(<span class="dv">650</span><span class="op">,</span> <span class="dv">300</span><span class="op">,</span> <span class="dv">200</span><span class="op">,</span> <span class="dv">40</span><span class="op">,</span> { <span class="dt">isStatic</span><span class="op">:</span> <span class="kw">true</span> })<span class="op">;</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>Composite<span class="op">.</span><span class="fu">add</span>(world<span class="op">,</span> [leftCliff<span class="op">,</span> rightCliff])<span class="op">;</span></span></code></pre></div>
+<h2 id="step-2-creating-ant-nodes">Step 2: Creating Ant Nodes</h2>
+<p>Ants should be modeled as small circular bodies with moderate
+friction and restitution to avoid excessive bouncing. Assign a custom
+data container to track each ant's active connections.</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">createAnt</span>(x<span class="op">,</span> y) {</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> ant <span class="op">=</span> Bodies<span class="op">.</span><span class="fu">circle</span>(x<span class="op">,</span> y<span class="op">,</span> <span class="dv">8</span><span class="op">,</span> {</span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>    <span class="dt">density</span><span class="op">:</span> <span class="fl">0.002</span><span class="op">,</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>    <span class="dt">friction</span><span class="op">:</span> <span class="fl">0.8</span><span class="op">,</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>    <span class="dt">frictionAir</span><span class="op">:</span> <span class="fl">0.05</span><span class="op">,</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>    <span class="dt">restitution</span><span class="op">:</span> <span class="fl">0.1</span><span class="op">,</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>    <span class="dt">render</span><span class="op">:</span> { <span class="dt">fillStyle</span><span class="op">:</span> <span class="st">&#39;#8b4513&#39;</span> }</span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>  })<span class="op">;</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>  <span class="co">// Track connected constraints and max capacity</span></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>  ant<span class="op">.</span><span class="at">plugin</span> <span class="op">=</span> {</span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>    <span class="dt">connections</span><span class="op">:</span> <span class="kw">new</span> <span class="bu">Set</span>()<span class="op">,</span></span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>    <span class="dt">maxConnections</span><span class="op">:</span> <span class="dv">3</span></span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a>  }<span class="op">;</span></span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a>  <span class="cf">return</span> ant<span class="op">;</span></span>
+<span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb2-18"><a href="#cb2-18" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-19"><a href="#cb2-19" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> ants <span class="op">=</span> []<span class="op">;</span></span>
+<span id="cb2-20"><a href="#cb2-20" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> (<span class="kw">let</span> i <span class="op">=</span> <span class="dv">0</span><span class="op">;</span> i <span class="op">&lt;</span> <span class="dv">60</span><span class="op">;</span> i<span class="op">++</span>) {</span>
+<span id="cb2-21"><a href="#cb2-21" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> ant <span class="op">=</span> <span class="fu">createAnt</span>(<span class="dv">100</span> <span class="op">+</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">random</span>() <span class="op">*</span> <span class="dv">50</span><span class="op">,</span> <span class="dv">200</span> <span class="op">+</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">random</span>() <span class="op">*</span> <span class="dv">50</span>)<span class="op">;</span></span>
+<span id="cb2-22"><a href="#cb2-22" aria-hidden="true" tabindex="-1"></a>  ants<span class="op">.</span><span class="fu">push</span>(ant)<span class="op">;</span></span>
+<span id="cb2-23"><a href="#cb2-23" aria-hidden="true" tabindex="-1"></a>  Composite<span class="op">.</span><span class="fu">add</span>(world<span class="op">,</span> ant)<span class="op">;</span></span>
+<span id="cb2-24"><a href="#cb2-24" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<h2 id="step-3-implementing-mutual-attraction">Step 3: Implementing
+Mutual Attraction</h2>
+<p>To simulate swarm cohesion and pheromone attraction, iterate through
+pairs of ants within a <code>beforeUpdate</code> event. Apply an
+attractive force if the distance between them falls within a sensing
+radius.</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> SENSING_RADIUS <span class="op">=</span> <span class="dv">60</span><span class="op">;</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> ATTRACTION_STRENGTH <span class="op">=</span> <span class="fl">0.00005</span><span class="op">;</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>Events<span class="op">.</span><span class="fu">on</span>(engine<span class="op">,</span> <span class="st">&#39;beforeUpdate&#39;</span><span class="op">,</span> () <span class="kw">=&gt;</span> {</span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>  <span class="cf">for</span> (<span class="kw">let</span> i <span class="op">=</span> <span class="dv">0</span><span class="op">;</span> i <span class="op">&lt;</span> ants<span class="op">.</span><span class="at">length</span><span class="op">;</span> i<span class="op">++</span>) {</span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> (<span class="kw">let</span> j <span class="op">=</span> i <span class="op">+</span> <span class="dv">1</span><span class="op">;</span> j <span class="op">&lt;</span> ants<span class="op">.</span><span class="at">length</span><span class="op">;</span> j<span class="op">++</span>) {</span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>      <span class="kw">const</span> antA <span class="op">=</span> ants[i]<span class="op">;</span></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>      <span class="kw">const</span> antB <span class="op">=</span> ants[j]<span class="op">;</span></span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a>      <span class="kw">const</span> delta <span class="op">=</span> Vector<span class="op">.</span><span class="fu">sub</span>(antB<span class="op">.</span><span class="at">position</span><span class="op">,</span> antA<span class="op">.</span><span class="at">position</span>)<span class="op">;</span></span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a>      <span class="kw">const</span> distance <span class="op">=</span> Vector<span class="op">.</span><span class="fu">magnitude</span>(delta)<span class="op">;</span></span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a>      <span class="cf">if</span> (distance <span class="op">&gt;</span> <span class="dv">0</span> <span class="op">&amp;&amp;</span> distance <span class="op">&lt;</span> SENSING_RADIUS) {</span>
+<span id="cb3-14"><a href="#cb3-14" aria-hidden="true" tabindex="-1"></a>        <span class="kw">const</span> forceMagnitude <span class="op">=</span> ATTRACTION_STRENGTH <span class="op">*</span> (<span class="dv">1</span> <span class="op">-</span> distance <span class="op">/</span> SENSING_RADIUS)<span class="op">;</span></span>
+<span id="cb3-15"><a href="#cb3-15" aria-hidden="true" tabindex="-1"></a>        <span class="kw">const</span> force <span class="op">=</span> Vector<span class="op">.</span><span class="fu">mult</span>(Vector<span class="op">.</span><span class="fu">normalise</span>(delta)<span class="op">,</span> forceMagnitude)<span class="op">;</span></span>
+<span id="cb3-16"><a href="#cb3-16" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-17"><a href="#cb3-17" aria-hidden="true" tabindex="-1"></a>        Body<span class="op">.</span><span class="fu">applyForce</span>(antA<span class="op">,</span> antA<span class="op">.</span><span class="at">position</span><span class="op">,</span> force)<span class="op">;</span></span>
+<span id="cb3-18"><a href="#cb3-18" aria-hidden="true" tabindex="-1"></a>        Body<span class="op">.</span><span class="fu">applyForce</span>(antB<span class="op">,</span> antB<span class="op">.</span><span class="at">position</span><span class="op">,</span> Vector<span class="op">.</span><span class="fu">neg</span>(force))<span class="op">;</span></span>
+<span id="cb3-19"><a href="#cb3-19" aria-hidden="true" tabindex="-1"></a>      }</span>
+<span id="cb3-20"><a href="#cb3-20" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb3-21"><a href="#cb3-21" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb3-22"><a href="#cb3-22" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div>
+<h2 id="step-4-dynamically-forming-structural-constraints">Step 4:
+Dynamically Forming Structural Constraints</h2>
+<p>When two ants come into physical proximity and have spare connection
+slots, link them using a <code>Matter.Constraint</code>. This mimics
+ants grasping each other's legs and mandibles to bear structural
+loads.</p>
+<div class="sourceCode" id="cb4"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> LATCH_DISTANCE <span class="op">=</span> <span class="dv">20</span><span class="op">;</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>Events<span class="op">.</span><span class="fu">on</span>(engine<span class="op">,</span> <span class="st">&#39;beforeUpdate&#39;</span><span class="op">,</span> () <span class="kw">=&gt;</span> {</span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>  <span class="cf">for</span> (<span class="kw">let</span> i <span class="op">=</span> <span class="dv">0</span><span class="op">;</span> i <span class="op">&lt;</span> ants<span class="op">.</span><span class="at">length</span><span class="op">;</span> i<span class="op">++</span>) {</span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> antA <span class="op">=</span> ants[i]<span class="op">;</span></span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (antA<span class="op">.</span><span class="at">plugin</span><span class="op">.</span><span class="at">connections</span><span class="op">.</span><span class="at">size</span> <span class="op">&gt;=</span> antA<span class="op">.</span><span class="at">plugin</span><span class="op">.</span><span class="at">maxConnections</span>) <span class="cf">continue</span><span class="op">;</span></span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> (<span class="kw">let</span> j <span class="op">=</span> i <span class="op">+</span> <span class="dv">1</span><span class="op">;</span> j <span class="op">&lt;</span> ants<span class="op">.</span><span class="at">length</span><span class="op">;</span> j<span class="op">++</span>) {</span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a>      <span class="kw">const</span> antB <span class="op">=</span> ants[j]<span class="op">;</span></span>
+<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a>      <span class="cf">if</span> (antB<span class="op">.</span><span class="at">plugin</span><span class="op">.</span><span class="at">connections</span><span class="op">.</span><span class="at">size</span> <span class="op">&gt;=</span> antB<span class="op">.</span><span class="at">plugin</span><span class="op">.</span><span class="at">maxConnections</span>) <span class="cf">continue</span><span class="op">;</span></span>
+<span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-12"><a href="#cb4-12" aria-hidden="true" tabindex="-1"></a>      <span class="kw">const</span> distance <span class="op">=</span> Vector<span class="op">.</span><span class="fu">magnitude</span>(Vector<span class="op">.</span><span class="fu">sub</span>(antB<span class="op">.</span><span class="at">position</span><span class="op">,</span> antA<span class="op">.</span><span class="at">position</span>))<span class="op">;</span></span>
+<span id="cb4-13"><a href="#cb4-13" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-14"><a href="#cb4-14" aria-hidden="true" tabindex="-1"></a>      <span class="cf">if</span> (distance <span class="op">&lt;=</span> LATCH_DISTANCE) {</span>
+<span id="cb4-15"><a href="#cb4-15" aria-hidden="true" tabindex="-1"></a>        <span class="co">// Prevent duplicate constraints between identical pairs</span></span>
+<span id="cb4-16"><a href="#cb4-16" aria-hidden="true" tabindex="-1"></a>        <span class="kw">const</span> alreadyConnected <span class="op">=</span> [<span class="op">...</span>antA<span class="op">.</span><span class="at">plugin</span><span class="op">.</span><span class="at">connections</span>]<span class="op">.</span><span class="fu">some</span>(</span>
+<span id="cb4-17"><a href="#cb4-17" aria-hidden="true" tabindex="-1"></a>          c <span class="kw">=&gt;</span> c<span class="op">.</span><span class="at">bodyA</span> <span class="op">===</span> antB <span class="op">||</span> c<span class="op">.</span><span class="at">bodyB</span> <span class="op">===</span> antB</span>
+<span id="cb4-18"><a href="#cb4-18" aria-hidden="true" tabindex="-1"></a>        )<span class="op">;</span></span>
+<span id="cb4-19"><a href="#cb4-19" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-20"><a href="#cb4-20" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> (<span class="op">!</span>alreadyConnected) {</span>
+<span id="cb4-21"><a href="#cb4-21" aria-hidden="true" tabindex="-1"></a>          <span class="kw">const</span> joint <span class="op">=</span> Constraint<span class="op">.</span><span class="fu">create</span>({</span>
+<span id="cb4-22"><a href="#cb4-22" aria-hidden="true" tabindex="-1"></a>            <span class="dt">bodyA</span><span class="op">:</span> antA<span class="op">,</span></span>
+<span id="cb4-23"><a href="#cb4-23" aria-hidden="true" tabindex="-1"></a>            <span class="dt">bodyB</span><span class="op">:</span> antB<span class="op">,</span></span>
+<span id="cb4-24"><a href="#cb4-24" aria-hidden="true" tabindex="-1"></a>            <span class="dt">length</span><span class="op">:</span> distance<span class="op">,</span></span>
+<span id="cb4-25"><a href="#cb4-25" aria-hidden="true" tabindex="-1"></a>            <span class="dt">stiffness</span><span class="op">:</span> <span class="fl">0.8</span><span class="op">,</span></span>
+<span id="cb4-26"><a href="#cb4-26" aria-hidden="true" tabindex="-1"></a>            <span class="dt">damping</span><span class="op">:</span> <span class="fl">0.1</span><span class="op">,</span></span>
+<span id="cb4-27"><a href="#cb4-27" aria-hidden="true" tabindex="-1"></a>            <span class="dt">render</span><span class="op">:</span> { <span class="dt">strokeStyle</span><span class="op">:</span> <span class="st">&#39;#5c2c16&#39;</span><span class="op">,</span> <span class="dt">lineWidth</span><span class="op">:</span> <span class="dv">2</span> }</span>
+<span id="cb4-28"><a href="#cb4-28" aria-hidden="true" tabindex="-1"></a>          })<span class="op">;</span></span>
+<span id="cb4-29"><a href="#cb4-29" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-30"><a href="#cb4-30" aria-hidden="true" tabindex="-1"></a>          antA<span class="op">.</span><span class="at">plugin</span><span class="op">.</span><span class="at">connections</span><span class="op">.</span><span class="fu">add</span>(joint)<span class="op">;</span></span>
+<span id="cb4-31"><a href="#cb4-31" aria-hidden="true" tabindex="-1"></a>          antB<span class="op">.</span><span class="at">plugin</span><span class="op">.</span><span class="at">connections</span><span class="op">.</span><span class="fu">add</span>(joint)<span class="op">;</span></span>
+<span id="cb4-32"><a href="#cb4-32" aria-hidden="true" tabindex="-1"></a>          Composite<span class="op">.</span><span class="fu">add</span>(world<span class="op">,</span> joint)<span class="op">;</span></span>
+<span id="cb4-33"><a href="#cb4-33" aria-hidden="true" tabindex="-1"></a>        }</span>
+<span id="cb4-34"><a href="#cb4-34" aria-hidden="true" tabindex="-1"></a>      }</span>
+<span id="cb4-35"><a href="#cb4-35" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb4-36"><a href="#cb4-36" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb4-37"><a href="#cb4-37" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div>
+<h2 id="step-5-handling-tension-and-structural-failure">Step 5: Handling
+Tension and Structural Failure</h2>
+<p>Living bridges are non-rigid structures that deform under stress. If
+the load on any given link exceeds the ants' physical grip capacity,
+break the constraint by removing it from the world.</p>
+<div class="sourceCode" id="cb5"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> BREAKING_STRETCH_RATIO <span class="op">=</span> <span class="fl">1.6</span><span class="op">;</span></span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a>Events<span class="op">.</span><span class="fu">on</span>(engine<span class="op">,</span> <span class="st">&#39;afterUpdate&#39;</span><span class="op">,</span> () <span class="kw">=&gt;</span> {</span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> constraints <span class="op">=</span> Composite<span class="op">.</span><span class="fu">allConstraints</span>(world)<span class="op">;</span></span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a>  <span class="cf">for</span> (<span class="kw">let</span> joint <span class="kw">of</span> constraints) {</span>
+<span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (<span class="op">!</span>joint<span class="op">.</span><span class="at">bodyA</span> <span class="op">||</span> <span class="op">!</span>joint<span class="op">.</span><span class="at">bodyB</span>) <span class="cf">continue</span><span class="op">;</span></span>
+<span id="cb5-8"><a href="#cb5-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-9"><a href="#cb5-9" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> currentDistance <span class="op">=</span> Vector<span class="op">.</span><span class="fu">magnitude</span>(</span>
+<span id="cb5-10"><a href="#cb5-10" aria-hidden="true" tabindex="-1"></a>      Vector<span class="op">.</span><span class="fu">sub</span>(joint<span class="op">.</span><span class="at">bodyB</span><span class="op">.</span><span class="at">position</span><span class="op">,</span> joint<span class="op">.</span><span class="at">bodyA</span><span class="op">.</span><span class="at">position</span>)</span>
+<span id="cb5-11"><a href="#cb5-11" aria-hidden="true" tabindex="-1"></a>    )<span class="op">;</span></span>
+<span id="cb5-12"><a href="#cb5-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-13"><a href="#cb5-13" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (currentDistance <span class="op">&gt;</span> joint<span class="op">.</span><span class="at">length</span> <span class="op">*</span> BREAKING_STRETCH_RATIO) {</span>
+<span id="cb5-14"><a href="#cb5-14" aria-hidden="true" tabindex="-1"></a>      <span class="cf">if</span> (joint<span class="op">.</span><span class="at">bodyA</span><span class="op">.</span><span class="at">plugin</span>) joint<span class="op">.</span><span class="at">bodyA</span><span class="op">.</span><span class="at">plugin</span><span class="op">.</span><span class="at">connections</span><span class="op">.</span><span class="fu">delete</span>(joint)<span class="op">;</span></span>
+<span id="cb5-15"><a href="#cb5-15" aria-hidden="true" tabindex="-1"></a>      <span class="cf">if</span> (joint<span class="op">.</span><span class="at">bodyB</span><span class="op">.</span><span class="at">plugin</span>) joint<span class="op">.</span><span class="at">bodyB</span><span class="op">.</span><span class="at">plugin</span><span class="op">.</span><span class="at">connections</span><span class="op">.</span><span class="fu">delete</span>(joint)<span class="op">;</span></span>
+<span id="cb5-16"><a href="#cb5-16" aria-hidden="true" tabindex="-1"></a>      Composite<span class="op">.</span><span class="fu">remove</span>(world<span class="op">,</span> joint)<span class="op">;</span></span>
+<span id="cb5-17"><a href="#cb5-17" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb5-18"><a href="#cb5-18" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb5-19"><a href="#cb5-19" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div>
+<h2 id="tuning-bridge-performance">Tuning Bridge Performance</h2>
+<p>Achieving a stable span requires balancing attraction against
+gravity:</p>
+<ul>
+<li><strong>Stiffness</strong>: Lower constraint stiffness (0.4 to 0.7)
+produces realistic catenary sagging before the structure settles.</li>
+<li><strong>Friction Air</strong>: Increasing <code>frictionAir</code>
+stabilizes excessive oscillatory energy as more nodes connect.</li>
+<li><strong>Max Connections</strong>: Limiting links per agent to 2–4
+ensures string-like linear structures rather than dense, heavy clusters
+that collapse under their own weight.</li>
+</ul></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/matter.js'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/matter.js/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/matter.js/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

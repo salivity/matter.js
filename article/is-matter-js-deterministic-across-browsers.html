@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Is Matter.js Deterministic Across Browsers? - matter.js</title>
+    <meta name="description" content="Matter.js is not fully deterministic across different web browsers, devices, or operating systems. While the engine can produce repeatable results within a single, controlled environment using a strictly fixed time step, subtle differences in how underly">
+    <link rel="canonical" href="https://salivity.github.io/matter.js/article/is-matter-js-deterministic-across-browsers">
+    <link rel="search" type="application/opensearchdescription+xml" title="matter.js" href="/matter.js/opensearch.xml">
+    <link rel="icon" href="/matter.js/favicon.ico">
+    <link rel="stylesheet" href="/matter.js/css/style.css">
+    <link media="print" rel="stylesheet" href="/matter.js/css/print.css">
+    <script src="/matter.js/js/fuse.min.js"></script>
+    <script src="/matter.js/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Is Matter.js Deterministic Across Browsers? - matter.js" />
+    <meta property="og:url" content="https://salivity.github.io/matter.js/article/is-matter-js-deterministic-across-browsers" />
+    <meta property="og:image" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Matter.js is not fully deterministic across different web browsers, devices, or operating systems. While the engine can produce repeatable results within a single, controlled environment using a strictly fixed time step, subtle differences in how underly" />
+    <link rel="manifest" href="/matter.js/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/matter.js/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>matter.js</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/matter.js/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="is-matterjs-deterministic-across-browsers">Is Matter.js
+Deterministic Across Browsers?</h1>
+<p>Matter.js is not fully deterministic across different web browsers,
+devices, or operating systems. While the engine can produce repeatable
+results within a single, controlled environment using a strictly fixed
+time step, subtle differences in how underlying JavaScript engines
+handle floating-point arithmetic and optimizations inevitably cause
+simulations to diverge over time. This article explains the technical
+reasons behind these discrepancies, why cross-browser determinism fails
+in Matter.js, and how developers can manage physics state
+synchronization in multi-client environments.</p>
+<h2 id="the-core-problem-floating-point-math-and-javascript-engines">The
+Core Problem: Floating-Point Math and JavaScript Engines</h2>
+<p>Determinism in a physics engine requires that identical inputs and
+starting conditions yield identical outputs on every run. Matter.js
+relies on standard JavaScript 64-bit floating-point numbers (IEEE 754
+double precision). Although the IEEE 754 standard defines how numbers
+should be represented, it does not guarantee bit-for-bit identical
+results across different implementations.</p>
+<p>Different browsers use different JavaScript execution engines:</p>
+<ul>
+<li><strong>V8</strong> (Google Chrome, Microsoft Edge, Node.js)</li>
+<li><strong>SpiderMonkey</strong> (Mozilla Firefox)</li>
+<li><strong>JavaScriptCore</strong> (Apple Safari)</li>
+</ul>
+<p>Each engine employs its own Just-In-Time (JIT) compiler, instruction
+scheduling, and math optimization strategies. Furthermore, underlying
+CPU architectures (such as x86_64 versus ARM) handle low-level
+floating-point operations—such as fused multiply-add (FMA)
+instructions—with slight variations. A difference at the seventeenth
+decimal place in a single vector calculation will quickly alter
+collision resolutions, causing simulations running side by side to drift
+apart rapidly.</p>
+<h2 id="sequential-solvers-and-the-butterfly-effect">Sequential Solvers
+and the Butterfly Effect</h2>
+<p>Matter.js uses an iterative constraint and collision solver. At each
+tick, the engine resolves overlapping bodies, friction, and joint
+constraints through sequential approximations.</p>
+<p>Because rigid-body physics is inherently chaotic, even infinitesimal
+micro-variations produce an exponential divergence:</p>
+<ol type="1">
+<li>Two identical bodies collide at a microscopic angle difference
+(e.g., <span class="math inline">\(1 \times 10^{-15}\)</span>
+radians).</li>
+<li>The solver calculates slightly different contact normal forces.</li>
+<li>The resulting velocities and trajectories deviate.</li>
+<li>Subsequent collisions occur at different ticks or do not occur at
+all.</li>
+</ol>
+<p>Within a few seconds of active simulation, two clients running
+identical code will display completely different object placements.</p>
+<h2 id="delta-time-and-frame-rate-coupling">Delta Time and Frame Rate
+Coupling</h2>
+<p>By default, physics engines running in a browser often tie their
+updates to <code>requestAnimationFrame</code>, which yields variable
+delta times based on display refresh rates (60Hz, 120Hz, 144Hz) and
+system load.</p>
+<p>Even if you configure Matter.js to use a fixed time step
+(<code>Engine.update(engine, fixedDelta)</code>), you only solve the
+temporal consistency problem on a single machine. The fixed time step
+removes frame-rate dependence, but it does not eliminate the
+cross-engine floating-point divergence.</p>
+<h2 id="how-to-handle-multi-client-physics-with-matterjs">How to Handle
+Multi-Client Physics with Matter.js</h2>
+<p>Because full cross-browser determinism is unachievable with native
+Matter.js, peer-to-peer lockstep models (where only user inputs are
+transmitted across clients) will fail. Developers must instead implement
+alternative architectures:</p>
+<h3 id="1-authoritative-server-architecture">1. Authoritative Server
+Architecture</h3>
+<p>Run a single instance of Matter.js on a headless server (such as
+Node.js). The server handles all simulation ticks, collision events, and
+movement logic. The server then broadcasts authoritative position,
+angle, and velocity snapshots to connected clients at a set tick
+rate.</p>
+<h3 id="2-client-side-prediction-and-interpolation">2. Client-Side
+Prediction and Interpolation</h3>
+<p>Clients receive periodic state updates from the server and
+interpolate between them to render smooth motion. For responsive player
+controls, clients can simulate local movement immediately and correct
+errors whenever an authoritative server update conflicts with local
+predictions.</p>
+<h3 id="3-integer-or-fixed-point-alternatives">3. Integer or Fixed-Point
+Alternatives</h3>
+<p>If true lockstep determinism is an absolute requirement across
+browsers, developers must use a physics engine built specifically around
+deterministic fixed-point mathematics instead of native floating-point
+math. Matter.js does not natively support fixed-point calculations.</p>
+<h2 id="summary">Summary</h2>
+<p>Matter.js cannot achieve bit-level or long-term behavioral
+determinism across different browsers. Variations in JavaScript engines,
+CPU architectures, and non-deterministic floating-point math will
+invariably cause isolated simulations to desynchronize. Applications
+requiring identical physics across multiple clients should rely on an
+authoritative server to distribute physics states rather than relying on
+deterministic client-side execution.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/matter.js'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/matter.js/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/matter.js/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Modular Game Engine with Matter.js Architecture - matter.js</title>
+    <meta name="description" content="This article outlines how to design a decoupled, maintainable game engine architecture by cleanly separating the rendering pipeline, gameplay logic, and Matter.js 2D physics. By using a component-based model or Entity-Component-System (ECS) alongside an">
+    <link rel="canonical" href="https://salivity.github.io/matter.js/article/modular-game-engine-with-matter-js-architecture">
+    <link rel="search" type="application/opensearchdescription+xml" title="matter.js" href="/matter.js/opensearch.xml">
+    <link rel="icon" href="/matter.js/favicon.ico">
+    <link rel="stylesheet" href="/matter.js/css/style.css">
+    <link media="print" rel="stylesheet" href="/matter.js/css/print.css">
+    <script src="/matter.js/js/fuse.min.js"></script>
+    <script src="/matter.js/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Modular Game Engine with Matter.js Architecture - matter.js" />
+    <meta property="og:url" content="https://salivity.github.io/matter.js/article/modular-game-engine-with-matter-js-architecture" />
+    <meta property="og:image" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article outlines how to design a decoupled, maintainable game engine architecture by cleanly separating the rendering pipeline, gameplay logic, and Matter.js 2D physics. By using a component-based model or Entity-Component-System (ECS) alongside an" />
+    <link rel="manifest" href="/matter.js/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/matter.js/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>matter.js</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/matter.js/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="modular-game-engine-with-matterjs-architecture">Modular Game
+Engine with Matter.js Architecture</h1>
+<p>This article outlines how to design a decoupled, maintainable game
+engine architecture by cleanly separating the rendering pipeline,
+gameplay logic, and Matter.js 2D physics. By using a component-based
+model or Entity-Component-System (ECS) alongside an orchestration loop
+with a fixed-timestep update, you can prevent tight coupling, simplify
+unit testing, and allow individual subsystems to be swapped or
+refactored without breaking core functionality.</p>
+<h2 id="core-architectural-separation">Core Architectural
+Separation</h2>
+<p>A modular architecture isolates the engine into three distinct
+domains, each with a single responsibility:</p>
+<ol type="1">
+<li><strong>Gameplay Logic (The State Manager):</strong> Contains entity
+definitions, state machines, rules, combat mechanics, and user input
+handling. It operates entirely on abstract data and remains completely
+unaware of canvas contexts, sprites, or physics engine constraints.</li>
+<li><strong>Physics Layer (Matter.js Wrapper):</strong> Manages rigid
+bodies, collision listeners, constraints, and numerical step
+integration. It consumes commands from the logic layer (such as forces,
+impulses, or linear velocity requests) and outputs updated spatial data
+(positions and angles).</li>
+<li><strong>Rendering Layer (The Visuals):</strong> A passive consumer
+of state. Whether using HTML5 Canvas 2D, PixiJS, or WebGL, this layer
+reads position and orientation data and renders sprites or geometries.
+It never modifies entity state or triggers physics updates.</li>
+</ol>
+<h2 id="decoupling-via-shared-data-components">Decoupling via Shared
+Data Components</h2>
+<p>Directly referencing Matter.js bodies within visual classes or
+gameplay classes creates spaghetti code. Instead, bind them using
+unified component containers or pure data objects.</p>
+<ul>
+<li><strong>Transform Component:</strong> Contains primitive values
+(<code>x</code>, <code>y</code>, <code>rotation</code>).</li>
+<li><strong>Physics Component:</strong> Holds a reference to the
+<code>Matter.Body</code> instance and flags (e.g., collision categories,
+mass).</li>
+<li><strong>Render Component:</strong> Holds visual assets (textures,
+sprite references, tint, z-index).</li>
+<li><strong>Logic/Behavior Component:</strong> Holds game-specific
+attributes (health, inventory, movement speed, AI state).</li>
+</ul>
+<p>An Entity acts merely as an identifier (e.g., an ID integer) that
+links these components together.</p>
+<h2 id="the-game-loop-and-update-pipeline">The Game Loop and Update
+Pipeline</h2>
+<p>To maintain deterministic behavior and prevent visual stuttering,
+separate the physics and logic execution from the display refresh rate.
+Logic and Matter.js should run on a fixed timestep, while rendering runs
+on the variable <code>requestAnimationFrame</code> cycle.</p>
+<pre><code>       +---------------------------------------------+
+       |             Input Subsystem                 |
+       +---------------------------------------------+
+                              |
+                              v
+       +---------------------------------------------+
+       |            Logic Update (Fixed)             |
+       |  - Process input and state changes          |
+       |  - Apply desired forces/velocities          |
+       +---------------------------------------------+
+                              |
+                              v
+       +---------------------------------------------+
+       |         Physics Update (Matter.js)          |
+       |  - Matter.Engine.update(engine, fixedDelta) |
+       |  - Resolve collisions &amp; constraints         |
+       +---------------------------------------------+
+                              |
+                              v
+       +---------------------------------------------+
+       |            Synchronization Step             |
+       |  - Copy Body.position/angle to Transform    |
+       +---------------------------------------------+
+                              |
+                              v
+       +---------------------------------------------+
+       |           Render Update (Variable)          |
+       |  - Interpolate transforms (optional)        |
+       |  - Draw sprites using Transform data        |
+       +---------------------------------------------+</code></pre>
+<h3 id="1-process-inputs-and-logic">1. Process Inputs and Logic</h3>
+<p>The logic loop reads buffered user inputs, evaluates entity states,
+and applies intent to the components. If an entity needs to jump, the
+logic layer does not manipulate pixel coordinates directly; it
+dispatches an impulse request to the physics component.</p>
+<h3 id="2-step-the-physics-engine">2. Step the Physics Engine</h3>
+<p>Execute Matter.js using a fixed delta time:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a>Matter<span class="op">.</span><span class="at">Engine</span><span class="op">.</span><span class="fu">update</span>(matterEngine<span class="op">,</span> fixedDeltaTime)<span class="op">;</span></span></code></pre></div>
+<p>Disable Matter.js's built-in DOM runner and built-in renderer
+(<code>Matter.Render</code>). Running Matter.js headless ensures total
+control over the execution order and eliminates reliance on DOM
+manipulation.</p>
+<h3 id="3-synchronize-state">3. Synchronize State</h3>
+<p>After the physics engine finishes its calculation step, an adapter
+system reads the updated <code>Matter.Body.position</code> and
+<code>Matter.Body.angle</code> values and copies them into the entity's
+<code>Transform</code> component.</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> PhysicsSyncSystem {</span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">update</span>(entities) {</span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> (<span class="kw">const</span> entity <span class="kw">of</span> entities) {</span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>      <span class="cf">if</span> (entity<span class="op">.</span><span class="at">physics</span> <span class="op">&amp;&amp;</span> entity<span class="op">.</span><span class="at">transform</span>) {</span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>        entity<span class="op">.</span><span class="at">transform</span><span class="op">.</span><span class="at">x</span> <span class="op">=</span> entity<span class="op">.</span><span class="at">physics</span><span class="op">.</span><span class="at">body</span><span class="op">.</span><span class="at">position</span><span class="op">.</span><span class="at">x</span><span class="op">;</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>        entity<span class="op">.</span><span class="at">transform</span><span class="op">.</span><span class="at">y</span> <span class="op">=</span> entity<span class="op">.</span><span class="at">physics</span><span class="op">.</span><span class="at">body</span><span class="op">.</span><span class="at">position</span><span class="op">.</span><span class="at">y</span><span class="op">;</span></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>        entity<span class="op">.</span><span class="at">transform</span><span class="op">.</span><span class="at">rotation</span> <span class="op">=</span> entity<span class="op">.</span><span class="at">physics</span><span class="op">.</span><span class="at">body</span><span class="op">.</span><span class="at">angle</span><span class="op">;</span></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>      }</span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<h3 id="4-render-the-frame">4. Render the Frame</h3>
+<p>The rendering system queries all entities with both a
+<code>Transform</code> and a <code>Render</code> component. It maps the
+entity's position directly to screen space. For higher fidelity, you can
+interpolate the visual positions between the previous and current
+physics ticks using the remaining frame accumulation time.</p>
+<h2 id="handling-collisions-cleanly">Handling Collisions Cleanly</h2>
+<p>Matter.js dispatches collision events (<code>collisionStart</code>,
+<code>collisionActive</code>, <code>collisionEnd</code>). Do not place
+game logic inside Matter.js event listeners. Instead, translate raw
+physics collisions into domain events.</p>
+<p>When a collision occurs, read the entity IDs stored in the
+<code>body.userData</code> property, generate an application-level event
+(such as <code>BulletHitPlayerEvent</code>), and queue it. The gameplay
+logic system processes this queue during its next cycle. This guarantees
+that gameplay actions (like entity destruction or score updates) occur
+within the logic step, avoiding state corruption in the middle of a
+Matter.js physics step.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/matter.js'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/matter.js/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/matter.js/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

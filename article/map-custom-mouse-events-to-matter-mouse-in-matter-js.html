@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Map Custom Mouse Events to Matter.Mouse in Matter.js - matter.js</title>
+    <meta name="description" content="This guide provides a straightforward method for mapping custom DOM mouse or pointer events to a Matter.Mouse instance in Matter.js. By intercepting events from an external DOM layer—such as a UI overlay, an SVG viewport, or an offscreen target—and m">
+    <link rel="canonical" href="https://salivity.github.io/matter.js/article/map-custom-mouse-events-to-matter-mouse-in-matter-js">
+    <link rel="search" type="application/opensearchdescription+xml" title="matter.js" href="/matter.js/opensearch.xml">
+    <link rel="icon" href="/matter.js/favicon.ico">
+    <link rel="stylesheet" href="/matter.js/css/style.css">
+    <link media="print" rel="stylesheet" href="/matter.js/css/print.css">
+    <script src="/matter.js/js/fuse.min.js"></script>
+    <script src="/matter.js/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Map Custom Mouse Events to Matter.Mouse in Matter.js - matter.js" />
+    <meta property="og:url" content="https://salivity.github.io/matter.js/article/map-custom-mouse-events-to-matter-mouse-in-matter-js" />
+    <meta property="og:image" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This guide provides a straightforward method for mapping custom DOM mouse or pointer events to a Matter.Mouse instance in Matter.js. By intercepting events from an external DOM layer—such as a UI overlay, an SVG viewport, or an offscreen target—and m" />
+    <link rel="manifest" href="/matter.js/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/matter.js/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>matter.js</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/matter.js/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="map-custom-mouse-events-to-mattermouse-in-matterjs">Map Custom
+Mouse Events to Matter.Mouse in Matter.js</h1>
+<p>This guide provides a straightforward method for mapping custom DOM
+mouse or pointer events to a <code>Matter.Mouse</code> instance in
+Matter.js. By intercepting events from an external DOM layer—such as a
+UI overlay, an SVG viewport, or an offscreen target—and manually
+updating the internal state of <code>Matter.Mouse</code>, you can drive
+physics interactions and <code>MouseConstraint</code> behaviors
+independently of default canvas listeners.</p>
+<h2 id="understanding-mattermouse-state">Understanding Matter.Mouse
+State</h2>
+<p>By default, <code>Matter.Mouse.create(element)</code> binds native
+DOM listeners directly to the target canvas. The instance relies on
+several core properties to synchronize physics interactions:</p>
+<ul>
+<li><code>mouse.position</code>: An <code>{ x, y }</code> coordinate
+object representing the current pointer location in world space.</li>
+<li><code>mouse.button</code>: An integer indicating which mouse button
+is pressed (<code>0</code> for left, <code>1</code> for middle,
+<code>2</code> for right, <code>-1</code> for none).</li>
+<li><code>mouse.sourceEvents</code>: References to native DOM events
+(<code>mousedown</code>, <code>mousemove</code>,
+<code>mouseup</code>).</li>
+</ul>
+<p>When mapping custom DOM events, you can bypass the default listeners
+and feed values directly into these properties.</p>
+<h2 id="step-1-create-an-unbound-or-detached-mouse">Step 1: Create an
+Unbound or Detached Mouse</h2>
+<p>Instantiate the <code>Mouse</code> object using an element that does
+not conflict with your main canvas, or clear the default listeners from
+the canvas by detaching them.</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> { Engine<span class="op">,</span> Render<span class="op">,</span> Runner<span class="op">,</span> Bodies<span class="op">,</span> Composite<span class="op">,</span> Mouse<span class="op">,</span> MouseConstraint } <span class="op">=</span> Matter<span class="op">;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> engine <span class="op">=</span> Engine<span class="op">.</span><span class="fu">create</span>()<span class="op">;</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> render <span class="op">=</span> Render<span class="op">.</span><span class="fu">create</span>({</span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>  <span class="dt">element</span><span class="op">:</span> <span class="bu">document</span><span class="op">.</span><span class="at">body</span><span class="op">,</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>  <span class="dt">engine</span><span class="op">:</span> engine<span class="op">,</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>  <span class="dt">canvas</span><span class="op">:</span> <span class="bu">document</span><span class="op">.</span><span class="fu">getElementById</span>(<span class="st">&#39;physics-canvas&#39;</span>)</span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a><span class="co">// Create the mouse bound to the physics canvas initially</span></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> mouse <span class="op">=</span> Mouse<span class="op">.</span><span class="fu">create</span>(render<span class="op">.</span><span class="at">canvas</span>)<span class="op">;</span></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a><span class="co">// Remove default event listeners to prevent duplicate processing</span></span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>render<span class="op">.</span><span class="at">canvas</span><span class="op">.</span><span class="fu">removeEventListener</span>(<span class="st">&#39;mousedown&#39;</span><span class="op">,</span> mouse<span class="op">.</span><span class="at">mousedown</span>)<span class="op">;</span></span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a>render<span class="op">.</span><span class="at">canvas</span><span class="op">.</span><span class="fu">removeEventListener</span>(<span class="st">&#39;mousemove&#39;</span><span class="op">,</span> mouse<span class="op">.</span><span class="at">mousemove</span>)<span class="op">;</span></span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a>render<span class="op">.</span><span class="at">canvas</span><span class="op">.</span><span class="fu">removeEventListener</span>(<span class="st">&#39;mouseup&#39;</span><span class="op">,</span> mouse<span class="op">.</span><span class="at">mouseup</span>)<span class="op">;</span></span>
+<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a>render<span class="op">.</span><span class="at">canvas</span><span class="op">.</span><span class="fu">removeEventListener</span>(<span class="st">&#39;mousewheel&#39;</span><span class="op">,</span> mouse<span class="op">.</span><span class="at">mousewheel</span>)<span class="op">;</span></span>
+<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-19"><a href="#cb1-19" aria-hidden="true" tabindex="-1"></a><span class="co">// Attach the MouseConstraint to the engine using this mouse instance</span></span>
+<span id="cb1-20"><a href="#cb1-20" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> mouseConstraint <span class="op">=</span> MouseConstraint<span class="op">.</span><span class="fu">create</span>(engine<span class="op">,</span> {</span>
+<span id="cb1-21"><a href="#cb1-21" aria-hidden="true" tabindex="-1"></a>  <span class="dt">mouse</span><span class="op">:</span> mouse<span class="op">,</span></span>
+<span id="cb1-22"><a href="#cb1-22" aria-hidden="true" tabindex="-1"></a>  <span class="dt">constraint</span><span class="op">:</span> {</span>
+<span id="cb1-23"><a href="#cb1-23" aria-hidden="true" tabindex="-1"></a>    <span class="dt">stiffness</span><span class="op">:</span> <span class="fl">0.2</span><span class="op">,</span></span>
+<span id="cb1-24"><a href="#cb1-24" aria-hidden="true" tabindex="-1"></a>    <span class="dt">render</span><span class="op">:</span> { <span class="dt">visible</span><span class="op">:</span> <span class="kw">true</span> }</span>
+<span id="cb1-25"><a href="#cb1-25" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb1-26"><a href="#cb1-26" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span>
+<span id="cb1-27"><a href="#cb1-27" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-28"><a href="#cb1-28" aria-hidden="true" tabindex="-1"></a>Composite<span class="op">.</span><span class="fu">add</span>(engine<span class="op">.</span><span class="at">world</span><span class="op">,</span> mouseConstraint)<span class="op">;</span></span></code></pre></div>
+<h2 id="step-2-forward-custom-dom-events">Step 2: Forward Custom DOM
+Events</h2>
+<p>Identify your custom DOM element (for example, an overlay
+<code>div</code> or SVG element) and bind your custom event handlers to
+update the <code>Matter.Mouse</code> instance manually.</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> customOverlay <span class="op">=</span> <span class="bu">document</span><span class="op">.</span><span class="fu">getElementById</span>(<span class="st">&#39;custom-overlay&#39;</span>)<span class="op">;</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">getRelativeCoordinates</span>(<span class="bu">event</span><span class="op">,</span> targetElement) {</span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> rect <span class="op">=</span> targetElement<span class="op">.</span><span class="fu">getBoundingClientRect</span>()<span class="op">;</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>  <span class="cf">return</span> {</span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>    <span class="dt">x</span><span class="op">:</span> <span class="bu">event</span><span class="op">.</span><span class="at">clientX</span> <span class="op">-</span> rect<span class="op">.</span><span class="at">left</span><span class="op">,</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>    <span class="dt">y</span><span class="op">:</span> <span class="bu">event</span><span class="op">.</span><span class="at">clientY</span> <span class="op">-</span> rect<span class="op">.</span><span class="at">top</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>  }<span class="op">;</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a><span class="co">// Handle pointer movement</span></span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>customOverlay<span class="op">.</span><span class="fu">addEventListener</span>(<span class="st">&#39;pointermove&#39;</span><span class="op">,</span> (<span class="bu">event</span>) <span class="kw">=&gt;</span> {</span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> coords <span class="op">=</span> <span class="fu">getRelativeCoordinates</span>(<span class="bu">event</span><span class="op">,</span> render<span class="op">.</span><span class="at">canvas</span>)<span class="op">;</span></span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a>  mouse<span class="op">.</span><span class="at">position</span><span class="op">.</span><span class="at">x</span> <span class="op">=</span> coords<span class="op">.</span><span class="at">x</span><span class="op">;</span></span>
+<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a>  mouse<span class="op">.</span><span class="at">position</span><span class="op">.</span><span class="at">y</span> <span class="op">=</span> coords<span class="op">.</span><span class="at">y</span><span class="op">;</span></span>
+<span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a>  mouse<span class="op">.</span><span class="at">sourceEvents</span><span class="op">.</span><span class="at">mousemove</span> <span class="op">=</span> <span class="bu">event</span><span class="op">;</span></span>
+<span id="cb2-18"><a href="#cb2-18" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span>
+<span id="cb2-19"><a href="#cb2-19" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-20"><a href="#cb2-20" aria-hidden="true" tabindex="-1"></a><span class="co">// Handle pointer down</span></span>
+<span id="cb2-21"><a href="#cb2-21" aria-hidden="true" tabindex="-1"></a>customOverlay<span class="op">.</span><span class="fu">addEventListener</span>(<span class="st">&#39;pointerdown&#39;</span><span class="op">,</span> (<span class="bu">event</span>) <span class="kw">=&gt;</span> {</span>
+<span id="cb2-22"><a href="#cb2-22" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> coords <span class="op">=</span> <span class="fu">getRelativeCoordinates</span>(<span class="bu">event</span><span class="op">,</span> render<span class="op">.</span><span class="at">canvas</span>)<span class="op">;</span></span>
+<span id="cb2-23"><a href="#cb2-23" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-24"><a href="#cb2-24" aria-hidden="true" tabindex="-1"></a>  mouse<span class="op">.</span><span class="at">position</span><span class="op">.</span><span class="at">x</span> <span class="op">=</span> coords<span class="op">.</span><span class="at">x</span><span class="op">;</span></span>
+<span id="cb2-25"><a href="#cb2-25" aria-hidden="true" tabindex="-1"></a>  mouse<span class="op">.</span><span class="at">position</span><span class="op">.</span><span class="at">y</span> <span class="op">=</span> coords<span class="op">.</span><span class="at">y</span><span class="op">;</span></span>
+<span id="cb2-26"><a href="#cb2-26" aria-hidden="true" tabindex="-1"></a>  mouse<span class="op">.</span><span class="at">button</span> <span class="op">=</span> <span class="bu">event</span><span class="op">.</span><span class="at">button</span><span class="op">;</span></span>
+<span id="cb2-27"><a href="#cb2-27" aria-hidden="true" tabindex="-1"></a>  mouse<span class="op">.</span><span class="at">sourceEvents</span><span class="op">.</span><span class="at">mousedown</span> <span class="op">=</span> <span class="bu">event</span><span class="op">;</span></span>
+<span id="cb2-28"><a href="#cb2-28" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span>
+<span id="cb2-29"><a href="#cb2-29" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-30"><a href="#cb2-30" aria-hidden="true" tabindex="-1"></a><span class="co">// Handle pointer up</span></span>
+<span id="cb2-31"><a href="#cb2-31" aria-hidden="true" tabindex="-1"></a>customOverlay<span class="op">.</span><span class="fu">addEventListener</span>(<span class="st">&#39;pointerup&#39;</span><span class="op">,</span> (<span class="bu">event</span>) <span class="kw">=&gt;</span> {</span>
+<span id="cb2-32"><a href="#cb2-32" aria-hidden="true" tabindex="-1"></a>  mouse<span class="op">.</span><span class="at">button</span> <span class="op">=</span> <span class="op">-</span><span class="dv">1</span><span class="op">;</span></span>
+<span id="cb2-33"><a href="#cb2-33" aria-hidden="true" tabindex="-1"></a>  mouse<span class="op">.</span><span class="at">sourceEvents</span><span class="op">.</span><span class="at">mouseup</span> <span class="op">=</span> <span class="bu">event</span><span class="op">;</span></span>
+<span id="cb2-34"><a href="#cb2-34" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div>
+<h2 id="step-3-handle-pixel-ratio-and-canvas-scaling">Step 3: Handle
+Pixel Ratio and Canvas Scaling</h2>
+<p>If your renderer scales the canvas via CSS or handles high-DPI
+displays with a <code>pixelRatio</code>, adjust the coordinates before
+assigning them to <code>mouse.position</code>:</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">getScaledCoordinates</span>(<span class="bu">event</span><span class="op">,</span> canvas) {</span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> rect <span class="op">=</span> canvas<span class="op">.</span><span class="fu">getBoundingClientRect</span>()<span class="op">;</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> scaleX <span class="op">=</span> canvas<span class="op">.</span><span class="at">width</span> <span class="op">/</span> rect<span class="op">.</span><span class="at">width</span><span class="op">;</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> scaleY <span class="op">=</span> canvas<span class="op">.</span><span class="at">height</span> <span class="op">/</span> rect<span class="op">.</span><span class="at">height</span><span class="op">;</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>  <span class="cf">return</span> {</span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>    <span class="dt">x</span><span class="op">:</span> (<span class="bu">event</span><span class="op">.</span><span class="at">clientX</span> <span class="op">-</span> rect<span class="op">.</span><span class="at">left</span>) <span class="op">*</span> scaleX<span class="op">,</span></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>    <span class="dt">y</span><span class="op">:</span> (<span class="bu">event</span><span class="op">.</span><span class="at">clientY</span> <span class="op">-</span> rect<span class="op">.</span><span class="at">top</span>) <span class="op">*</span> scaleY</span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a>  }<span class="op">;</span></span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<p>Assigning the calculated <code>scaleX</code> and <code>scaleY</code>
+values ensures the world coordinates accurately align with the custom
+element's viewport positions.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/matter.js'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/matter.js/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/matter.js/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

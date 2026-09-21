@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How to Remove a Composite from Matter.js World - matter.js</title>
+    <meta name="description" content="In Matter.js, managing physics simulations often requires dynamically deleting groups of bodies, constraints, or nested entities to reset states or improve performance. This guide provides the direct method for removing a Composite from the physics world">
+    <link rel="canonical" href="https://salivity.github.io/matter.js/article/how-to-remove-a-composite-from-matter-js-world">
+    <link rel="search" type="application/opensearchdescription+xml" title="matter.js" href="/matter.js/opensearch.xml">
+    <link rel="icon" href="/matter.js/favicon.ico">
+    <link rel="stylesheet" href="/matter.js/css/style.css">
+    <link media="print" rel="stylesheet" href="/matter.js/css/print.css">
+    <script src="/matter.js/js/fuse.min.js"></script>
+    <script src="/matter.js/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How to Remove a Composite from Matter.js World - matter.js" />
+    <meta property="og:url" content="https://salivity.github.io/matter.js/article/how-to-remove-a-composite-from-matter-js-world" />
+    <meta property="og:image" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="In Matter.js, managing physics simulations often requires dynamically deleting groups of bodies, constraints, or nested entities to reset states or improve performance. This guide provides the direct method for removing a Composite from the physics world" />
+    <link rel="manifest" href="/matter.js/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/matter.js/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>matter.js</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/matter.js/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="how-to-remove-a-composite-from-matterjs-world">How to Remove a
+Composite from Matter.js World</h1>
+<p>In Matter.js, managing physics simulations often requires dynamically
+deleting groups of bodies, constraints, or nested entities to reset
+states or improve performance. This guide provides the direct method for
+removing a Composite from the physics world using core Matter.js
+functions, along with options for deep removal and clearing nested
+objects.</p>
+<h3 id="using-compositeremove">Using Composite.remove()</h3>
+<p>The standard way to remove a composite from the world is using the
+<code>Matter.Composite.remove</code> function. In Matter.js, the main
+<code>world</code> instance is itself a composite, which acts as the
+root container for all physics elements.</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> { Engine<span class="op">,</span> Composite } <span class="op">=</span> Matter<span class="op">;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="co">// Create engine and world</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> engine <span class="op">=</span> Engine<span class="op">.</span><span class="fu">create</span>()<span class="op">;</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a><span class="co">// Create and add a composite to the world</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> customComposite <span class="op">=</span> Composite<span class="op">.</span><span class="fu">create</span>()<span class="op">;</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>Composite<span class="op">.</span><span class="fu">add</span>(engine<span class="op">.</span><span class="at">world</span><span class="op">,</span> customComposite)<span class="op">;</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a><span class="co">// Remove the composite from the world</span></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>Composite<span class="op">.</span><span class="fu">remove</span>(engine<span class="op">.</span><span class="at">world</span><span class="op">,</span> customComposite)<span class="op">;</span></span></code></pre></div>
+<h3 id="deep-removal-for-nested-composites">Deep Removal for Nested
+Composites</h3>
+<p>The <code>Composite.remove</code> method accepts an optional third
+parameter: a boolean flag named <code>deep</code>. When set to
+<code>true</code>, Matter.js searches recursively through all nested
+child composites to find and remove the target object:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Remove a composite deeply nested within other composites</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>Composite<span class="op">.</span><span class="fu">remove</span>(engine<span class="op">.</span><span class="at">world</span><span class="op">,</span> customComposite<span class="op">,</span> <span class="kw">true</span>)<span class="op">;</span></span></code></pre></div>
+<h3 id="alternative-worldremove">Alternative: World.remove()</h3>
+<p>In modern versions of Matter.js, <code>Matter.World</code> is an
+alias of <code>Matter.Composite</code>. You may encounter
+<code>World.remove</code> in legacy code, which functions
+identically:</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a>Matter<span class="op">.</span><span class="at">World</span><span class="op">.</span><span class="fu">remove</span>(engine<span class="op">.</span><span class="at">world</span><span class="op">,</span> customComposite)<span class="op">;</span></span></code></pre></div>
+<h3 id="clearing-a-composite-without-removing-it">Clearing a Composite
+Without Removing It</h3>
+<p>If your objective is to retain the composite container within the
+world but delete all bodies, constraints, or child composites inside it,
+use <code>Composite.clear</code>:</p>
+<div class="sourceCode" id="cb4"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Syntax: Composite.clear(composite, keepStatic, deep)</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>Composite<span class="op">.</span><span class="fu">clear</span>(customComposite<span class="op">,</span> <span class="kw">false</span><span class="op">,</span> <span class="kw">true</span>)<span class="op">;</span></span></code></pre></div>
+<ul>
+<li><code>keepStatic</code>: When set to <code>true</code>, static
+bodies are preserved.</li>
+<li><code>deep</code>: When set to <code>true</code>, nested composites
+are also cleared recursively.</li>
+</ul>
+<h3 id="memory-management">Memory Management</h3>
+<p>Calling <code>Composite.remove()</code> detaches the composite from
+the simulation loop and rendering system. To allow the JavaScript
+garbage collector to free the associated memory, ensure you also remove
+any remaining variable references to that composite in your application
+code.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/matter.js'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/matter.js/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/matter.js/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

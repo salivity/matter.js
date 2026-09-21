@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Setting Body Mass Instead of Density in Matter.js - matter.js</title>
+    <meta name="description" content="In Matter.js, physics bodies automatically calculate their mass based on their area and a default density value. However, you can manually set the mass of a body instead of relying on density calculations. This article explains how to explicitly define m">
+    <link rel="canonical" href="https://salivity.github.io/matter.js/article/setting-body-mass-instead-of-density-in-matter-js">
+    <link rel="search" type="application/opensearchdescription+xml" title="matter.js" href="/matter.js/opensearch.xml">
+    <link rel="icon" href="/matter.js/favicon.ico">
+    <link rel="stylesheet" href="/matter.js/css/style.css">
+    <link media="print" rel="stylesheet" href="/matter.js/css/print.css">
+    <script src="/matter.js/js/fuse.min.js"></script>
+    <script src="/matter.js/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Setting Body Mass Instead of Density in Matter.js - matter.js" />
+    <meta property="og:url" content="https://salivity.github.io/matter.js/article/setting-body-mass-instead-of-density-in-matter-js" />
+    <meta property="og:image" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="In Matter.js, physics bodies automatically calculate their mass based on their area and a default density value. However, you can manually set the mass of a body instead of relying on density calculations. This article explains how to explicitly define m" />
+    <link rel="manifest" href="/matter.js/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/matter.js/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>matter.js</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/matter.js/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="setting-body-mass-instead-of-density-in-matterjs">Setting Body
+Mass Instead of Density in Matter.js</h1>
+<p>In Matter.js, physics bodies automatically calculate their mass based
+on their area and a default density value. However, you can manually set
+the mass of a body instead of relying on density calculations. This
+article explains how to explicitly define mass during body creation or
+update it dynamically at runtime, as well as how Matter.js reconciles
+the relationship between mass, density, and inertia.</p>
+<h2 id="setting-mass-during-body-creation">Setting Mass During Body
+Creation</h2>
+<p>You can override the default automatic calculation by passing a
+<code>mass</code> property inside the options object when creating a
+body.</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> { Bodies } <span class="op">=</span> Matter<span class="op">;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="co">// Create a body with an explicit mass of 50</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> box <span class="op">=</span> Bodies<span class="op">.</span><span class="fu">rectangle</span>(<span class="dv">400</span><span class="op">,</span> <span class="dv">200</span><span class="op">,</span> <span class="dv">80</span><span class="op">,</span> <span class="dv">80</span><span class="op">,</span> {</span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>  <span class="dt">mass</span><span class="op">:</span> <span class="dv">50</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div>
+<p>When you pass an explicit <code>mass</code> value at instantiation,
+Matter.js accepts the value and automatically recalculates the body's
+<code>density</code> behind the scenes using the formula:</p>
+<p><span class="math display">\[\text{density} =
+\frac{\text{mass}}{\text{area}}\]</span></p>
+<h2 id="updating-mass-dynamically">Updating Mass Dynamically</h2>
+<p>If the body has already been instantiated, you should not set
+<code>body.mass = newMass</code> directly. Directly modifying properties
+can cause physics calculation errors because internal properties such as
+<code>inverseMass</code>, <code>inertia</code>, and
+<code>inverseInertia</code> will not update.</p>
+<p>Instead, use the built-in <code>Body.setMass</code> method:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> { Body } <span class="op">=</span> Matter<span class="op">;</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="co">// Correct way to update mass dynamically</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>Body<span class="op">.</span><span class="fu">setMass</span>(box<span class="op">,</span> <span class="dv">100</span>)<span class="op">;</span></span></code></pre></div>
+<p>Using <code>Body.setMass()</code> ensures that:</p>
+<ul>
+<li><code>body.mass</code> is updated.</li>
+<li><code>body.inverseMass</code> is updated to
+<code>1 / mass</code>.</li>
+<li><code>body.density</code> is recalculated relative to the body's
+existing area.</li>
+<li>Rotational properties linked to mass distribution remain
+stable.</li>
+</ul>
+<h2 id="how-matterjs-balances-mass-and-density">How Matter.js Balances
+Mass and Density</h2>
+<p>Matter.js always keeps mass, density, and area synchronized. They are
+not independent variables:</p>
+<ol type="1">
+<li><strong>Changing Density:</strong> If you call
+<code>Body.setDensity(body, newDensity)</code>, Matter.js updates the
+mass (<code>mass = newDensity * area</code>).</li>
+<li><strong>Changing Mass:</strong> If you call
+<code>Body.setMass(body, newMass)</code>, Matter.js updates the density
+(<code>density = newMass / area</code>).</li>
+<li><strong>Scaling Dimensions:</strong> If you scale a body using
+<code>Body.scale(body, scaleX, scaleY)</code>, its area changes. By
+default, Matter.js preserves the body's <strong>density</strong> and
+recalculates the mass to reflect the new size. If you want the body to
+retain its exact mass after scaling, you must call
+<code>Body.setMass()</code> again after the scale operation.</li>
+</ol>
+<h2 id="considerations-for-static-bodies">Considerations for Static
+Bodies</h2>
+<p>Static bodies (bodies created with <code>isStatic: true</code>) are
+treated as having infinite mass and zero inverse mass:</p>
+<ul>
+<li><code>mass = Infinity</code></li>
+<li><code>inverseMass = 0</code></li>
+</ul>
+<p>Attempting to set a finite mass on a static body will not make it
+dynamic. To apply a manual mass to a previously static body, you must
+first convert it to a dynamic body using
+<code>Body.setStatic(body, false)</code> before defining its mass.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/matter.js'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/matter.js/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/matter.js/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

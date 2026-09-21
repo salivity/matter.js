@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How to Use Matter.Body.set in Matter.js - matter.js</title>
+    <meta name="description" content="In Matter.js, updating several physical attributes of a rigid body can become verbose if changed individually. This article explains how to use the Matter.Body.set function to apply multiple properties to a physics body at once. You will learn the requir">
+    <link rel="canonical" href="https://salivity.github.io/matter.js/article/how-to-use-matter-body-set-in-matter-js">
+    <link rel="search" type="application/opensearchdescription+xml" title="matter.js" href="/matter.js/opensearch.xml">
+    <link rel="icon" href="/matter.js/favicon.ico">
+    <link rel="stylesheet" href="/matter.js/css/style.css">
+    <link media="print" rel="stylesheet" href="/matter.js/css/print.css">
+    <script src="/matter.js/js/fuse.min.js"></script>
+    <script src="/matter.js/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How to Use Matter.Body.set in Matter.js - matter.js" />
+    <meta property="og:url" content="https://salivity.github.io/matter.js/article/how-to-use-matter-body-set-in-matter-js" />
+    <meta property="og:image" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="In Matter.js, updating several physical attributes of a rigid body can become verbose if changed individually. This article explains how to use the Matter.Body.set function to apply multiple properties to a physics body at once. You will learn the requir" />
+    <link rel="manifest" href="/matter.js/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/matter.js/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>matter.js</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/matter.js/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="how-to-use-matterbodyset-in-matterjs">How to Use Matter.Body.set
+in Matter.js</h1>
+<p>In Matter.js, updating several physical attributes of a rigid body
+can become verbose if changed individually. This article explains how to
+use the <code>Matter.Body.set</code> function to apply multiple
+properties to a physics body at once. You will learn the required
+syntax, how the method safely updates internal states, and see a
+practical code example demonstrating simultaneous property
+assignment.</p>
+<hr />
+<h3 id="the-matterbodyset-syntax">The Matter.Body.set Syntax</h3>
+<p>The <code>Matter.Body.set</code> method accepts either a key-value
+pair for a single property or a configuration object containing multiple
+properties. To update multiple properties simultaneously, pass the
+target body as the first argument and an object containing the new
+attributes as the second argument:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a>Matter<span class="op">.</span><span class="at">Body</span><span class="op">.</span><span class="fu">set</span>(body<span class="op">,</span> settings)<span class="op">;</span></span></code></pre></div>
+<ul>
+<li><strong><code>body</code></strong>: The target
+<code>Matter.Body</code> instance you want to modify.</li>
+<li><strong><code>settings</code></strong>: An object literal containing
+the key-value pairs of the properties you want to update.</li>
+</ul>
+<h3 id="why-use-matterbodyset-instead-of-direct-mutation">Why Use
+<code>Matter.Body.set</code> Instead of Direct Mutation?</h3>
+<p>While it is technically possible to mutate properties directly (e.g.,
+<code>body.isStatic = true</code>), doing so can break the physics
+simulation. Properties like <code>mass</code>, <code>density</code>,
+<code>inertia</code>, and <code>position</code> require recalculations
+of bounds, inverse masses, and collision vectors.</p>
+<p>When you pass an object to <code>Matter.Body.set</code>, the function
+iterates over each key and delegates the assignment to specific helper
+functions (such as <code>Body.setStatic</code>,
+<code>Body.setMass</code>, or <code>Body.setAngle</code>) where
+necessary. This ensures that all internal calculations and dependent
+properties update synchronously.</p>
+<h3 id="example-applying-multiple-properties">Example: Applying Multiple
+Properties</h3>
+<p>Below is a practical implementation demonstrating how to apply visual
+and physical changes—such as restitution, friction, static state, and
+render options—in a single call:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="co">// 1. Create a dynamic body</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> box <span class="op">=</span> Matter<span class="op">.</span><span class="at">Bodies</span><span class="op">.</span><span class="fu">rectangle</span>(<span class="dv">400</span><span class="op">,</span> <span class="dv">200</span><span class="op">,</span> <span class="dv">80</span><span class="op">,</span> <span class="dv">80</span><span class="op">,</span> {</span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>    <span class="dt">mass</span><span class="op">:</span> <span class="dv">5</span><span class="op">,</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>    <span class="dt">restitution</span><span class="op">:</span> <span class="fl">0.2</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a><span class="co">// 2. Add it to your Matter.js world</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>Matter<span class="op">.</span><span class="at">Composite</span><span class="op">.</span><span class="fu">add</span>(engine<span class="op">.</span><span class="at">world</span><span class="op">,</span> box)<span class="op">;</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a><span class="co">// 3. Apply multiple properties at once</span></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>Matter<span class="op">.</span><span class="at">Body</span><span class="op">.</span><span class="fu">set</span>(box<span class="op">,</span> {</span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>    <span class="dt">isStatic</span><span class="op">:</span> <span class="kw">true</span><span class="op">,</span></span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>    <span class="dt">restitution</span><span class="op">:</span> <span class="fl">0.9</span><span class="op">,</span></span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a>    <span class="dt">friction</span><span class="op">:</span> <span class="fl">0.05</span><span class="op">,</span></span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a>    <span class="dt">frictionAir</span><span class="op">:</span> <span class="fl">0.01</span><span class="op">,</span></span>
+<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a>    <span class="dt">angle</span><span class="op">:</span> <span class="bu">Math</span><span class="op">.</span><span class="cn">PI</span> <span class="op">/</span> <span class="dv">4</span><span class="op">,</span></span>
+<span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a>    <span class="dt">render</span><span class="op">:</span> {</span>
+<span id="cb2-18"><a href="#cb2-18" aria-hidden="true" tabindex="-1"></a>        <span class="dt">fillStyle</span><span class="op">:</span> <span class="st">&#39;#ff4757&#39;</span><span class="op">,</span></span>
+<span id="cb2-19"><a href="#cb2-19" aria-hidden="true" tabindex="-1"></a>        <span class="dt">strokeStyle</span><span class="op">:</span> <span class="st">&#39;#2f3542&#39;</span><span class="op">,</span></span>
+<span id="cb2-20"><a href="#cb2-20" aria-hidden="true" tabindex="-1"></a>        <span class="dt">lineWidth</span><span class="op">:</span> <span class="dv">3</span></span>
+<span id="cb2-21"><a href="#cb2-21" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb2-22"><a href="#cb2-22" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div>
+<h3 id="supported-properties">Supported Properties</h3>
+<p>You can include any standard body property inside the settings
+object, including:</p>
+<ul>
+<li><strong>Dynamics</strong>: <code>isStatic</code>,
+<code>isSleeping</code>, <code>isSensor</code></li>
+<li><strong>Materials</strong>: <code>friction</code>,
+<code>frictionAir</code>, <code>frictionStatic</code>,
+<code>restitution</code></li>
+<li><strong>Mass properties</strong>: <code>density</code>,
+<code>mass</code>, <code>inertia</code></li>
+<li><strong>Transforms</strong>: <code>angle</code>,
+<code>position</code>, <code>velocity</code>,
+<code>angularVelocity</code></li>
+<li><strong>Rendering</strong>: <code>render.fillStyle</code>,
+<code>render.visible</code>, <code>render.opacity</code></li>
+</ul>
+<p>Using <code>Matter.Body.set</code> keeps your code clean, concise,
+and ensures that the physics engine stays in a valid internal state when
+modifying active simulation objects.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/matter.js'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/matter.js/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/matter.js/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

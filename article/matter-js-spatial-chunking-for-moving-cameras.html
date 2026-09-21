@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Matter.js Spatial Chunking for Moving Cameras - matter.js</title>
+    <meta name="description" content="This article explains how to optimize large-scale 2D worlds in Matter.js by implementing a spatial chunking system that dynamically sleeps and wakes bodies based on a moving camera's position. By partitioning the simulation space into discrete grid cells">
+    <link rel="canonical" href="https://salivity.github.io/matter.js/article/matter-js-spatial-chunking-for-moving-cameras">
+    <link rel="search" type="application/opensearchdescription+xml" title="matter.js" href="/matter.js/opensearch.xml">
+    <link rel="icon" href="/matter.js/favicon.ico">
+    <link rel="stylesheet" href="/matter.js/css/style.css">
+    <link media="print" rel="stylesheet" href="/matter.js/css/print.css">
+    <script src="/matter.js/js/fuse.min.js"></script>
+    <script src="/matter.js/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Matter.js Spatial Chunking for Moving Cameras - matter.js" />
+    <meta property="og:url" content="https://salivity.github.io/matter.js/article/matter-js-spatial-chunking-for-moving-cameras" />
+    <meta property="og:image" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article explains how to optimize large-scale 2D worlds in Matter.js by implementing a spatial chunking system that dynamically sleeps and wakes bodies based on a moving camera's position. By partitioning the simulation space into discrete grid cells" />
+    <link rel="manifest" href="/matter.js/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/matter.js/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>matter.js</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/matter.js/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="matterjs-spatial-chunking-for-moving-cameras">Matter.js Spatial
+Chunking for Moving Cameras</h1>
+<p>This article explains how to optimize large-scale 2D worlds in
+Matter.js by implementing a spatial chunking system that dynamically
+sleeps and wakes bodies based on a moving camera's position. By
+partitioning the simulation space into discrete grid cells and querying
+only visible chunks plus a small buffer, you can maintain a smooth 60
+FPS even when managing thousands of physics entities.</p>
+<h3 id="enabling-the-matterjs-sleeping-module">Enabling the Matter.js
+Sleeping Module</h3>
+<p>Before managing bodies manually, you must configure the Matter.js
+engine to allow sleep states. Enable this feature during engine
+initialization:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> engine <span class="op">=</span> Matter<span class="op">.</span><span class="at">Engine</span><span class="op">.</span><span class="fu">create</span>({</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>  <span class="dt">enableSleeping</span><span class="op">:</span> <span class="kw">true</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div>
+<p>When a body is set to sleep, Matter.js skips broadphase collision
+detection, narrowphase resolution, and position integration for that
+body, drastically reducing CPU load.</p>
+<h3 id="designing-the-spatial-grid">Designing the Spatial Grid</h3>
+<p>Divide your game world into fixed-size grid cells (chunks). The chunk
+size should typically be slightly larger than your physics bodies, often
+between 256 and 512 pixels, to balance memory overhead and lookup
+frequency.</p>
+<p>Use a hash map to store chunk keys paired with arrays of bodies
+residing in those chunks:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> SpatialGrid {</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">constructor</span>(chunkSize <span class="op">=</span> <span class="dv">512</span>) {</span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>    <span class="kw">this</span><span class="op">.</span><span class="at">chunkSize</span> <span class="op">=</span> chunkSize<span class="op">;</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>    <span class="kw">this</span><span class="op">.</span><span class="at">chunks</span> <span class="op">=</span> <span class="kw">new</span> <span class="bu">Map</span>()<span class="op">;</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>  <span class="fu">getChunkKey</span>(x<span class="op">,</span> y) {</span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> cx <span class="op">=</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">floor</span>(x <span class="op">/</span> <span class="kw">this</span><span class="op">.</span><span class="at">chunkSize</span>)<span class="op">;</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> cy <span class="op">=</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">floor</span>(y <span class="op">/</span> <span class="kw">this</span><span class="op">.</span><span class="at">chunkSize</span>)<span class="op">;</span></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="vs">`</span><span class="sc">${</span>cx<span class="sc">}</span><span class="vs">,</span><span class="sc">${</span>cy<span class="sc">}</span><span class="vs">`</span><span class="op">;</span></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>  <span class="fu">insert</span>(body) {</span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> key <span class="op">=</span> <span class="kw">this</span><span class="op">.</span><span class="fu">getChunkKey</span>(body<span class="op">.</span><span class="at">position</span><span class="op">.</span><span class="at">x</span><span class="op">,</span> body<span class="op">.</span><span class="at">position</span><span class="op">.</span><span class="at">y</span>)<span class="op">;</span></span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (<span class="op">!</span><span class="kw">this</span><span class="op">.</span><span class="at">chunks</span><span class="op">.</span><span class="fu">has</span>(key)) {</span>
+<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a>      <span class="kw">this</span><span class="op">.</span><span class="at">chunks</span><span class="op">.</span><span class="fu">set</span>(key<span class="op">,</span> <span class="kw">new</span> <span class="bu">Set</span>())<span class="op">;</span></span>
+<span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb2-18"><a href="#cb2-18" aria-hidden="true" tabindex="-1"></a>    <span class="kw">this</span><span class="op">.</span><span class="at">chunks</span><span class="op">.</span><span class="fu">get</span>(key)<span class="op">.</span><span class="fu">add</span>(body)<span class="op">;</span></span>
+<span id="cb2-19"><a href="#cb2-19" aria-hidden="true" tabindex="-1"></a>    body<span class="op">.</span><span class="at">currentChunkKey</span> <span class="op">=</span> key<span class="op">;</span></span>
+<span id="cb2-20"><a href="#cb2-20" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb2-21"><a href="#cb2-21" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-22"><a href="#cb2-22" aria-hidden="true" tabindex="-1"></a>  <span class="fu">updateBodyChunk</span>(body) {</span>
+<span id="cb2-23"><a href="#cb2-23" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> newKey <span class="op">=</span> <span class="kw">this</span><span class="op">.</span><span class="fu">getChunkKey</span>(body<span class="op">.</span><span class="at">position</span><span class="op">.</span><span class="at">x</span><span class="op">,</span> body<span class="op">.</span><span class="at">position</span><span class="op">.</span><span class="at">y</span>)<span class="op">;</span></span>
+<span id="cb2-24"><a href="#cb2-24" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (body<span class="op">.</span><span class="at">currentChunkKey</span> <span class="op">!==</span> newKey) {</span>
+<span id="cb2-25"><a href="#cb2-25" aria-hidden="true" tabindex="-1"></a>      <span class="cf">if</span> (<span class="kw">this</span><span class="op">.</span><span class="at">chunks</span><span class="op">.</span><span class="fu">has</span>(body<span class="op">.</span><span class="at">currentChunkKey</span>)) {</span>
+<span id="cb2-26"><a href="#cb2-26" aria-hidden="true" tabindex="-1"></a>        <span class="kw">this</span><span class="op">.</span><span class="at">chunks</span><span class="op">.</span><span class="fu">get</span>(body<span class="op">.</span><span class="at">currentChunkKey</span>)<span class="op">.</span><span class="fu">delete</span>(body)<span class="op">;</span></span>
+<span id="cb2-27"><a href="#cb2-27" aria-hidden="true" tabindex="-1"></a>      }</span>
+<span id="cb2-28"><a href="#cb2-28" aria-hidden="true" tabindex="-1"></a>      <span class="kw">this</span><span class="op">.</span><span class="fu">insert</span>(body)<span class="op">;</span></span>
+<span id="cb2-29"><a href="#cb2-29" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb2-30"><a href="#cb2-30" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb2-31"><a href="#cb2-31" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<h3 id="calculating-visible-chunks-around-the-camera">Calculating
+Visible Chunks Around the Camera</h3>
+<p>To prevent physics pop-in where objects suddenly freeze or drop
+visibly at the edge of the screen, determine the bounding box of the
+camera and apply a padding margin (buffer).</p>
+<p>Calculate the range of chunk coordinates that overlap this expanded
+camera rectangle:</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">getActiveChunkKeys</span>(camera<span class="op">,</span> viewportWidth<span class="op">,</span> viewportHeight<span class="op">,</span> chunkSize<span class="op">,</span> padding <span class="op">=</span> <span class="dv">1</span>) {</span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> left <span class="op">=</span> camera<span class="op">.</span><span class="at">x</span> <span class="op">-</span> viewportWidth <span class="op">/</span> <span class="dv">2</span><span class="op">;</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> right <span class="op">=</span> camera<span class="op">.</span><span class="at">x</span> <span class="op">+</span> viewportWidth <span class="op">/</span> <span class="dv">2</span><span class="op">;</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> top <span class="op">=</span> camera<span class="op">.</span><span class="at">y</span> <span class="op">-</span> viewportHeight <span class="op">/</span> <span class="dv">2</span><span class="op">;</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> bottom <span class="op">=</span> camera<span class="op">.</span><span class="at">y</span> <span class="op">+</span> viewportHeight <span class="op">/</span> <span class="dv">2</span><span class="op">;</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> minChunkX <span class="op">=</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">floor</span>(left <span class="op">/</span> chunkSize) <span class="op">-</span> padding<span class="op">;</span></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> maxChunkX <span class="op">=</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">floor</span>(right <span class="op">/</span> chunkSize) <span class="op">+</span> padding<span class="op">;</span></span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> minChunkY <span class="op">=</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">floor</span>(top <span class="op">/</span> chunkSize) <span class="op">-</span> padding<span class="op">;</span></span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> maxChunkY <span class="op">=</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">floor</span>(bottom <span class="op">/</span> chunkSize) <span class="op">+</span> padding<span class="op">;</span></span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> activeKeys <span class="op">=</span> <span class="kw">new</span> <span class="bu">Set</span>()<span class="op">;</span></span>
+<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a>  <span class="cf">for</span> (<span class="kw">let</span> cx <span class="op">=</span> minChunkX<span class="op">;</span> cx <span class="op">&lt;=</span> maxChunkX<span class="op">;</span> cx<span class="op">++</span>) {</span>
+<span id="cb3-14"><a href="#cb3-14" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> (<span class="kw">let</span> cy <span class="op">=</span> minChunkY<span class="op">;</span> cy <span class="op">&lt;=</span> maxChunkY<span class="op">;</span> cy<span class="op">++</span>) {</span>
+<span id="cb3-15"><a href="#cb3-15" aria-hidden="true" tabindex="-1"></a>      activeKeys<span class="op">.</span><span class="fu">add</span>(<span class="vs">`</span><span class="sc">${</span>cx<span class="sc">}</span><span class="vs">,</span><span class="sc">${</span>cy<span class="sc">}</span><span class="vs">`</span>)<span class="op">;</span></span>
+<span id="cb3-16"><a href="#cb3-16" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb3-17"><a href="#cb3-17" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb3-18"><a href="#cb3-18" aria-hidden="true" tabindex="-1"></a>  <span class="cf">return</span> activeKeys<span class="op">;</span></span>
+<span id="cb3-19"><a href="#cb3-19" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<h3 id="activating-and-sleeping-bodies-dynamically">Activating and
+Sleeping Bodies Dynamically</h3>
+<p>Run a management function inside your game update loop (e.g., prior
+to <code>Matter.Engine.update</code>). Compare the active chunks from
+the current frame against previously loaded chunks:</p>
+<div class="sourceCode" id="cb4"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="kw">let</span> currentlyActiveKeys <span class="op">=</span> <span class="kw">new</span> <span class="bu">Set</span>()<span class="op">;</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">updatePhysicsStreaming</span>(grid<span class="op">,</span> camera<span class="op">,</span> viewportWidth<span class="op">,</span> viewportHeight) {</span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> newActiveKeys <span class="op">=</span> <span class="fu">getActiveChunkKeys</span>(camera<span class="op">,</span> viewportWidth<span class="op">,</span> viewportHeight<span class="op">,</span> grid<span class="op">.</span><span class="at">chunkSize</span>)<span class="op">;</span></span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a>  <span class="co">// Wake up bodies in newly entered chunks</span></span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a>  <span class="cf">for</span> (<span class="kw">const</span> key <span class="kw">of</span> newActiveKeys) {</span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (<span class="op">!</span>currentlyActiveKeys<span class="op">.</span><span class="fu">has</span>(key) <span class="op">&amp;&amp;</span> grid<span class="op">.</span><span class="at">chunks</span><span class="op">.</span><span class="fu">has</span>(key)) {</span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a>      <span class="cf">for</span> (<span class="kw">const</span> body <span class="kw">of</span> grid<span class="op">.</span><span class="at">chunks</span><span class="op">.</span><span class="fu">get</span>(key)) {</span>
+<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a>        Matter<span class="op">.</span><span class="at">Sleeping</span><span class="op">.</span><span class="fu">set</span>(body<span class="op">,</span> <span class="kw">false</span>)<span class="op">;</span></span>
+<span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a>      }</span>
+<span id="cb4-12"><a href="#cb4-12" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb4-13"><a href="#cb4-13" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb4-14"><a href="#cb4-14" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-15"><a href="#cb4-15" aria-hidden="true" tabindex="-1"></a>  <span class="co">// Put bodies to sleep in chunks no longer in view</span></span>
+<span id="cb4-16"><a href="#cb4-16" aria-hidden="true" tabindex="-1"></a>  <span class="cf">for</span> (<span class="kw">const</span> key <span class="kw">of</span> currentlyActiveKeys) {</span>
+<span id="cb4-17"><a href="#cb4-17" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (<span class="op">!</span>newActiveKeys<span class="op">.</span><span class="fu">has</span>(key) <span class="op">&amp;&amp;</span> grid<span class="op">.</span><span class="at">chunks</span><span class="op">.</span><span class="fu">has</span>(key)) {</span>
+<span id="cb4-18"><a href="#cb4-18" aria-hidden="true" tabindex="-1"></a>      <span class="cf">for</span> (<span class="kw">const</span> body <span class="kw">of</span> grid<span class="op">.</span><span class="at">chunks</span><span class="op">.</span><span class="fu">get</span>(key)) {</span>
+<span id="cb4-19"><a href="#cb4-19" aria-hidden="true" tabindex="-1"></a>        Matter<span class="op">.</span><span class="at">Sleeping</span><span class="op">.</span><span class="fu">set</span>(body<span class="op">,</span> <span class="kw">true</span>)<span class="op">;</span></span>
+<span id="cb4-20"><a href="#cb4-20" aria-hidden="true" tabindex="-1"></a>      }</span>
+<span id="cb4-21"><a href="#cb4-21" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb4-22"><a href="#cb4-22" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb4-23"><a href="#cb4-23" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-24"><a href="#cb4-24" aria-hidden="true" tabindex="-1"></a>  currentlyActiveKeys <span class="op">=</span> newActiveKeys<span class="op">;</span></span>
+<span id="cb4-25"><a href="#cb4-25" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<h3 id="handling-moving-bodies">Handling Moving Bodies</h3>
+<p>While static bodies remain in their assigned chunks permanently,
+moving bodies (such as players, projectiles, or active debris) require
+chunk updates.</p>
+<p>Hook into the <code>beforeUpdate</code> event of the Matter.js engine
+to update the grid positions of moving objects:</p>
+<div class="sourceCode" id="cb5"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a>Matter<span class="op">.</span><span class="at">Events</span><span class="op">.</span><span class="fu">on</span>(engine<span class="op">,</span> <span class="st">&#39;beforeUpdate&#39;</span><span class="op">,</span> () <span class="kw">=&gt;</span> {</span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a>  <span class="co">// Only re-index awake, moving bodies</span></span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a>  <span class="cf">for</span> (<span class="kw">const</span> body <span class="kw">of</span> engine<span class="op">.</span><span class="at">world</span><span class="op">.</span><span class="at">bodies</span>) {</span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (<span class="op">!</span>body<span class="op">.</span><span class="at">isStatic</span> <span class="op">&amp;&amp;</span> <span class="op">!</span>body<span class="op">.</span><span class="at">isSleeping</span>) {</span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a>      grid<span class="op">.</span><span class="fu">updateBodyChunk</span>(body)<span class="op">;</span></span>
+<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb5-8"><a href="#cb5-8" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb5-9"><a href="#cb5-9" aria-hidden="true" tabindex="-1"></a>  <span class="fu">updatePhysicsStreaming</span>(grid<span class="op">,</span> camera<span class="op">,</span> <span class="bu">window</span><span class="op">.</span><span class="at">innerWidth</span><span class="op">,</span> <span class="bu">window</span><span class="op">.</span><span class="at">innerHeight</span>)<span class="op">;</span></span>
+<span id="cb5-10"><a href="#cb5-10" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div>
+<h3 id="performance-considerations">Performance Considerations</h3>
+<ol type="1">
+<li><strong>Chunk Resizing</strong>: If bodies frequently clump together
+in small areas, decrease the chunk size to avoid waking too many
+non-visible bodies at once.</li>
+<li><strong>Excluding Critical Entities</strong>: Entities like the
+player, critical quest items, or global triggers should either bypass
+the chunk manager or be marked as persistent so they never sleep
+regardless of camera movement.</li>
+<li><strong>Static Body Aggregation</strong>: If your static environment
+is massive, consider keeping static obstacles fully awake since sleeping
+static bodies yield minimal CPU savings, and apply chunk streaming only
+to dynamic bodies.</li>
+</ol></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/matter.js'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/matter.js/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/matter.js/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

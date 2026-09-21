@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How to Interpolate Rendering in Matter.js - matter.js</title>
+    <meta name="description" content="Decoupling your physics update rate from your display refresh rate is essential for achieving smooth visual motion in Matter.js. When physics runs at a fixed delta time (such as 60Hz) while the screen renders at variable or higher refresh rates (such as">
+    <link rel="canonical" href="https://salivity.github.io/matter.js/article/how-to-interpolate-rendering-in-matter-js">
+    <link rel="search" type="application/opensearchdescription+xml" title="matter.js" href="/matter.js/opensearch.xml">
+    <link rel="icon" href="/matter.js/favicon.ico">
+    <link rel="stylesheet" href="/matter.js/css/style.css">
+    <link media="print" rel="stylesheet" href="/matter.js/css/print.css">
+    <script src="/matter.js/js/fuse.min.js"></script>
+    <script src="/matter.js/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How to Interpolate Rendering in Matter.js - matter.js" />
+    <meta property="og:url" content="https://salivity.github.io/matter.js/article/how-to-interpolate-rendering-in-matter-js" />
+    <meta property="og:image" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Decoupling your physics update rate from your display refresh rate is essential for achieving smooth visual motion in Matter.js. When physics runs at a fixed delta time (such as 60Hz) while the screen renders at variable or higher refresh rates (such as" />
+    <link rel="manifest" href="/matter.js/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/matter.js/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>matter.js</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/matter.js/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="how-to-interpolate-rendering-in-matterjs">How to Interpolate
+Rendering in Matter.js</h1>
+<p>Decoupling your physics update rate from your display refresh rate is
+essential for achieving smooth visual motion in Matter.js. When physics
+runs at a fixed delta time (such as 60Hz) while the screen renders at
+variable or higher refresh rates (such as 120Hz or 144Hz), bodies can
+appear to jitter. This article outlines how to implement a
+fixed-timestep game loop, track previous body states, and compute an
+interpolation factor to smoothly render Matter.js bodies between physics
+updates.</p>
+<h3 id="the-accumulator-pattern">The Accumulator Pattern</h3>
+<p>To interpolate rendering, you must run physics at a deterministic,
+fixed interval while letting the render loop run as fast as the monitor
+refreshes via <code>requestAnimationFrame</code>.</p>
+<p>An accumulator stores elapsed real-world time. Whenever the
+accumulator exceeds your fixed physics step duration, you advance the
+physics engine by that exact interval and subtract the duration from the
+accumulator. Any remaining time represents the fractional progress
+toward the next physics step—this fraction is your interpolation factor
+(<span class="math inline">\(\alpha\)</span>).</p>
+<h3 id="tracking-body-states">Tracking Body States</h3>
+<p>Interpolation requires knowing where a body was at the previous
+physics step and where it is currently. Matter.js does not store
+previous positions automatically for rendering purposes, so you must
+store them manually before updating the engine.</p>
+<p>Attach a custom property to each body:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">trackBodyState</span>(body) {</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>    body<span class="op">.</span><span class="at">renderState</span> <span class="op">=</span> {</span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>        <span class="dt">previousPosition</span><span class="op">:</span> { <span class="dt">x</span><span class="op">:</span> body<span class="op">.</span><span class="at">position</span><span class="op">.</span><span class="at">x</span><span class="op">,</span> <span class="dt">y</span><span class="op">:</span> body<span class="op">.</span><span class="at">position</span><span class="op">.</span><span class="at">y</span> }<span class="op">,</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>        <span class="dt">previousAngle</span><span class="op">:</span> body<span class="op">.</span><span class="at">angle</span><span class="op">,</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>        <span class="dt">currentPosition</span><span class="op">:</span> { <span class="dt">x</span><span class="op">:</span> body<span class="op">.</span><span class="at">position</span><span class="op">.</span><span class="at">x</span><span class="op">,</span> <span class="dt">y</span><span class="op">:</span> body<span class="op">.</span><span class="at">position</span><span class="op">.</span><span class="at">y</span> }<span class="op">,</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>        <span class="dt">currentAngle</span><span class="op">:</span> body<span class="op">.</span><span class="at">angle</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>    }<span class="op">;</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<h3 id="implementing-the-loop">Implementing the Loop</h3>
+<p>Replace the default <code>Matter.Runner</code> with a custom
+<code>requestAnimationFrame</code> loop.</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> engine <span class="op">=</span> Matter<span class="op">.</span><span class="at">Engine</span><span class="op">.</span><span class="fu">create</span>()<span class="op">;</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> fixedDelta <span class="op">=</span> <span class="dv">1000</span> <span class="op">/</span> <span class="dv">60</span><span class="op">;</span> <span class="co">// 60 updates per second (approx. 16.66ms)</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="kw">let</span> accumulator <span class="op">=</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a><span class="kw">let</span> lastTime <span class="op">=</span> <span class="bu">performance</span><span class="op">.</span><span class="fu">now</span>()<span class="op">;</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">gameLoop</span>(currentTime) {</span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>    <span class="fu">requestAnimationFrame</span>(gameLoop)<span class="op">;</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>    <span class="kw">let</span> frameTime <span class="op">=</span> currentTime <span class="op">-</span> lastTime<span class="op">;</span></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>    lastTime <span class="op">=</span> currentTime<span class="op">;</span></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Prevent spiral of death on lag spikes</span></span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (frameTime <span class="op">&gt;</span> <span class="dv">250</span>) {</span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a>        frameTime <span class="op">=</span> <span class="dv">250</span><span class="op">;</span></span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a>    accumulator <span class="op">+=</span> frameTime<span class="op">;</span></span>
+<span id="cb2-18"><a href="#cb2-18" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-19"><a href="#cb2-19" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Fixed physics updates</span></span>
+<span id="cb2-20"><a href="#cb2-20" aria-hidden="true" tabindex="-1"></a>    <span class="cf">while</span> (accumulator <span class="op">&gt;=</span> fixedDelta) {</span>
+<span id="cb2-21"><a href="#cb2-21" aria-hidden="true" tabindex="-1"></a>        <span class="co">// Save current positions as previous before updating</span></span>
+<span id="cb2-22"><a href="#cb2-22" aria-hidden="true" tabindex="-1"></a>        <span class="kw">const</span> bodies <span class="op">=</span> Matter<span class="op">.</span><span class="at">Composite</span><span class="op">.</span><span class="fu">allBodies</span>(engine<span class="op">.</span><span class="at">world</span>)<span class="op">;</span></span>
+<span id="cb2-23"><a href="#cb2-23" aria-hidden="true" tabindex="-1"></a>        <span class="cf">for</span> (<span class="kw">let</span> i <span class="op">=</span> <span class="dv">0</span><span class="op">;</span> i <span class="op">&lt;</span> bodies<span class="op">.</span><span class="at">length</span><span class="op">;</span> i<span class="op">++</span>) {</span>
+<span id="cb2-24"><a href="#cb2-24" aria-hidden="true" tabindex="-1"></a>            <span class="kw">const</span> body <span class="op">=</span> bodies[i]<span class="op">;</span></span>
+<span id="cb2-25"><a href="#cb2-25" aria-hidden="true" tabindex="-1"></a>            <span class="cf">if</span> (<span class="op">!</span>body<span class="op">.</span><span class="at">renderState</span>) <span class="fu">trackBodyState</span>(body)<span class="op">;</span></span>
+<span id="cb2-26"><a href="#cb2-26" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-27"><a href="#cb2-27" aria-hidden="true" tabindex="-1"></a>            body<span class="op">.</span><span class="at">renderState</span><span class="op">.</span><span class="at">previousPosition</span><span class="op">.</span><span class="at">x</span> <span class="op">=</span> body<span class="op">.</span><span class="at">position</span><span class="op">.</span><span class="at">x</span><span class="op">;</span></span>
+<span id="cb2-28"><a href="#cb2-28" aria-hidden="true" tabindex="-1"></a>            body<span class="op">.</span><span class="at">renderState</span><span class="op">.</span><span class="at">previousPosition</span><span class="op">.</span><span class="at">y</span> <span class="op">=</span> body<span class="op">.</span><span class="at">position</span><span class="op">.</span><span class="at">y</span><span class="op">;</span></span>
+<span id="cb2-29"><a href="#cb2-29" aria-hidden="true" tabindex="-1"></a>            body<span class="op">.</span><span class="at">renderState</span><span class="op">.</span><span class="at">previousAngle</span> <span class="op">=</span> body<span class="op">.</span><span class="at">angle</span><span class="op">;</span></span>
+<span id="cb2-30"><a href="#cb2-30" aria-hidden="true" tabindex="-1"></a>        }</span>
+<span id="cb2-31"><a href="#cb2-31" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-32"><a href="#cb2-32" aria-hidden="true" tabindex="-1"></a>        <span class="co">// Advance simulation</span></span>
+<span id="cb2-33"><a href="#cb2-33" aria-hidden="true" tabindex="-1"></a>        Matter<span class="op">.</span><span class="at">Engine</span><span class="op">.</span><span class="fu">update</span>(engine<span class="op">,</span> fixedDelta)<span class="op">;</span></span>
+<span id="cb2-34"><a href="#cb2-34" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-35"><a href="#cb2-35" aria-hidden="true" tabindex="-1"></a>        <span class="co">// Record the new current positions</span></span>
+<span id="cb2-36"><a href="#cb2-36" aria-hidden="true" tabindex="-1"></a>        <span class="cf">for</span> (<span class="kw">let</span> i <span class="op">=</span> <span class="dv">0</span><span class="op">;</span> i <span class="op">&lt;</span> bodies<span class="op">.</span><span class="at">length</span><span class="op">;</span> i<span class="op">++</span>) {</span>
+<span id="cb2-37"><a href="#cb2-37" aria-hidden="true" tabindex="-1"></a>            <span class="kw">const</span> body <span class="op">=</span> bodies[i]<span class="op">;</span></span>
+<span id="cb2-38"><a href="#cb2-38" aria-hidden="true" tabindex="-1"></a>            body<span class="op">.</span><span class="at">renderState</span><span class="op">.</span><span class="at">currentPosition</span><span class="op">.</span><span class="at">x</span> <span class="op">=</span> body<span class="op">.</span><span class="at">position</span><span class="op">.</span><span class="at">x</span><span class="op">;</span></span>
+<span id="cb2-39"><a href="#cb2-39" aria-hidden="true" tabindex="-1"></a>            body<span class="op">.</span><span class="at">renderState</span><span class="op">.</span><span class="at">currentPosition</span><span class="op">.</span><span class="at">y</span> <span class="op">=</span> body<span class="op">.</span><span class="at">position</span><span class="op">.</span><span class="at">y</span><span class="op">;</span></span>
+<span id="cb2-40"><a href="#cb2-40" aria-hidden="true" tabindex="-1"></a>            body<span class="op">.</span><span class="at">renderState</span><span class="op">.</span><span class="at">currentAngle</span> <span class="op">=</span> body<span class="op">.</span><span class="at">angle</span><span class="op">;</span></span>
+<span id="cb2-41"><a href="#cb2-41" aria-hidden="true" tabindex="-1"></a>        }</span>
+<span id="cb2-42"><a href="#cb2-42" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-43"><a href="#cb2-43" aria-hidden="true" tabindex="-1"></a>        accumulator <span class="op">-=</span> fixedDelta<span class="op">;</span></span>
+<span id="cb2-44"><a href="#cb2-44" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb2-45"><a href="#cb2-45" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-46"><a href="#cb2-46" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Alpha is the progress toward the next frame [0.0, 1.0)</span></span>
+<span id="cb2-47"><a href="#cb2-47" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> alpha <span class="op">=</span> accumulator <span class="op">/</span> fixedDelta<span class="op">;</span></span>
+<span id="cb2-48"><a href="#cb2-48" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-49"><a href="#cb2-49" aria-hidden="true" tabindex="-1"></a>    <span class="fu">render</span>(alpha)<span class="op">;</span></span>
+<span id="cb2-50"><a href="#cb2-50" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb2-51"><a href="#cb2-51" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-52"><a href="#cb2-52" aria-hidden="true" tabindex="-1"></a><span class="fu">requestAnimationFrame</span>(gameLoop)<span class="op">;</span></span></code></pre></div>
+<h3 id="calculating-render-transforms">Calculating Render
+Transforms</h3>
+<p>When rendering with a custom Canvas, Pixi.js, or Three.js pipeline,
+calculate the visual position using linear interpolation (lerp):</p>
+<p><span class="math display">\[\text{Render Position} = \text{Previous}
++ (\text{Current} - \text{Previous}) \times \alpha\]</span></p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">lerp</span>(start<span class="op">,</span> end<span class="op">,</span> alpha) {</span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> start <span class="op">+</span> (end <span class="op">-</span> start) <span class="op">*</span> alpha<span class="op">;</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">render</span>(alpha) {</span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> context <span class="op">=</span> canvas<span class="op">.</span><span class="fu">getContext</span>(<span class="st">&#39;2d&#39;</span>)<span class="op">;</span></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>    context<span class="op">.</span><span class="fu">clearRect</span>(<span class="dv">0</span><span class="op">,</span> <span class="dv">0</span><span class="op">,</span> canvas<span class="op">.</span><span class="at">width</span><span class="op">,</span> canvas<span class="op">.</span><span class="at">height</span>)<span class="op">;</span></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> bodies <span class="op">=</span> Matter<span class="op">.</span><span class="at">Composite</span><span class="op">.</span><span class="fu">allBodies</span>(engine<span class="op">.</span><span class="at">world</span>)<span class="op">;</span></span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> (<span class="kw">let</span> i <span class="op">=</span> <span class="dv">0</span><span class="op">;</span> i <span class="op">&lt;</span> bodies<span class="op">.</span><span class="at">length</span><span class="op">;</span> i<span class="op">++</span>) {</span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a>        <span class="kw">const</span> body <span class="op">=</span> bodies[i]<span class="op">;</span></span>
+<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> (<span class="op">!</span>body<span class="op">.</span><span class="at">renderState</span>) <span class="cf">continue</span><span class="op">;</span></span>
+<span id="cb3-14"><a href="#cb3-14" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-15"><a href="#cb3-15" aria-hidden="true" tabindex="-1"></a>        <span class="co">// Calculate interpolated values</span></span>
+<span id="cb3-16"><a href="#cb3-16" aria-hidden="true" tabindex="-1"></a>        <span class="kw">const</span> renderX <span class="op">=</span> <span class="fu">lerp</span>(body<span class="op">.</span><span class="at">renderState</span><span class="op">.</span><span class="at">previousPosition</span><span class="op">.</span><span class="at">x</span><span class="op">,</span> body<span class="op">.</span><span class="at">renderState</span><span class="op">.</span><span class="at">currentPosition</span><span class="op">.</span><span class="at">x</span><span class="op">,</span> alpha)<span class="op">;</span></span>
+<span id="cb3-17"><a href="#cb3-17" aria-hidden="true" tabindex="-1"></a>        <span class="kw">const</span> renderY <span class="op">=</span> <span class="fu">lerp</span>(body<span class="op">.</span><span class="at">renderState</span><span class="op">.</span><span class="at">previousPosition</span><span class="op">.</span><span class="at">y</span><span class="op">,</span> body<span class="op">.</span><span class="at">renderState</span><span class="op">.</span><span class="at">currentPosition</span><span class="op">.</span><span class="at">y</span><span class="op">,</span> alpha)<span class="op">;</span></span>
+<span id="cb3-18"><a href="#cb3-18" aria-hidden="true" tabindex="-1"></a>        <span class="kw">const</span> renderAngle <span class="op">=</span> <span class="fu">lerp</span>(body<span class="op">.</span><span class="at">renderState</span><span class="op">.</span><span class="at">previousAngle</span><span class="op">,</span> body<span class="op">.</span><span class="at">renderState</span><span class="op">.</span><span class="at">currentAngle</span><span class="op">,</span> alpha)<span class="op">;</span></span>
+<span id="cb3-19"><a href="#cb3-19" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-20"><a href="#cb3-20" aria-hidden="true" tabindex="-1"></a>        <span class="co">// Draw the body using interpolated values</span></span>
+<span id="cb3-21"><a href="#cb3-21" aria-hidden="true" tabindex="-1"></a>        context<span class="op">.</span><span class="fu">save</span>()<span class="op">;</span></span>
+<span id="cb3-22"><a href="#cb3-22" aria-hidden="true" tabindex="-1"></a>        context<span class="op">.</span><span class="fu">translate</span>(renderX<span class="op">,</span> renderY)<span class="op">;</span></span>
+<span id="cb3-23"><a href="#cb3-23" aria-hidden="true" tabindex="-1"></a>        context<span class="op">.</span><span class="fu">rotate</span>(renderAngle)<span class="op">;</span></span>
+<span id="cb3-24"><a href="#cb3-24" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-25"><a href="#cb3-25" aria-hidden="true" tabindex="-1"></a>        <span class="co">// Draw body geometry relative to its origin</span></span>
+<span id="cb3-26"><a href="#cb3-26" aria-hidden="true" tabindex="-1"></a>        context<span class="op">.</span><span class="fu">beginPath</span>()<span class="op">;</span></span>
+<span id="cb3-27"><a href="#cb3-27" aria-hidden="true" tabindex="-1"></a>        <span class="kw">const</span> vertices <span class="op">=</span> body<span class="op">.</span><span class="at">vertices</span><span class="op">;</span></span>
+<span id="cb3-28"><a href="#cb3-28" aria-hidden="true" tabindex="-1"></a>        context<span class="op">.</span><span class="fu">moveTo</span>(vertices[<span class="dv">0</span>]<span class="op">.</span><span class="at">x</span> <span class="op">-</span> body<span class="op">.</span><span class="at">position</span><span class="op">.</span><span class="at">x</span><span class="op">,</span> vertices[<span class="dv">0</span>]<span class="op">.</span><span class="at">y</span> <span class="op">-</span> body<span class="op">.</span><span class="at">position</span><span class="op">.</span><span class="at">y</span>)<span class="op">;</span></span>
+<span id="cb3-29"><a href="#cb3-29" aria-hidden="true" tabindex="-1"></a>        <span class="cf">for</span> (<span class="kw">let</span> j <span class="op">=</span> <span class="dv">1</span><span class="op">;</span> j <span class="op">&lt;</span> vertices<span class="op">.</span><span class="at">length</span><span class="op">;</span> j<span class="op">++</span>) {</span>
+<span id="cb3-30"><a href="#cb3-30" aria-hidden="true" tabindex="-1"></a>            context<span class="op">.</span><span class="fu">lineTo</span>(vertices[j]<span class="op">.</span><span class="at">x</span> <span class="op">-</span> body<span class="op">.</span><span class="at">position</span><span class="op">.</span><span class="at">x</span><span class="op">,</span> vertices[j]<span class="op">.</span><span class="at">y</span> <span class="op">-</span> body<span class="op">.</span><span class="at">position</span><span class="op">.</span><span class="at">y</span>)<span class="op">;</span></span>
+<span id="cb3-31"><a href="#cb3-31" aria-hidden="true" tabindex="-1"></a>        }</span>
+<span id="cb3-32"><a href="#cb3-32" aria-hidden="true" tabindex="-1"></a>        context<span class="op">.</span><span class="fu">closePath</span>()<span class="op">;</span></span>
+<span id="cb3-33"><a href="#cb3-33" aria-hidden="true" tabindex="-1"></a>        context<span class="op">.</span><span class="at">fillStyle</span> <span class="op">=</span> <span class="st">&#39;#2c3e50&#39;</span><span class="op">;</span></span>
+<span id="cb3-34"><a href="#cb3-34" aria-hidden="true" tabindex="-1"></a>        context<span class="op">.</span><span class="fu">fill</span>()<span class="op">;</span></span>
+<span id="cb3-35"><a href="#cb3-35" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-36"><a href="#cb3-36" aria-hidden="true" tabindex="-1"></a>        context<span class="op">.</span><span class="fu">restore</span>()<span class="op">;</span></span>
+<span id="cb3-37"><a href="#cb3-37" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb3-38"><a href="#cb3-38" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<h3 id="important-considerations">Important Considerations</h3>
+<ul>
+<li><strong>Disable Built-in Rendering:</strong> The default
+<code>Matter.Render</code> is designed to draw raw physics bodies
+without interpolation. Avoid using <code>Matter.Render.run()</code> and
+draw the scenes manually via custom canvas code or external rendering
+libraries.</li>
+<li><strong>Rotational Wrapping:</strong> When interpolating angles that
+cross boundaries (e.g., from <span class="math inline">\(-\pi\)</span>
+to <span class="math inline">\(\pi\)</span>), compute the shortest
+angular distance before interpolating to avoid bodies rapidly spinning
+backwards.</li>
+<li><strong>Sleeping Bodies:</strong> Check
+<code>body.isSleeping</code>. Skip interpolating stationary or sleeping
+bodies to reduce overhead.</li>
+</ul></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/matter.js'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/matter.js/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/matter.js/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

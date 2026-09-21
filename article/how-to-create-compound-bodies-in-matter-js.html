@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How to Create Compound Bodies in Matter.js - matter.js</title>
+    <meta name="description" content="This guide explains how to combine multiple rigid shapes into a single compound body using Matter.js. By utilizing the parts property within Matter.Body.create, you can bind distinct geometric forms—such as rectangles, circles, and polygons—into a si">
+    <link rel="canonical" href="https://salivity.github.io/matter.js/article/how-to-create-compound-bodies-in-matter-js">
+    <link rel="search" type="application/opensearchdescription+xml" title="matter.js" href="/matter.js/opensearch.xml">
+    <link rel="icon" href="/matter.js/favicon.ico">
+    <link rel="stylesheet" href="/matter.js/css/style.css">
+    <link media="print" rel="stylesheet" href="/matter.js/css/print.css">
+    <script src="/matter.js/js/fuse.min.js"></script>
+    <script src="/matter.js/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How to Create Compound Bodies in Matter.js - matter.js" />
+    <meta property="og:url" content="https://salivity.github.io/matter.js/article/how-to-create-compound-bodies-in-matter-js" />
+    <meta property="og:image" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This guide explains how to combine multiple rigid shapes into a single compound body using Matter.js. By utilizing the parts property within Matter.Body.create, you can bind distinct geometric forms—such as rectangles, circles, and polygons—into a si" />
+    <link rel="manifest" href="/matter.js/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/matter.js/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>matter.js</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/matter.js/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="how-to-create-compound-bodies-in-matterjs">How to Create
+Compound Bodies in Matter.js</h1>
+<p>This guide explains how to combine multiple rigid shapes into a
+single compound body using Matter.js. By utilizing the
+<code>parts</code> property within <code>Matter.Body.create</code>, you
+can bind distinct geometric forms—such as rectangles, circles, and
+polygons—into a single physical object that rotates, collides, and moves
+as one cohesive unit with an automatically calculated center of
+mass.</p>
+<h3 id="understanding-compound-bodies">Understanding Compound
+Bodies</h3>
+<p>In Matter.js, a compound body is a parent body composed of multiple
+sub-bodies called parts. The physics engine treats the entire collection
+as a single rigid body for collision detection, mass calculation, and
+movement, while retaining the individual geometries for accurate contact
+resolution.</p>
+<h3 id="step-by-step-implementation">Step-by-Step Implementation</h3>
+<h4 id="1-define-the-individual-parts">1. Define the Individual
+Parts</h4>
+<p>First, instantiate the shapes you want to combine using the
+<code>Matter.Bodies</code> module. Position them in world coordinates
+where they should sit relative to one another.</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> { Bodies<span class="op">,</span> Body<span class="op">,</span> Composite } <span class="op">=</span> Matter<span class="op">;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="co">// Create the individual shapes</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> base <span class="op">=</span> Bodies<span class="op">.</span><span class="fu">rectangle</span>(<span class="dv">400</span><span class="op">,</span> <span class="dv">300</span><span class="op">,</span> <span class="dv">200</span><span class="op">,</span> <span class="dv">40</span><span class="op">,</span> {</span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>  <span class="dt">render</span><span class="op">:</span> { <span class="dt">fillStyle</span><span class="op">:</span> <span class="st">&#39;#e74c3c&#39;</span> }</span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> tower <span class="op">=</span> Bodies<span class="op">.</span><span class="fu">rectangle</span>(<span class="dv">400</span><span class="op">,</span> <span class="dv">250</span><span class="op">,</span> <span class="dv">40</span><span class="op">,</span> <span class="dv">100</span><span class="op">,</span> {</span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>  <span class="dt">render</span><span class="op">:</span> { <span class="dt">fillStyle</span><span class="op">:</span> <span class="st">&#39;#3498db&#39;</span> }</span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> cap <span class="op">=</span> Bodies<span class="op">.</span><span class="fu">circle</span>(<span class="dv">400</span><span class="op">,</span> <span class="dv">180</span><span class="op">,</span> <span class="dv">25</span><span class="op">,</span> {</span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>  <span class="dt">render</span><span class="op">:</span> { <span class="dt">fillStyle</span><span class="op">:</span> <span class="st">&#39;#2ecc71&#39;</span> }</span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div>
+<h4 id="2-group-the-parts-using-bodycreate">2. Group the Parts Using
+<code>Body.create</code></h4>
+<p>Pass the array of individual shapes to <code>Body.create</code> using
+the <code>parts</code> property. When creating a compound body,
+Matter.js automatically computes the aggregate center of mass and
+realigns the sub-parts relative to this new center.</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Combine the shapes into one compound body</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> compoundBody <span class="op">=</span> Body<span class="op">.</span><span class="fu">create</span>({</span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>  <span class="dt">parts</span><span class="op">:</span> [base<span class="op">,</span> tower<span class="op">,</span> cap]</span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div>
+<h4 id="3-add-the-compound-body-to-the-world">3. Add the Compound Body
+to the World</h4>
+<p>Add only the parent compound body to the world. Do not add the
+individual parts separately, as doing so will duplicate them in the
+simulation.</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Add the compound body to the physics engine world</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>Composite<span class="op">.</span><span class="fu">add</span>(engine<span class="op">.</span><span class="at">world</span><span class="op">,</span> compoundBody)<span class="op">;</span></span></code></pre></div>
+<h3 id="important-considerations">Important Considerations</h3>
+<ul>
+<li><strong>Positioning After Creation:</strong> When
+<code>Body.create</code> runs, it recalculates the body's
+<code>position</code> to match the collective center of mass. If you
+need to move or reposition the compound body after creation, use
+<code>Body.setPosition(compoundBody, { x, y })</code> rather than moving
+individual parts.</li>
+<li><strong>Mass and Inertia:</strong> The mass, area, and moment of
+inertia are automatically summed from all assigned parts. You can
+override these properties manually in the <code>Body.create</code>
+options if custom physics behavior is required.</li>
+<li><strong>Collision Handling:</strong> Collision events will report
+the compound body as the root <code>body</code>, but the specific
+sub-shape involved in the contact can still be accessed via the event's
+<code>part</code> reference.</li>
+</ul></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/matter.js'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/matter.js/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/matter.js/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

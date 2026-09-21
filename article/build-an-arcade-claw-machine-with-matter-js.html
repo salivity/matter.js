@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Build an Arcade Claw Machine with Matter.js - matter.js</title>
+    <meta name="description" content="This guide explains how to construct a functional arcade claw machine simulation using the Matter.js 2D physics engine. You will learn how to configure the physics world, assemble a multi-part mechanical claw using rigid bodies and constraints, implement">
+    <link rel="canonical" href="https://salivity.github.io/matter.js/article/build-an-arcade-claw-machine-with-matter-js">
+    <link rel="search" type="application/opensearchdescription+xml" title="matter.js" href="/matter.js/opensearch.xml">
+    <link rel="icon" href="/matter.js/favicon.ico">
+    <link rel="stylesheet" href="/matter.js/css/style.css">
+    <link media="print" rel="stylesheet" href="/matter.js/css/print.css">
+    <script src="/matter.js/js/fuse.min.js"></script>
+    <script src="/matter.js/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Build an Arcade Claw Machine with Matter.js - matter.js" />
+    <meta property="og:url" content="https://salivity.github.io/matter.js/article/build-an-arcade-claw-machine-with-matter-js" />
+    <meta property="og:image" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This guide explains how to construct a functional arcade claw machine simulation using the Matter.js 2D physics engine. You will learn how to configure the physics world, assemble a multi-part mechanical claw using rigid bodies and constraints, implement" />
+    <link rel="manifest" href="/matter.js/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/matter.js/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>matter.js</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/matter.js/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="build-an-arcade-claw-machine-with-matterjs">Build an Arcade Claw
+Machine with Matter.js</h1>
+<p>This guide explains how to construct a functional arcade claw machine
+simulation using the Matter.js 2D physics engine. You will learn how to
+configure the physics world, assemble a multi-part mechanical claw using
+rigid bodies and constraints, implement responsive closing mechanics,
+and calibrate physics parameters to allow the prongs to reliably grab
+and lift prize objects.</p>
+<h3 id="initializing-the-world-and-machine-boundaries">Initializing the
+World and Machine Boundaries</h3>
+<p>Start by setting up the standard Matter.js modules:
+<code>Engine</code>, <code>Render</code>, <code>Runner</code>,
+<code>Bodies</code>, <code>Composite</code>, and
+<code>Constraint</code>. Define the physical play area by creating
+static rectangular bodies for the floor and side walls, leaving the top
+open or wide enough for the claw trolley to traverse.</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> { Engine<span class="op">,</span> Render<span class="op">,</span> Runner<span class="op">,</span> Bodies<span class="op">,</span> Composite<span class="op">,</span> Constraint<span class="op">,</span> Body<span class="op">,</span> Vector } <span class="op">=</span> Matter<span class="op">;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> engine <span class="op">=</span> Engine<span class="op">.</span><span class="fu">create</span>()<span class="op">;</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> world <span class="op">=</span> engine<span class="op">.</span><span class="at">world</span><span class="op">;</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> render <span class="op">=</span> Render<span class="op">.</span><span class="fu">create</span>({</span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>    <span class="dt">element</span><span class="op">:</span> <span class="bu">document</span><span class="op">.</span><span class="at">body</span><span class="op">,</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>    <span class="dt">engine</span><span class="op">:</span> engine<span class="op">,</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>    <span class="dt">options</span><span class="op">:</span> { <span class="dt">width</span><span class="op">:</span> <span class="dv">800</span><span class="op">,</span> <span class="dt">height</span><span class="op">:</span> <span class="dv">600</span><span class="op">,</span> <span class="dt">wireframes</span><span class="op">:</span> <span class="kw">false</span> }</span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>Render<span class="op">.</span><span class="fu">run</span>(render)<span class="op">;</span></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>Runner<span class="op">.</span><span class="fu">run</span>(Runner<span class="op">.</span><span class="fu">create</span>()<span class="op">,</span> engine)<span class="op">;</span></span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a><span class="co">// Boundaries</span></span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> ground <span class="op">=</span> Bodies<span class="op">.</span><span class="fu">rectangle</span>(<span class="dv">400</span><span class="op">,</span> <span class="dv">590</span><span class="op">,</span> <span class="dv">800</span><span class="op">,</span> <span class="dv">20</span><span class="op">,</span> { <span class="dt">isStatic</span><span class="op">:</span> <span class="kw">true</span> })<span class="op">;</span></span>
+<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> leftWall <span class="op">=</span> Bodies<span class="op">.</span><span class="fu">rectangle</span>(<span class="dv">10</span><span class="op">,</span> <span class="dv">300</span><span class="op">,</span> <span class="dv">20</span><span class="op">,</span> <span class="dv">600</span><span class="op">,</span> { <span class="dt">isStatic</span><span class="op">:</span> <span class="kw">true</span> })<span class="op">;</span></span>
+<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> rightWall <span class="op">=</span> Bodies<span class="op">.</span><span class="fu">rectangle</span>(<span class="dv">790</span><span class="op">,</span> <span class="dv">300</span><span class="op">,</span> <span class="dv">20</span><span class="op">,</span> <span class="dv">600</span><span class="op">,</span> { <span class="dt">isStatic</span><span class="op">:</span> <span class="kw">true</span> })<span class="op">;</span></span>
+<span id="cb1-19"><a href="#cb1-19" aria-hidden="true" tabindex="-1"></a>Composite<span class="op">.</span><span class="fu">add</span>(world<span class="op">,</span> [ground<span class="op">,</span> leftWall<span class="op">,</span> rightWall])<span class="op">;</span></span></code></pre></div>
+<h3 id="populating-the-prize-pit">Populating the Prize Pit</h3>
+<p>Spawn a cluster of dynamic bodies at the bottom of the machine to
+serve as prizes. A mixture of circles and rounded rectangles with
+varying masses and high friction values provides an authentic arcade
+experience.</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> (<span class="kw">let</span> i <span class="op">=</span> <span class="dv">0</span><span class="op">;</span> i <span class="op">&lt;</span> <span class="dv">25</span><span class="op">;</span> i<span class="op">++</span>) {</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> x <span class="op">=</span> <span class="dv">300</span> <span class="op">+</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">random</span>() <span class="op">*</span> <span class="dv">200</span><span class="op">;</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> y <span class="op">=</span> <span class="dv">500</span> <span class="op">+</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">random</span>() <span class="op">*</span> <span class="dv">50</span><span class="op">;</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> prize <span class="op">=</span> Bodies<span class="op">.</span><span class="fu">circle</span>(x<span class="op">,</span> y<span class="op">,</span> <span class="dv">20</span><span class="op">,</span> {</span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>        <span class="dt">friction</span><span class="op">:</span> <span class="fl">0.8</span><span class="op">,</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>        <span class="dt">restitution</span><span class="op">:</span> <span class="fl">0.2</span><span class="op">,</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>        <span class="dt">density</span><span class="op">:</span> <span class="fl">0.002</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>    })<span class="op">;</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>    Composite<span class="op">.</span><span class="fu">add</span>(world<span class="op">,</span> prize)<span class="op">;</span></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<h3 id="building-the-mechanical-claw-assembly">Building the Mechanical
+Claw Assembly</h3>
+<p>A functional claw requires a central carriage (base) and two or more
+articulated prongs. Each prong consists of an upper arm and an angled
+lower tip to hook beneath objects.</p>
+<ol type="1">
+<li><strong>Carriage Base</strong>: Create a kinematic or light dynamic
+body to act as the central hub.</li>
+<li><strong>Prongs</strong>: Construct the left and right prongs.
+Combine parts using <code>Body.create({ parts: [...] })</code> to create
+curved or angled shapes, or use single angled rectangles.</li>
+<li><strong>Pivots</strong>: Connect each prong to the base using
+revolute constraints (<code>Constraint.create</code> with zero
+length).</li>
+</ol>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> clawBase <span class="op">=</span> Bodies<span class="op">.</span><span class="fu">rectangle</span>(<span class="dv">400</span><span class="op">,</span> <span class="dv">100</span><span class="op">,</span> <span class="dv">60</span><span class="op">,</span> <span class="dv">20</span><span class="op">,</span> { <span class="dt">isStatic</span><span class="op">:</span> <span class="kw">true</span> })<span class="op">;</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a><span class="co">// Left Prong</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> leftProng <span class="op">=</span> Bodies<span class="op">.</span><span class="fu">rectangle</span>(<span class="dv">370</span><span class="op">,</span> <span class="dv">150</span><span class="op">,</span> <span class="dv">12</span><span class="op">,</span> <span class="dv">80</span><span class="op">,</span> { </span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>    <span class="dt">friction</span><span class="op">:</span> <span class="fl">0.9</span><span class="op">,</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>    <span class="dt">angle</span><span class="op">:</span> <span class="fl">0.2</span></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a><span class="co">// Right Prong</span></span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> rightProng <span class="op">=</span> Bodies<span class="op">.</span><span class="fu">rectangle</span>(<span class="dv">430</span><span class="op">,</span> <span class="dv">150</span><span class="op">,</span> <span class="dv">12</span><span class="op">,</span> <span class="dv">80</span><span class="op">,</span> { </span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a>    <span class="dt">friction</span><span class="op">:</span> <span class="fl">0.9</span><span class="op">,</span></span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a>    <span class="dt">angle</span><span class="op">:</span> <span class="op">-</span><span class="fl">0.2</span></span>
+<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span>
+<span id="cb3-14"><a href="#cb3-14" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-15"><a href="#cb3-15" aria-hidden="true" tabindex="-1"></a><span class="co">// Pivot Constraints</span></span>
+<span id="cb3-16"><a href="#cb3-16" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> leftPivot <span class="op">=</span> Constraint<span class="op">.</span><span class="fu">create</span>({</span>
+<span id="cb3-17"><a href="#cb3-17" aria-hidden="true" tabindex="-1"></a>    <span class="dt">bodyA</span><span class="op">:</span> clawBase<span class="op">,</span></span>
+<span id="cb3-18"><a href="#cb3-18" aria-hidden="true" tabindex="-1"></a>    <span class="dt">pointA</span><span class="op">:</span> { <span class="dt">x</span><span class="op">:</span> <span class="op">-</span><span class="dv">25</span><span class="op">,</span> <span class="dt">y</span><span class="op">:</span> <span class="dv">10</span> }<span class="op">,</span></span>
+<span id="cb3-19"><a href="#cb3-19" aria-hidden="true" tabindex="-1"></a>    <span class="dt">bodyB</span><span class="op">:</span> leftProng<span class="op">,</span></span>
+<span id="cb3-20"><a href="#cb3-20" aria-hidden="true" tabindex="-1"></a>    <span class="dt">pointB</span><span class="op">:</span> { <span class="dt">x</span><span class="op">:</span> <span class="dv">0</span><span class="op">,</span> <span class="dt">y</span><span class="op">:</span> <span class="op">-</span><span class="dv">35</span> }<span class="op">,</span></span>
+<span id="cb3-21"><a href="#cb3-21" aria-hidden="true" tabindex="-1"></a>    <span class="dt">stiffness</span><span class="op">:</span> <span class="dv">1</span><span class="op">,</span></span>
+<span id="cb3-22"><a href="#cb3-22" aria-hidden="true" tabindex="-1"></a>    <span class="dt">length</span><span class="op">:</span> <span class="dv">0</span></span>
+<span id="cb3-23"><a href="#cb3-23" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span>
+<span id="cb3-24"><a href="#cb3-24" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-25"><a href="#cb3-25" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> rightPivot <span class="op">=</span> Constraint<span class="op">.</span><span class="fu">create</span>({</span>
+<span id="cb3-26"><a href="#cb3-26" aria-hidden="true" tabindex="-1"></a>    <span class="dt">bodyA</span><span class="op">:</span> clawBase<span class="op">,</span></span>
+<span id="cb3-27"><a href="#cb3-27" aria-hidden="true" tabindex="-1"></a>    <span class="dt">pointA</span><span class="op">:</span> { <span class="dt">x</span><span class="op">:</span> <span class="dv">25</span><span class="op">,</span> <span class="dt">y</span><span class="op">:</span> <span class="dv">10</span> }<span class="op">,</span></span>
+<span id="cb3-28"><a href="#cb3-28" aria-hidden="true" tabindex="-1"></a>    <span class="dt">bodyB</span><span class="op">:</span> rightProng<span class="op">,</span></span>
+<span id="cb3-29"><a href="#cb3-29" aria-hidden="true" tabindex="-1"></a>    <span class="dt">pointB</span><span class="op">:</span> { <span class="dt">x</span><span class="op">:</span> <span class="dv">0</span><span class="op">,</span> <span class="dt">y</span><span class="op">:</span> <span class="op">-</span><span class="dv">35</span> }<span class="op">,</span></span>
+<span id="cb3-30"><a href="#cb3-30" aria-hidden="true" tabindex="-1"></a>    <span class="dt">stiffness</span><span class="op">:</span> <span class="dv">1</span><span class="op">,</span></span>
+<span id="cb3-31"><a href="#cb3-31" aria-hidden="true" tabindex="-1"></a>    <span class="dt">length</span><span class="op">:</span> <span class="dv">0</span></span>
+<span id="cb3-32"><a href="#cb3-32" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span>
+<span id="cb3-33"><a href="#cb3-33" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-34"><a href="#cb3-34" aria-hidden="true" tabindex="-1"></a>Composite<span class="op">.</span><span class="fu">add</span>(world<span class="op">,</span> [clawBase<span class="op">,</span> leftProng<span class="op">,</span> rightProng<span class="op">,</span> leftPivot<span class="op">,</span> rightPivot])<span class="op">;</span></span></code></pre></div>
+<h3 id="implementing-the-closing-and-opening-mechanism">Implementing the
+Closing and Opening Mechanism</h3>
+<p>To open and close the claw, use an elastic closing constraint
+connecting the bottom tips of the prongs, or apply rotational torque
+directly to the prongs.</p>
+<p>An elastic spring constraint creates a natural gripping action that
+yields against solid prizes without destabilizing the physics
+simulation:</p>
+<div class="sourceCode" id="cb4"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Actuator constraint between the lower portions of the arms</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> closingActuator <span class="op">=</span> Constraint<span class="op">.</span><span class="fu">create</span>({</span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>    <span class="dt">bodyA</span><span class="op">:</span> leftProng<span class="op">,</span></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>    <span class="dt">pointA</span><span class="op">:</span> { <span class="dt">x</span><span class="op">:</span> <span class="dv">0</span><span class="op">,</span> <span class="dt">y</span><span class="op">:</span> <span class="dv">20</span> }<span class="op">,</span></span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>    <span class="dt">bodyB</span><span class="op">:</span> rightProng<span class="op">,</span></span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a>    <span class="dt">pointB</span><span class="op">:</span> { <span class="dt">x</span><span class="op">:</span> <span class="dv">0</span><span class="op">,</span> <span class="dt">y</span><span class="op">:</span> <span class="dv">20</span> }<span class="op">,</span></span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a>    <span class="dt">stiffness</span><span class="op">:</span> <span class="fl">0.05</span><span class="op">,</span></span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a>    <span class="dt">length</span><span class="op">:</span> <span class="dv">80</span><span class="op">,</span> <span class="co">// Default open length</span></span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a>    <span class="dt">render</span><span class="op">:</span> { <span class="dt">visible</span><span class="op">:</span> <span class="kw">false</span> }</span>
+<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span>
+<span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-12"><a href="#cb4-12" aria-hidden="true" tabindex="-1"></a>Composite<span class="op">.</span><span class="fu">add</span>(world<span class="op">,</span> closingActuator)<span class="op">;</span></span>
+<span id="cb4-13"><a href="#cb4-13" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-14"><a href="#cb4-14" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">closeClaw</span>() {</span>
+<span id="cb4-15"><a href="#cb4-15" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Shrink target distance to pull prongs inward</span></span>
+<span id="cb4-16"><a href="#cb4-16" aria-hidden="true" tabindex="-1"></a>    closingActuator<span class="op">.</span><span class="at">length</span> <span class="op">=</span> <span class="dv">15</span><span class="op">;</span></span>
+<span id="cb4-17"><a href="#cb4-17" aria-hidden="true" tabindex="-1"></a>    closingActuator<span class="op">.</span><span class="at">stiffness</span> <span class="op">=</span> <span class="fl">0.08</span><span class="op">;</span></span>
+<span id="cb4-18"><a href="#cb4-18" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb4-19"><a href="#cb4-19" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-20"><a href="#cb4-20" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">openClaw</span>() {</span>
+<span id="cb4-21"><a href="#cb4-21" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Expand target distance to push prongs outward</span></span>
+<span id="cb4-22"><a href="#cb4-22" aria-hidden="true" tabindex="-1"></a>    closingActuator<span class="op">.</span><span class="at">length</span> <span class="op">=</span> <span class="dv">80</span><span class="op">;</span></span>
+<span id="cb4-23"><a href="#cb4-23" aria-hidden="true" tabindex="-1"></a>    closingActuator<span class="op">.</span><span class="at">stiffness</span> <span class="op">=</span> <span class="fl">0.05</span><span class="op">;</span></span>
+<span id="cb4-24"><a href="#cb4-24" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<p>Alternatively, apply direct angular torque inside the game loop using
+<code>Body.setAngularVelocity</code> or <code>leftProng.torque</code>
+until the arms hit mechanical stops or grab a prize.</p>
+<h3 id="controlling-machine-states-and-carriage-motion">Controlling
+Machine States and Carriage Motion</h3>
+<p>Manage the claw through a state machine: <strong>IDLE</strong>,
+<strong>DROPPING</strong>, <strong>GRABBING</strong>,
+<strong>RETRACTING</strong>, and <strong>RELEASING</strong>.</p>
+<p>Move the <code>clawBase</code> directly by altering its position
+using <code>Body.setPosition</code>:</p>
+<div class="sourceCode" id="cb5"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="kw">let</span> clawState <span class="op">=</span> <span class="st">&#39;IDLE&#39;</span><span class="op">;</span></span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">updateClawMovement</span>() {</span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (clawState <span class="op">===</span> <span class="st">&#39;DROPPING&#39;</span>) {</span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a>        Body<span class="op">.</span><span class="fu">setPosition</span>(clawBase<span class="op">,</span> { <span class="dt">x</span><span class="op">:</span> clawBase<span class="op">.</span><span class="at">position</span><span class="op">.</span><span class="at">x</span><span class="op">,</span> <span class="dt">y</span><span class="op">:</span> clawBase<span class="op">.</span><span class="at">position</span><span class="op">.</span><span class="at">y</span> <span class="op">+</span> <span class="dv">3</span> })<span class="op">;</span></span>
+<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> (clawBase<span class="op">.</span><span class="at">position</span><span class="op">.</span><span class="at">y</span> <span class="op">&gt;=</span> <span class="dv">420</span>) {</span>
+<span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a>            clawState <span class="op">=</span> <span class="st">&#39;GRABBING&#39;</span><span class="op">;</span></span>
+<span id="cb5-8"><a href="#cb5-8" aria-hidden="true" tabindex="-1"></a>            <span class="fu">closeClaw</span>()<span class="op">;</span></span>
+<span id="cb5-9"><a href="#cb5-9" aria-hidden="true" tabindex="-1"></a>            <span class="pp">setTimeout</span>(() <span class="kw">=&gt;</span> { clawState <span class="op">=</span> <span class="st">&#39;RETRACTING&#39;</span><span class="op">;</span> }<span class="op">,</span> <span class="dv">1000</span>)<span class="op">;</span></span>
+<span id="cb5-10"><a href="#cb5-10" aria-hidden="true" tabindex="-1"></a>        }</span>
+<span id="cb5-11"><a href="#cb5-11" aria-hidden="true" tabindex="-1"></a>    } <span class="cf">else</span> <span class="cf">if</span> (clawState <span class="op">===</span> <span class="st">&#39;RETRACTING&#39;</span>) {</span>
+<span id="cb5-12"><a href="#cb5-12" aria-hidden="true" tabindex="-1"></a>        Body<span class="op">.</span><span class="fu">setPosition</span>(clawBase<span class="op">,</span> { <span class="dt">x</span><span class="op">:</span> clawBase<span class="op">.</span><span class="at">position</span><span class="op">.</span><span class="at">x</span><span class="op">,</span> <span class="dt">y</span><span class="op">:</span> clawBase<span class="op">.</span><span class="at">position</span><span class="op">.</span><span class="at">y</span> <span class="op">-</span> <span class="dv">3</span> })<span class="op">;</span></span>
+<span id="cb5-13"><a href="#cb5-13" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> (clawBase<span class="op">.</span><span class="at">position</span><span class="op">.</span><span class="at">y</span> <span class="op">&lt;=</span> <span class="dv">100</span>) {</span>
+<span id="cb5-14"><a href="#cb5-14" aria-hidden="true" tabindex="-1"></a>            clawState <span class="op">=</span> <span class="st">&#39;IDLE&#39;</span><span class="op">;</span></span>
+<span id="cb5-15"><a href="#cb5-15" aria-hidden="true" tabindex="-1"></a>            <span class="co">// Optional: Move to chute and call openClaw()</span></span>
+<span id="cb5-16"><a href="#cb5-16" aria-hidden="true" tabindex="-1"></a>        }</span>
+<span id="cb5-17"><a href="#cb5-17" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb5-18"><a href="#cb5-18" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb5-19"><a href="#cb5-19" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-20"><a href="#cb5-20" aria-hidden="true" tabindex="-1"></a>Matter<span class="op">.</span><span class="at">Events</span><span class="op">.</span><span class="fu">on</span>(engine<span class="op">,</span> <span class="st">&#39;beforeUpdate&#39;</span><span class="op">,</span> updateClawMovement)<span class="op">;</span></span></code></pre></div>
+<h3 id="optimizing-friction-and-grip-stability">Optimizing Friction and
+Grip Stability</h3>
+<p>Physics engines often suffer from slippery surfaces when lifting
+dynamic objects. To ensure successful grabs:</p>
+<ul>
+<li>Set the <code>friction</code> parameter of both the prize bodies and
+prong bodies to high values (between <code>0.8</code> and
+<code>1.0</code>).</li>
+<li>Add custom hook tips to the prongs angled inward at 45 to 90 degrees
+using compound bodies to physically trap shapes rather than relying
+purely on frictional forces.</li>
+<li>Keep the solver iterations sufficiently high by setting
+<code>engine.positionIterations = 10</code> and
+<code>engine.velocityIterations = 10</code> to prevent prongs from
+passing through prizes under tension.</li>
+</ul></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/matter.js'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/matter.js/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/matter.js/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Handling Multi-Pin Scatter Physics in Matter.js - matter.js</title>
+    <meta name="description" content="Simulating realistic bowling pin scatter in Matter.js requires balancing mass ratios, collision elasticity, friction, and engine solver accuracy. Because Matter.js is a 2D physics engine, creating a believable chain reaction when a bowling ball strikes t">
+    <link rel="canonical" href="https://salivity.github.io/matter.js/article/handling-multi-pin-scatter-physics-in-matter-js">
+    <link rel="search" type="application/opensearchdescription+xml" title="matter.js" href="/matter.js/opensearch.xml">
+    <link rel="icon" href="/matter.js/favicon.ico">
+    <link rel="stylesheet" href="/matter.js/css/style.css">
+    <link media="print" rel="stylesheet" href="/matter.js/css/print.css">
+    <script src="/matter.js/js/fuse.min.js"></script>
+    <script src="/matter.js/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Handling Multi-Pin Scatter Physics in Matter.js - matter.js" />
+    <meta property="og:url" content="https://salivity.github.io/matter.js/article/handling-multi-pin-scatter-physics-in-matter-js" />
+    <meta property="og:image" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Simulating realistic bowling pin scatter in Matter.js requires balancing mass ratios, collision elasticity, friction, and engine solver accuracy. Because Matter.js is a 2D physics engine, creating a believable chain reaction when a bowling ball strikes t" />
+    <link rel="manifest" href="/matter.js/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/matter.js/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>matter.js</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/matter.js/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="handling-multi-pin-scatter-physics-in-matterjs">Handling
+Multi-Pin Scatter Physics in Matter.js</h1>
+<p>Simulating realistic bowling pin scatter in Matter.js requires
+balancing mass ratios, collision elasticity, friction, and engine solver
+accuracy. Because Matter.js is a 2D physics engine, creating a
+believable chain reaction when a bowling ball strikes the headpin
+depends on precise configuration of rigid body parameters, sub-stepping
+to prevent tunneling, and properly shaped collision hulls that
+facilitate lateral deflection.</p>
+<h3 id="1-increase-engine-solver-fidelity">1. Increase Engine Solver
+Fidelity</h3>
+<p>A standard bowling impact transfers massive energy instantaneously
+across tightly packed targets. By default, Matter.js runs with standard
+iteration counts that can cause rigid bodies to clip into each other or
+absorb momentum unrealistically.</p>
+<p>Increase the engine's iteration count and reduce the update timestep
+using sub-stepping:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> engine <span class="op">=</span> Matter<span class="op">.</span><span class="at">Engine</span><span class="op">.</span><span class="fu">create</span>({</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>  <span class="dt">positionIterations</span><span class="op">:</span> <span class="dv">12</span><span class="op">,</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>  <span class="dt">velocityIterations</span><span class="op">:</span> <span class="dv">10</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a><span class="co">// Run the engine with sub-stepping in your render loop</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> subSteps <span class="op">=</span> <span class="dv">4</span><span class="op">;</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> delta <span class="op">=</span> (<span class="dv">1000</span> <span class="op">/</span> <span class="dv">60</span>) <span class="op">/</span> subSteps<span class="op">;</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">updatePhysics</span>() {</span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>  <span class="cf">for</span> (<span class="kw">let</span> i <span class="op">=</span> <span class="dv">0</span><span class="op">;</span> i <span class="op">&lt;</span> subSteps<span class="op">;</span> i<span class="op">++</span>) {</span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>    Matter<span class="op">.</span><span class="at">Engine</span><span class="op">.</span><span class="fu">update</span>(engine<span class="op">,</span> delta)<span class="op">;</span></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<h3 id="2-configure-mass-and-density-ratios">2. Configure Mass and
+Density Ratios</h3>
+<p>A regulation bowling ball weighs roughly 10 to 16 pounds, while a
+regulation pin weighs between 3.3 and 3.6 pounds (a ratio of roughly
+3.5:1 to 4.5:1). Replicating these proportions ensures that the ball
+plows through the headpin while still losing slight velocity and
+deflecting into the pocket.</p>
+<ul>
+<li><strong>Bowling Ball:</strong> Set a high density and low
+restitution (bounciness). The ball must drive forward without rebounding
+backward upon impact.</li>
+<li><strong>Pins:</strong> Set a proportionally lower density and
+moderate restitution to allow them to bounce off each other and lane
+boundaries.</li>
+</ul>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Bowling Ball</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> ball <span class="op">=</span> Matter<span class="op">.</span><span class="at">Bodies</span><span class="op">.</span><span class="fu">circle</span>(x<span class="op">,</span> y<span class="op">,</span> radius<span class="op">,</span> {</span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>  <span class="dt">density</span><span class="op">:</span> <span class="fl">0.04</span><span class="op">,</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>  <span class="dt">restitution</span><span class="op">:</span> <span class="fl">0.15</span><span class="op">,</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>  <span class="dt">friction</span><span class="op">:</span> <span class="fl">0.05</span><span class="op">,</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>  <span class="dt">frictionAir</span><span class="op">:</span> <span class="fl">0.001</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a><span class="co">// Bowling Pin</span></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> pin <span class="op">=</span> Matter<span class="op">.</span><span class="at">Bodies</span><span class="op">.</span><span class="fu">trapezoid</span>(x<span class="op">,</span> y<span class="op">,</span> width<span class="op">,</span> height<span class="op">,</span> slope<span class="op">,</span> {</span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>  <span class="dt">density</span><span class="op">:</span> <span class="fl">0.01</span><span class="op">,</span></span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>  <span class="dt">restitution</span><span class="op">:</span> <span class="fl">0.45</span><span class="op">,</span></span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>  <span class="dt">friction</span><span class="op">:</span> <span class="fl">0.1</span><span class="op">,</span></span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a>  <span class="dt">frictionAir</span><span class="op">:</span> <span class="fl">0.01</span></span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div>
+<h3 id="3-geometry-and-compound-bodies-for-deflection">3. Geometry and
+Compound Bodies for Deflection</h3>
+<p>If pins are represented as simple rectangles, corner-on-corner
+impacts can catch awkwardly, stalling the chain reaction. If they are
+simple circles, they will scatter without the rotational tumbling
+characteristic of real pins.</p>
+<p>To achieve natural scatter:</p>
+<ul>
+<li>Use a <strong>chamfered polygon</strong> or a <strong>compound
+body</strong> (a cylinder base merged with a rounded top and tapered
+neck).</li>
+<li>Rounded contours allow pins to slide off one another smoothly during
+high-velocity chain reactions.</li>
+<li>Offset the center of mass slightly toward the base so the pins
+naturally pivot and sweep across neighboring pins as they rotate.</li>
+</ul>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> pinBase <span class="op">=</span> Matter<span class="op">.</span><span class="at">Bodies</span><span class="op">.</span><span class="fu">circle</span>(x<span class="op">,</span> y <span class="op">+</span> <span class="dv">15</span><span class="op">,</span> <span class="dv">12</span>)<span class="op">;</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> pinBody <span class="op">=</span> Matter<span class="op">.</span><span class="at">Bodies</span><span class="op">.</span><span class="fu">trapezoid</span>(x<span class="op">,</span> y <span class="op">-</span> <span class="dv">5</span><span class="op">,</span> <span class="dv">20</span><span class="op">,</span> <span class="dv">40</span><span class="op">,</span> <span class="fl">0.3</span>)<span class="op">;</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> pin <span class="op">=</span> Matter<span class="op">.</span><span class="at">Body</span><span class="op">.</span><span class="fu">create</span>({</span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>  <span class="dt">parts</span><span class="op">:</span> [pinBase<span class="op">,</span> pinBody]<span class="op">,</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>  <span class="dt">restitution</span><span class="op">:</span> <span class="fl">0.5</span><span class="op">,</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>  <span class="dt">friction</span><span class="op">:</span> <span class="fl">0.2</span></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div>
+<h3 id="4-enable-pin-to-pin-collision-interactions">4. Enable Pin-to-Pin
+Collision Interactions</h3>
+<p>For multi-pin scatter, the headpin must not only deflect off the ball
+but also act as a projectile that transfers energy to the secondary row
+(the 2 and 3 pins), which then transfers energy to the back rows.</p>
+<p>Ensure all pins share the same collision group or have their
+collision masks configured to collide with both the ball and other
+pins:</p>
+<div class="sourceCode" id="cb4"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> BALL_CATEGORY <span class="op">=</span> <span class="bn">0x0001</span><span class="op">;</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> PIN_CATEGORY <span class="op">=</span> <span class="bn">0x0002</span><span class="op">;</span></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> LANE_CATEGORY <span class="op">=</span> <span class="bn">0x0004</span><span class="op">;</span></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> ballCollision <span class="op">=</span> {</span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a>  <span class="dt">category</span><span class="op">:</span> BALL_CATEGORY<span class="op">,</span></span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a>  <span class="dt">mask</span><span class="op">:</span> PIN_CATEGORY <span class="op">|</span> LANE_CATEGORY</span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a>}<span class="op">;</span></span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> pinCollision <span class="op">=</span> {</span>
+<span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a>  <span class="dt">category</span><span class="op">:</span> PIN_CATEGORY<span class="op">,</span></span>
+<span id="cb4-12"><a href="#cb4-12" aria-hidden="true" tabindex="-1"></a>  <span class="dt">mask</span><span class="op">:</span> BALL_CATEGORY <span class="op">|</span> PIN_CATEGORY <span class="op">|</span> LANE_CATEGORY</span>
+<span id="cb4-13"><a href="#cb4-13" aria-hidden="true" tabindex="-1"></a>}<span class="op">;</span></span></code></pre></div>
+<h3 id="5-managing-energy-dissipation-and-angular-damping">5. Managing
+Energy Dissipation and Angular Damping</h3>
+<p>When pins hit one another in a dense cluster, they can generate
+excessive rotational speed, making the scatter look jittery.</p>
+<ul>
+<li>Add a small amount of <code>torque</code> or lateral impulse on
+initial contact using the <code>collisionStart</code> event to break
+perfect symmetry if the ball hits dead-center.</li>
+<li>Apply moderate <code>frictionAir</code> to the pins so they slide
+and tumble across the lane surface without spinning indefinitely.</li>
+<li>Restrict angular velocity via <code>pin.angularDamping</code> or by
+clamping <code>body.angularVelocity</code> inside the tick loop to
+prevent erratic pinwheel motions.</li>
+</ul></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/matter.js'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/matter.js/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/matter.js/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

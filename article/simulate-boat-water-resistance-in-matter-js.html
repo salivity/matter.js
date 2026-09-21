@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simulate Boat Water Resistance in Matter.js - matter.js</title>
+    <meta name="description" content="This article explains how to realistically simulate water resistance and boat deceleration in Matter.js using custom fluid dynamics logic. Because Matter.js is a rigid-body 2D physics engine without built-in fluid mechanics, developers must approximate h">
+    <link rel="canonical" href="https://salivity.github.io/matter.js/article/simulate-boat-water-resistance-in-matter-js">
+    <link rel="search" type="application/opensearchdescription+xml" title="matter.js" href="/matter.js/opensearch.xml">
+    <link rel="icon" href="/matter.js/favicon.ico">
+    <link rel="stylesheet" href="/matter.js/css/style.css">
+    <link media="print" rel="stylesheet" href="/matter.js/css/print.css">
+    <script src="/matter.js/js/fuse.min.js"></script>
+    <script src="/matter.js/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Simulate Boat Water Resistance in Matter.js - matter.js" />
+    <meta property="og:url" content="https://salivity.github.io/matter.js/article/simulate-boat-water-resistance-in-matter-js" />
+    <meta property="og:image" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article explains how to realistically simulate water resistance and boat deceleration in Matter.js using custom fluid dynamics logic. Because Matter.js is a rigid-body 2D physics engine without built-in fluid mechanics, developers must approximate h" />
+    <link rel="manifest" href="/matter.js/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/matter.js/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>matter.js</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/matter.js/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="simulate-boat-water-resistance-in-matterjs">Simulate Boat Water
+Resistance in Matter.js</h1>
+<p>This article explains how to realistically simulate water resistance
+and boat deceleration in Matter.js using custom fluid dynamics logic.
+Because Matter.js is a rigid-body 2D physics engine without built-in
+fluid mechanics, developers must approximate hydrodynamic drag and hull
+displacement manually. Below, you will learn the core mathematical
+principles behind fluid resistance, how to calculate the submerged
+volume of a hull, and how to apply custom counteracting forces to a boat
+body on every physics update step.</p>
+<h2 id="understanding-the-physics-of-water-drag">Understanding the
+Physics of Water Drag</h2>
+<p>Water resistance relies on hydrodynamic drag, which opposes the
+relative motion of any object moving through a fluid. The standard drag
+equation is:</p>
+<p><span class="math display">\[F_d = \frac{1}{2} \rho v^2 C_d
+A\]</span></p>
+<p>Where:</p>
+<ul>
+<li><strong><span class="math inline">\(\rho\)</span> (rho):</strong>
+Fluid density (water is significantly denser than air).</li>
+<li><strong><span class="math inline">\(v\)</span>:</strong> Velocity of
+the body relative to the fluid.</li>
+<li><strong><span class="math inline">\(C_d\)</span>:</strong> Drag
+coefficient (determined by hull shape).</li>
+<li><strong><span class="math inline">\(A\)</span>:</strong> Frontal
+reference area (directly related to submerged displacement).</li>
+</ul>
+<p>In 2D physics engines like Matter.js, displacement is represented by
+the cross-sectional area or the vertical immersion depth of the hull
+intersecting with a flat water plane.</p>
+<h2 id="calculating-hull-displacement">Calculating Hull
+Displacement</h2>
+<p>To simulate displacement, define a global water line coordinate
+(<span class="math inline">\(Y_{water}\)</span>). On each tick,
+determine how far the hull's bounding box or vertices extend below this
+threshold.</p>
+<p>A fast and effective approximation uses the boat's vertical
+bounds:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">getSubmergedRatio</span>(boat<span class="op">,</span> waterLevelY) {</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> minY <span class="op">=</span> boat<span class="op">.</span><span class="at">bounds</span><span class="op">.</span><span class="at">min</span><span class="op">.</span><span class="at">y</span><span class="op">;</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> maxY <span class="op">=</span> boat<span class="op">.</span><span class="at">bounds</span><span class="op">.</span><span class="at">max</span><span class="op">.</span><span class="at">y</span><span class="op">;</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> totalHeight <span class="op">=</span> maxY <span class="op">-</span> minY<span class="op">;</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Entirely above water</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (maxY <span class="op">&lt;=</span> waterLevelY) {</span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Entirely submerged</span></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (minY <span class="op">&gt;=</span> waterLevelY) {</span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> <span class="dv">1</span><span class="op">;</span></span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Partially submerged</span></span>
+<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> submergedHeight <span class="op">=</span> maxY <span class="op">-</span> waterLevelY<span class="op">;</span></span>
+<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">min</span>(<span class="bu">Math</span><span class="op">.</span><span class="fu">max</span>(submergedHeight <span class="op">/</span> totalHeight<span class="op">,</span> <span class="dv">0</span>)<span class="op">,</span> <span class="dv">1</span>)<span class="op">;</span></span>
+<span id="cb1-19"><a href="#cb1-19" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<h2 id="applying-drag-in-the-physics-loop">Applying Drag in the Physics
+Loop</h2>
+<p>Matter.js provides lifecycle hooks to modify forces prior to
+collision resolution. Hook into the <code>beforeUpdate</code> event to
+evaluate velocity, determine current displacement, and apply an opposing
+drag force to the body.</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> { Engine<span class="op">,</span> Events<span class="op">,</span> Body<span class="op">,</span> Vector } <span class="op">=</span> Matter<span class="op">;</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> WATER_LEVEL <span class="op">=</span> <span class="dv">300</span><span class="op">;</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> WATER_DENSITY <span class="op">=</span> <span class="fl">0.002</span><span class="op">;</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> LINEAR_DRAG_COEF <span class="op">=</span> <span class="fl">0.05</span><span class="op">;</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> ANGULAR_DRAG_COEF <span class="op">=</span> <span class="fl">0.08</span><span class="op">;</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>Events<span class="op">.</span><span class="fu">on</span>(engine<span class="op">,</span> <span class="st">&#39;beforeUpdate&#39;</span><span class="op">,</span> () <span class="kw">=&gt;</span> {</span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> submergedRatio <span class="op">=</span> <span class="fu">getSubmergedRatio</span>(boat<span class="op">,</span> WATER_LEVEL)<span class="op">;</span></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (submergedRatio <span class="op">&lt;=</span> <span class="dv">0</span>) {</span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span><span class="op">;</span> <span class="co">// Boat is out of the water</span></span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> velocity <span class="op">=</span> boat<span class="op">.</span><span class="at">velocity</span><span class="op">;</span></span>
+<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> speed <span class="op">=</span> Vector<span class="op">.</span><span class="fu">magnitude</span>(velocity)<span class="op">;</span></span>
+<span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-18"><a href="#cb2-18" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (speed <span class="op">&gt;</span> <span class="fl">0.0001</span>) {</span>
+<span id="cb2-19"><a href="#cb2-19" aria-hidden="true" tabindex="-1"></a>        <span class="co">// Drag increases quadratically with speed and linearly with submerged hull area</span></span>
+<span id="cb2-20"><a href="#cb2-20" aria-hidden="true" tabindex="-1"></a>        <span class="kw">const</span> dragMagnitude <span class="op">=</span> <span class="fl">0.5</span> <span class="op">*</span> WATER_DENSITY <span class="op">*</span> (speed <span class="op">*</span> speed) <span class="op">*</span> LINEAR_DRAG_COEF <span class="op">*</span> submergedRatio<span class="op">;</span></span>
+<span id="cb2-21"><a href="#cb2-21" aria-hidden="true" tabindex="-1"></a>        </span>
+<span id="cb2-22"><a href="#cb2-22" aria-hidden="true" tabindex="-1"></a>        <span class="co">// Normalize velocity and invert to oppose motion</span></span>
+<span id="cb2-23"><a href="#cb2-23" aria-hidden="true" tabindex="-1"></a>        <span class="kw">const</span> dragVector <span class="op">=</span> Vector<span class="op">.</span><span class="fu">mult</span>(Vector<span class="op">.</span><span class="fu">normalise</span>(velocity)<span class="op">,</span> <span class="op">-</span>dragMagnitude)<span class="op">;</span></span>
+<span id="cb2-24"><a href="#cb2-24" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-25"><a href="#cb2-25" aria-hidden="true" tabindex="-1"></a>        <span class="co">// Apply drag force at the center of mass</span></span>
+<span id="cb2-26"><a href="#cb2-26" aria-hidden="true" tabindex="-1"></a>        Body<span class="op">.</span><span class="fu">applyForce</span>(boat<span class="op">,</span> boat<span class="op">.</span><span class="at">position</span><span class="op">,</span> dragVector)<span class="op">;</span></span>
+<span id="cb2-27"><a href="#cb2-27" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb2-28"><a href="#cb2-28" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-29"><a href="#cb2-29" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Dampen angular velocity based on water depth</span></span>
+<span id="cb2-30"><a href="#cb2-30" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> angularDrag <span class="op">=</span> boat<span class="op">.</span><span class="at">angularVelocity</span> <span class="op">*</span> ANGULAR_DRAG_COEF <span class="op">*</span> submergedRatio<span class="op">;</span></span>
+<span id="cb2-31"><a href="#cb2-31" aria-hidden="true" tabindex="-1"></a>    Body<span class="op">.</span><span class="fu">setAngularVelocity</span>(boat<span class="op">,</span> boat<span class="op">.</span><span class="at">angularVelocity</span> <span class="op">-</span> angularDrag)<span class="op">;</span></span>
+<span id="cb2-32"><a href="#cb2-32" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div>
+<h2 id="directional-drag-longitudinal-vs-lateral-resistance">Directional
+Drag: Longitudinal vs. Lateral Resistance</h2>
+<p>Real boats cut through water efficiently when moving forward, but
+experience intense resistance when sliding sideways. To simulate a keel
+or rudder, decompose the linear drag into forward (longitudinal) and
+sideways (lateral) components.</p>
+<ol type="1">
+<li><strong>Forward Vector:</strong> Calculate the unit vector
+representing the boat's heading:
+<code>[Math.cos(boat.angle), Math.sin(boat.angle)]</code>.</li>
+<li><strong>Perpendicular Vector:</strong> Calculate the normal unit
+vector: <code>[-Math.sin(boat.angle), Math.cos(boat.angle)]</code>.</li>
+<li><strong>Decompose Velocities:</strong> Use the dot product to split
+<code>boat.velocity</code> into parallel and perpendicular speeds.</li>
+<li><strong>Apply Separate Coefficients:</strong> Apply a small drag
+coefficient to parallel velocity and a substantially higher drag
+coefficient to perpendicular velocity. This creates realistic steering
+behavior where the boat drifts minimally and naturally glides
+forward.</li>
+</ol></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/matter.js'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/matter.js/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/matter.js/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

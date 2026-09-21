@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simulate a Parachute for a Ragdoll in Matter.js - matter.js</title>
+    <meta name="description" content="Simulating a parachute deployment in Matter.js involves connecting a high-drag canopy body to a multi-part ragdoll using distance constraints. By dynamically spawning or activating a parachute body with high air friction (frictionAir) and tethering it to">
+    <link rel="canonical" href="https://salivity.github.io/matter.js/article/simulate-a-parachute-for-a-ragdoll-in-matter-js">
+    <link rel="search" type="application/opensearchdescription+xml" title="matter.js" href="/matter.js/opensearch.xml">
+    <link rel="icon" href="/matter.js/favicon.ico">
+    <link rel="stylesheet" href="/matter.js/css/style.css">
+    <link media="print" rel="stylesheet" href="/matter.js/css/print.css">
+    <script src="/matter.js/js/fuse.min.js"></script>
+    <script src="/matter.js/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Simulate a Parachute for a Ragdoll in Matter.js - matter.js" />
+    <meta property="og:url" content="https://salivity.github.io/matter.js/article/simulate-a-parachute-for-a-ragdoll-in-matter-js" />
+    <meta property="og:image" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Simulating a parachute deployment in Matter.js involves connecting a high-drag canopy body to a multi-part ragdoll using distance constraints. By dynamically spawning or activating a parachute body with high air friction (frictionAir) and tethering it to" />
+    <link rel="manifest" href="/matter.js/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/matter.js/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>matter.js</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/matter.js/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="simulate-a-parachute-for-a-ragdoll-in-matterjs">Simulate a
+Parachute for a Ragdoll in Matter.js</h1>
+<p>Simulating a parachute deployment in Matter.js involves connecting a
+high-drag canopy body to a multi-part ragdoll using distance
+constraints. By dynamically spawning or activating a parachute body with
+high air friction (<code>frictionAir</code>) and tethering it to the
+ragdoll's torso, you counteract gravity and stabilize the descent. This
+guide covers the mechanics of setting up the ragdoll, modeling
+aerodynamic drag, and executing the deployment trigger cleanly within
+the Matter.js physics engine.</p>
+<h3 id="core-mechanics">Core Mechanics</h3>
+<p>A realistic parachute simulation in a 2D physics engine requires two
+main elements:</p>
+<ol type="1">
+<li><strong>Aerodynamic Drag:</strong> Matter.js does not calculate
+fluid dynamics by default, but it provides a <code>frictionAir</code>
+property on bodies. Increasing this value drastically reduces terminal
+velocity.</li>
+<li><strong>Suspension Lines:</strong> Elastic or rigid constraints
+(lines) must link the parachute canopy to the ragdoll, transferring the
+decelerating drag force to the falling body.</li>
+</ol>
+<hr />
+<h3 id="step-1-create-the-ragdoll">Step 1: Create the Ragdoll</h3>
+<p>A basic ragdoll requires at least a torso, head, and limbs connected
+by constraints. For parachute attachment, the primary focus is the torso
+or shoulders.</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> { Bodies<span class="op">,</span> Body<span class="op">,</span> Composite<span class="op">,</span> Constraint<span class="op">,</span> Engine<span class="op">,</span> World } <span class="op">=</span> Matter<span class="op">;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="co">// Create torso</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> torso <span class="op">=</span> Bodies<span class="op">.</span><span class="fu">rectangle</span>(<span class="dv">400</span><span class="op">,</span> <span class="dv">200</span><span class="op">,</span> <span class="dv">40</span><span class="op">,</span> <span class="dv">70</span><span class="op">,</span> {</span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>    <span class="dt">collisionFilter</span><span class="op">:</span> { <span class="dt">group</span><span class="op">:</span> <span class="op">-</span><span class="dv">1</span> }<span class="op">,</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>    <span class="dt">density</span><span class="op">:</span> <span class="fl">0.002</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a><span class="co">// Create head</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> head <span class="op">=</span> Bodies<span class="op">.</span><span class="fu">circle</span>(<span class="dv">400</span><span class="op">,</span> <span class="dv">150</span><span class="op">,</span> <span class="dv">20</span><span class="op">,</span> {</span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>    <span class="dt">collisionFilter</span><span class="op">:</span> { <span class="dt">group</span><span class="op">:</span> <span class="op">-</span><span class="dv">1</span> }</span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a><span class="co">// Neck constraint</span></span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> neck <span class="op">=</span> Constraint<span class="op">.</span><span class="fu">create</span>({</span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a>    <span class="dt">bodyA</span><span class="op">:</span> torso<span class="op">,</span></span>
+<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a>    <span class="dt">pointA</span><span class="op">:</span> { <span class="dt">x</span><span class="op">:</span> <span class="dv">0</span><span class="op">,</span> <span class="dt">y</span><span class="op">:</span> <span class="op">-</span><span class="dv">35</span> }<span class="op">,</span></span>
+<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a>    <span class="dt">bodyB</span><span class="op">:</span> head<span class="op">,</span></span>
+<span id="cb1-19"><a href="#cb1-19" aria-hidden="true" tabindex="-1"></a>    <span class="dt">pointB</span><span class="op">:</span> { <span class="dt">x</span><span class="op">:</span> <span class="dv">0</span><span class="op">,</span> <span class="dt">y</span><span class="op">:</span> <span class="dv">15</span> }<span class="op">,</span></span>
+<span id="cb1-20"><a href="#cb1-20" aria-hidden="true" tabindex="-1"></a>    <span class="dt">stiffness</span><span class="op">:</span> <span class="fl">0.8</span></span>
+<span id="cb1-21"><a href="#cb1-21" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span>
+<span id="cb1-22"><a href="#cb1-22" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-23"><a href="#cb1-23" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> ragdoll <span class="op">=</span> Composite<span class="op">.</span><span class="fu">create</span>()<span class="op">;</span></span>
+<span id="cb1-24"><a href="#cb1-24" aria-hidden="true" tabindex="-1"></a>Composite<span class="op">.</span><span class="fu">add</span>(ragdoll<span class="op">,</span> [torso<span class="op">,</span> head<span class="op">,</span> neck])<span class="op">;</span></span>
+<span id="cb1-25"><a href="#cb1-25" aria-hidden="true" tabindex="-1"></a>World<span class="op">.</span><span class="fu">add</span>(engine<span class="op">.</span><span class="at">world</span><span class="op">,</span> ragdoll)<span class="op">;</span></span></code></pre></div>
+<hr />
+<h3 id="step-2-define-the-parachute-canopy">Step 2: Define the Parachute
+Canopy</h3>
+<p>The canopy acts as the drag source. Set a wide dimensions profile and
+a significantly higher <code>frictionAir</code> value than normal bodies
+(default is <code>0.01</code>).</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">createParachuteCanopy</span>(x<span class="op">,</span> y) {</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> Bodies<span class="op">.</span><span class="fu">rectangle</span>(x<span class="op">,</span> y<span class="op">,</span> <span class="dv">120</span><span class="op">,</span> <span class="dv">20</span><span class="op">,</span> {</span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>        <span class="dt">chamfer</span><span class="op">:</span> { <span class="dt">radius</span><span class="op">:</span> <span class="dv">10</span> }<span class="op">,</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>        <span class="dt">frictionAir</span><span class="op">:</span> <span class="fl">0.15</span><span class="op">,</span> <span class="co">// High drag to slow the fall</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>        <span class="dt">density</span><span class="op">:</span> <span class="fl">0.0005</span><span class="op">,</span>   <span class="co">// Keep it light relative to the ragdoll</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>        <span class="dt">collisionFilter</span><span class="op">:</span> { <span class="dt">group</span><span class="op">:</span> <span class="op">-</span><span class="dv">1</span> }</span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>    })<span class="op">;</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<hr />
+<h3 id="step-3-connect-the-canopy-with-suspension-lines">Step 3: Connect
+the Canopy with Suspension Lines</h3>
+<p>Use two constraints to create an inverted "V" shape between the
+canopy and the torso. Using two lines prevents the canopy from spinning
+uncontrollably around a single pivot point.</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">attachParachute</span>(canopy<span class="op">,</span> torso) {</span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> leftLine <span class="op">=</span> Constraint<span class="op">.</span><span class="fu">create</span>({</span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>        <span class="dt">bodyA</span><span class="op">:</span> canopy<span class="op">,</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>        <span class="dt">pointA</span><span class="op">:</span> { <span class="dt">x</span><span class="op">:</span> <span class="op">-</span><span class="dv">50</span><span class="op">,</span> <span class="dt">y</span><span class="op">:</span> <span class="dv">5</span> }<span class="op">,</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>        <span class="dt">bodyB</span><span class="op">:</span> torso<span class="op">,</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>        <span class="dt">pointB</span><span class="op">:</span> { <span class="dt">x</span><span class="op">:</span> <span class="op">-</span><span class="dv">15</span><span class="op">,</span> <span class="dt">y</span><span class="op">:</span> <span class="op">-</span><span class="dv">30</span> }<span class="op">,</span></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>        <span class="dt">stiffness</span><span class="op">:</span> <span class="fl">0.3</span><span class="op">,</span></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>        <span class="dt">damping</span><span class="op">:</span> <span class="fl">0.05</span><span class="op">,</span></span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a>        <span class="dt">render</span><span class="op">:</span> { <span class="dt">strokeStyle</span><span class="op">:</span> <span class="st">&#39;#ffffff&#39;</span><span class="op">,</span> <span class="dt">lineWidth</span><span class="op">:</span> <span class="fl">1.5</span> }</span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a>    })<span class="op">;</span></span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> rightLine <span class="op">=</span> Constraint<span class="op">.</span><span class="fu">create</span>({</span>
+<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a>        <span class="dt">bodyA</span><span class="op">:</span> canopy<span class="op">,</span></span>
+<span id="cb3-14"><a href="#cb3-14" aria-hidden="true" tabindex="-1"></a>        <span class="dt">pointA</span><span class="op">:</span> { <span class="dt">x</span><span class="op">:</span> <span class="dv">50</span><span class="op">,</span> <span class="dt">y</span><span class="op">:</span> <span class="dv">5</span> }<span class="op">,</span></span>
+<span id="cb3-15"><a href="#cb3-15" aria-hidden="true" tabindex="-1"></a>        <span class="dt">bodyB</span><span class="op">:</span> torso<span class="op">,</span></span>
+<span id="cb3-16"><a href="#cb3-16" aria-hidden="true" tabindex="-1"></a>        <span class="dt">pointB</span><span class="op">:</span> { <span class="dt">x</span><span class="op">:</span> <span class="dv">15</span><span class="op">,</span> <span class="dt">y</span><span class="op">:</span> <span class="op">-</span><span class="dv">30</span> }<span class="op">,</span></span>
+<span id="cb3-17"><a href="#cb3-17" aria-hidden="true" tabindex="-1"></a>        <span class="dt">stiffness</span><span class="op">:</span> <span class="fl">0.3</span><span class="op">,</span></span>
+<span id="cb3-18"><a href="#cb3-18" aria-hidden="true" tabindex="-1"></a>        <span class="dt">damping</span><span class="op">:</span> <span class="fl">0.05</span><span class="op">,</span></span>
+<span id="cb3-19"><a href="#cb3-19" aria-hidden="true" tabindex="-1"></a>        <span class="dt">render</span><span class="op">:</span> { <span class="dt">strokeStyle</span><span class="op">:</span> <span class="st">&#39;#ffffff&#39;</span><span class="op">,</span> <span class="dt">lineWidth</span><span class="op">:</span> <span class="fl">1.5</span> }</span>
+<span id="cb3-20"><a href="#cb3-20" aria-hidden="true" tabindex="-1"></a>    })<span class="op">;</span></span>
+<span id="cb3-21"><a href="#cb3-21" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-22"><a href="#cb3-22" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> [leftLine<span class="op">,</span> rightLine]<span class="op">;</span></span>
+<span id="cb3-23"><a href="#cb3-23" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<hr />
+<h3 id="step-4-implement-deployment-logic">Step 4: Implement Deployment
+Logic</h3>
+<p>The deployment can be triggered by altitude (y-coordinate threshold),
+elapsed fall time, or user input. When triggered, position the canopy
+slightly above the ragdoll, match its current horizontal velocity to
+prevent unnatural snapping, and add the objects to the physics
+world.</p>
+<div class="sourceCode" id="cb4"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="kw">let</span> parachuteDeployed <span class="op">=</span> <span class="kw">false</span><span class="op">;</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">deployParachute</span>(torso) {</span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (parachuteDeployed) <span class="cf">return</span><span class="op">;</span></span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>    parachuteDeployed <span class="op">=</span> <span class="kw">true</span><span class="op">;</span></span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Spawn canopy directly above the torso</span></span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> canopy <span class="op">=</span> <span class="fu">createParachuteCanopy</span>(torso<span class="op">.</span><span class="at">position</span><span class="op">.</span><span class="at">x</span><span class="op">,</span> torso<span class="op">.</span><span class="at">position</span><span class="op">.</span><span class="at">y</span> <span class="op">-</span> <span class="dv">120</span>)<span class="op">;</span></span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Inherit current horizontal speed to avoid sudden sideways jerk</span></span>
+<span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a>    Body<span class="op">.</span><span class="fu">setVelocity</span>(canopy<span class="op">,</span> {</span>
+<span id="cb4-12"><a href="#cb4-12" aria-hidden="true" tabindex="-1"></a>        <span class="dt">x</span><span class="op">:</span> torso<span class="op">.</span><span class="at">velocity</span><span class="op">.</span><span class="at">x</span><span class="op">,</span></span>
+<span id="cb4-13"><a href="#cb4-13" aria-hidden="true" tabindex="-1"></a>        <span class="dt">y</span><span class="op">:</span> torso<span class="op">.</span><span class="at">velocity</span><span class="op">.</span><span class="at">y</span> <span class="op">*</span> <span class="fl">0.2</span> <span class="co">// Soften initial opening shock</span></span>
+<span id="cb4-14"><a href="#cb4-14" aria-hidden="true" tabindex="-1"></a>    })<span class="op">;</span></span>
+<span id="cb4-15"><a href="#cb4-15" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-16"><a href="#cb4-16" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> lines <span class="op">=</span> <span class="fu">attachParachute</span>(canopy<span class="op">,</span> torso)<span class="op">;</span></span>
+<span id="cb4-17"><a href="#cb4-17" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-18"><a href="#cb4-18" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Add canopy and lines to the engine world</span></span>
+<span id="cb4-19"><a href="#cb4-19" aria-hidden="true" tabindex="-1"></a>    World<span class="op">.</span><span class="fu">add</span>(engine<span class="op">.</span><span class="at">world</span><span class="op">,</span> [canopy<span class="op">,</span> <span class="op">...</span>lines])<span class="op">;</span></span>
+<span id="cb4-20"><a href="#cb4-20" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb4-21"><a href="#cb4-21" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-22"><a href="#cb4-22" aria-hidden="true" tabindex="-1"></a><span class="co">// Check conditions inside the engine&#39;s beforeUpdate event</span></span>
+<span id="cb4-23"><a href="#cb4-23" aria-hidden="true" tabindex="-1"></a>Matter<span class="op">.</span><span class="at">Events</span><span class="op">.</span><span class="fu">on</span>(engine<span class="op">,</span> <span class="st">&#39;beforeUpdate&#39;</span><span class="op">,</span> () <span class="kw">=&gt;</span> {</span>
+<span id="cb4-24"><a href="#cb4-24" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Example: Deploy when ragdoll drops past Y: 300</span></span>
+<span id="cb4-25"><a href="#cb4-25" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (<span class="op">!</span>parachuteDeployed <span class="op">&amp;&amp;</span> torso<span class="op">.</span><span class="at">position</span><span class="op">.</span><span class="at">y</span> <span class="op">&gt;</span> <span class="dv">300</span>) {</span>
+<span id="cb4-26"><a href="#cb4-26" aria-hidden="true" tabindex="-1"></a>        <span class="fu">deployParachute</span>(torso)<span class="op">;</span></span>
+<span id="cb4-27"><a href="#cb4-27" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb4-28"><a href="#cb4-28" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div>
+<hr />
+<h3 id="tuning-and-stabilization">Tuning and Stabilization</h3>
+<ul>
+<li><strong>Fall Speed Adjustment:</strong> Modify
+<code>canopy.frictionAir</code>. A value between <code>0.10</code> and
+<code>0.25</code> provides a realistic terminal descent rate depending
+on the ragdoll's overall mass.</li>
+<li><strong>Canopy Stability:</strong> Setting
+<code>inertia: Infinity</code> on the canopy prevents it from flipping
+over in turbulent conditions.</li>
+<li><strong>Opening Shock:</strong> If the parachute snaps open too
+violently, reduce the <code>stiffness</code> of the constraints (e.g.,
+to <code>0.1</code>) so the suspension lines stretch momentarily to
+absorb the deceleration force.</li>
+</ul></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/matter.js'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/matter.js/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/matter.js/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How to Slice and Sever Bodies in Matter.js - matter.js</title>
+    <meta name="description" content="Slicing rigid bodies into severed polygons is a popular mechanic in 2D physics games, but Matter.js does not feature a native geometry-cutting API. To sever a body, you must mathematically intersect a cutting line with the body's polygon edges, split the">
+    <link rel="canonical" href="https://salivity.github.io/matter.js/article/how-to-slice-and-sever-bodies-in-matter-js">
+    <link rel="search" type="application/opensearchdescription+xml" title="matter.js" href="/matter.js/opensearch.xml">
+    <link rel="icon" href="/matter.js/favicon.ico">
+    <link rel="stylesheet" href="/matter.js/css/style.css">
+    <link media="print" rel="stylesheet" href="/matter.js/css/print.css">
+    <script src="/matter.js/js/fuse.min.js"></script>
+    <script src="/matter.js/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How to Slice and Sever Bodies in Matter.js - matter.js" />
+    <meta property="og:url" content="https://salivity.github.io/matter.js/article/how-to-slice-and-sever-bodies-in-matter-js" />
+    <meta property="og:image" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Slicing rigid bodies into severed polygons is a popular mechanic in 2D physics games, but Matter.js does not feature a native geometry-cutting API. To sever a body, you must mathematically intersect a cutting line with the body's polygon edges, split the" />
+    <link rel="manifest" href="/matter.js/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/matter.js/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>matter.js</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/matter.js/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="how-to-slice-and-sever-bodies-in-matterjs">How to Slice and
+Sever Bodies in Matter.js</h1>
+<p>Slicing rigid bodies into severed polygons is a popular mechanic in
+2D physics games, but Matter.js does not feature a native
+geometry-cutting API. To sever a body, you must mathematically intersect
+a cutting line with the body's polygon edges, split the original vertex
+set across the cut line, insert the intersection points to close the new
+shapes, and instantiate fresh bodies using
+<code>Matter.Bodies.fromVertices</code>. This guide walks through the
+step-by-step process of calculating these severed vertex arrays and
+converting them back into active Matter.js physics objects.</p>
+<h3 id="step-1-define-the-slicing-line">Step 1: Define the Slicing
+Line</h3>
+<p>A cut is defined by two points in 2D space: a start point <span
+class="math inline">\(A(x_1, y_1)\)</span> and an end point <span
+class="math inline">\(B(x_2, y_2)\)</span>. The line equation or the
+cross product can determine which side of the line any given vertex
+falls on:</p>
+<p><span class="math display">\[\text{side}(P) = (B.x - A.x) \times (P.y
+- A.y) - (B.y - A.y) \times (P.x - A.x)\]</span></p>
+<ul>
+<li>If <span class="math inline">\(\text{side}(P) &gt; 0\)</span>, the
+vertex lies on one side.</li>
+<li>If <span class="math inline">\(\text{side}(P) &lt; 0\)</span>, it
+lies on the opposing side.</li>
+<li>If <span class="math inline">\(\text{side}(P) = 0\)</span>, the
+vertex lies precisely on the line.</li>
+</ul>
+<h3 id="step-2-detect-edge-intersections">Step 2: Detect Edge
+Intersections</h3>
+<p>Iterate through the target body's vertices in world coordinates
+(<code>body.vertices</code>). Check each edge formed by vertex pair
+<span class="math inline">\((V_i, V_{i+1})\)</span> for an intersection
+with line segment <span class="math inline">\(AB\)</span>:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">getLineIntersection</span>(p1<span class="op">,</span> p2<span class="op">,</span> p3<span class="op">,</span> p4) {</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> denominator <span class="op">=</span> (p4<span class="op">.</span><span class="at">y</span> <span class="op">-</span> p3<span class="op">.</span><span class="at">y</span>) <span class="op">*</span> (p2<span class="op">.</span><span class="at">x</span> <span class="op">-</span> p1<span class="op">.</span><span class="at">x</span>) <span class="op">-</span> (p4<span class="op">.</span><span class="at">x</span> <span class="op">-</span> p3<span class="op">.</span><span class="at">x</span>) <span class="op">*</span> (p2<span class="op">.</span><span class="at">y</span> <span class="op">-</span> p1<span class="op">.</span><span class="at">y</span>)<span class="op">;</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (denominator <span class="op">===</span> <span class="dv">0</span>) <span class="cf">return</span> <span class="kw">null</span><span class="op">;</span> <span class="co">// Lines are parallel</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> ua <span class="op">=</span> ((p4<span class="op">.</span><span class="at">x</span> <span class="op">-</span> p3<span class="op">.</span><span class="at">x</span>) <span class="op">*</span> (p1<span class="op">.</span><span class="at">y</span> <span class="op">-</span> p3<span class="op">.</span><span class="at">y</span>) <span class="op">-</span> (p4<span class="op">.</span><span class="at">y</span> <span class="op">-</span> p3<span class="op">.</span><span class="at">y</span>) <span class="op">*</span> (p1<span class="op">.</span><span class="at">x</span> <span class="op">-</span> p3<span class="op">.</span><span class="at">x</span>)) <span class="op">/</span> denominator<span class="op">;</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> ub <span class="op">=</span> ((p2<span class="op">.</span><span class="at">x</span> <span class="op">-</span> p1<span class="op">.</span><span class="at">x</span>) <span class="op">*</span> (p1<span class="op">.</span><span class="at">y</span> <span class="op">-</span> p3<span class="op">.</span><span class="at">y</span>) <span class="op">-</span> (p2<span class="op">.</span><span class="at">y</span> <span class="op">-</span> p1<span class="op">.</span><span class="at">y</span>) <span class="op">*</span> (p1<span class="op">.</span><span class="at">x</span> <span class="op">-</span> p3<span class="op">.</span><span class="at">x</span>)) <span class="op">/</span> denominator<span class="op">;</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Check if the intersection falls within both segments</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (ua <span class="op">&gt;=</span> <span class="dv">0</span> <span class="op">&amp;&amp;</span> ua <span class="op">&lt;=</span> <span class="dv">1</span> <span class="op">&amp;&amp;</span> ub <span class="op">&gt;=</span> <span class="dv">0</span> <span class="op">&amp;&amp;</span> ub <span class="op">&lt;=</span> <span class="dv">1</span>) {</span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> {</span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>            <span class="dt">x</span><span class="op">:</span> p1<span class="op">.</span><span class="at">x</span> <span class="op">+</span> ua <span class="op">*</span> (p2<span class="op">.</span><span class="at">x</span> <span class="op">-</span> p1<span class="op">.</span><span class="at">x</span>)<span class="op">,</span></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>            <span class="dt">y</span><span class="op">:</span> p1<span class="op">.</span><span class="at">y</span> <span class="op">+</span> ua <span class="op">*</span> (p2<span class="op">.</span><span class="at">y</span> <span class="op">-</span> p1<span class="op">.</span><span class="at">y</span>)</span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>        }<span class="op">;</span></span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="kw">null</span><span class="op">;</span></span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<p>A clean cut across a convex polygon produces exactly two intersection
+points.</p>
+<h3 id="step-3-reconstruct-two-vertex-lists">Step 3: Reconstruct Two
+Vertex Lists</h3>
+<p>To rebuild the severed geometry into two distinct shapes, traverse
+the original polygon's perimeter. Sort the vertices into two lists,
+inserting the newly computed intersection points where the cut
+occurs:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">splitPolygon</span>(vertices<span class="op">,</span> cutStart<span class="op">,</span> cutEnd) {</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> polyA <span class="op">=</span> []<span class="op">;</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> polyB <span class="op">=</span> []<span class="op">;</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> (<span class="kw">let</span> i <span class="op">=</span> <span class="dv">0</span><span class="op">;</span> i <span class="op">&lt;</span> vertices<span class="op">.</span><span class="at">length</span><span class="op">;</span> i<span class="op">++</span>) {</span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>        <span class="kw">const</span> current <span class="op">=</span> vertices[i]<span class="op">;</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>        <span class="kw">const</span> next <span class="op">=</span> vertices[(i <span class="op">+</span> <span class="dv">1</span>) <span class="op">%</span> vertices<span class="op">.</span><span class="at">length</span>]<span class="op">;</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>        <span class="kw">const</span> sideA <span class="op">=</span> (cutEnd<span class="op">.</span><span class="at">x</span> <span class="op">-</span> cutStart<span class="op">.</span><span class="at">x</span>) <span class="op">*</span> (current<span class="op">.</span><span class="at">y</span> <span class="op">-</span> cutStart<span class="op">.</span><span class="at">y</span>) <span class="op">-</span> </span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>                      (cutEnd<span class="op">.</span><span class="at">y</span> <span class="op">-</span> cutStart<span class="op">.</span><span class="at">y</span>) <span class="op">*</span> (current<span class="op">.</span><span class="at">x</span> <span class="op">-</span> cutStart<span class="op">.</span><span class="at">x</span>)<span class="op">;</span></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> (sideA <span class="op">&gt;=</span> <span class="dv">0</span>) {</span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>            polyA<span class="op">.</span><span class="fu">push</span>(current)<span class="op">;</span></span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a>        } <span class="cf">else</span> {</span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a>            polyB<span class="op">.</span><span class="fu">push</span>(current)<span class="op">;</span></span>
+<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a>        }</span>
+<span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-18"><a href="#cb2-18" aria-hidden="true" tabindex="-1"></a>        <span class="kw">const</span> intersection <span class="op">=</span> <span class="fu">getLineIntersection</span>(current<span class="op">,</span> next<span class="op">,</span> cutStart<span class="op">,</span> cutEnd)<span class="op">;</span></span>
+<span id="cb2-19"><a href="#cb2-19" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> (intersection) {</span>
+<span id="cb2-20"><a href="#cb2-20" aria-hidden="true" tabindex="-1"></a>            polyA<span class="op">.</span><span class="fu">push</span>(intersection)<span class="op">;</span></span>
+<span id="cb2-21"><a href="#cb2-21" aria-hidden="true" tabindex="-1"></a>            polyB<span class="op">.</span><span class="fu">push</span>(intersection)<span class="op">;</span></span>
+<span id="cb2-22"><a href="#cb2-22" aria-hidden="true" tabindex="-1"></a>        }</span>
+<span id="cb2-23"><a href="#cb2-23" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb2-24"><a href="#cb2-24" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-25"><a href="#cb2-25" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> [polyA<span class="op">,</span> polyB]<span class="op">;</span></span>
+<span id="cb2-26"><a href="#cb2-26" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<h3 id="step-4-ensure-correct-vertex-winding-and-convexity">Step 4:
+Ensure Correct Vertex Winding and Convexity</h3>
+<p>Matter.js expects vertices to follow a clockwise winding order. If
+the resulting vertex lists are wound counter-clockwise, reverse them
+before creating bodies.</p>
+<p>Furthermore, Matter.js requires convex hulls for physics calculation.
+If cutting a body produces non-convex (concave) pieces, ensure the
+<code>poly-decomp</code> library is installed and exposed globally to
+Matter.js:</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Provide decomp to Matter before creating bodies</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="bu">window</span><span class="op">.</span><span class="at">decomp</span> <span class="op">=</span> <span class="pp">require</span>(<span class="st">&#39;poly-decomp&#39;</span>)<span class="op">;</span></span></code></pre></div>
+<h3 id="step-5-replace-the-old-body-with-the-severed-pieces">Step 5:
+Replace the Old Body with the Severed Pieces</h3>
+<p>Compute the center of mass for each new vertex list, generate the new
+physics bodies using <code>Bodies.fromVertices</code>, transfer any
+momentum or properties from the parent body, and update the engine
+world:</p>
+<div class="sourceCode" id="cb4"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">cutBody</span>(world<span class="op">,</span> body<span class="op">,</span> cutStart<span class="op">,</span> cutEnd) {</span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> [pointsA<span class="op">,</span> pointsB] <span class="op">=</span> <span class="fu">splitPolygon</span>(body<span class="op">.</span><span class="at">vertices</span><span class="op">,</span> cutStart<span class="op">,</span> cutEnd)<span class="op">;</span></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Minimum 3 vertices required to form a polygon</span></span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (pointsA<span class="op">.</span><span class="at">length</span> <span class="op">&lt;</span> <span class="dv">3</span> <span class="op">||</span> pointsB<span class="op">.</span><span class="at">length</span> <span class="op">&lt;</span> <span class="dv">3</span>) <span class="cf">return</span><span class="op">;</span></span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Calculate approximate center for placement</span></span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> centerA <span class="op">=</span> Matter<span class="op">.</span><span class="at">Vertices</span><span class="op">.</span><span class="fu">centre</span>(pointsA)<span class="op">;</span></span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> centerB <span class="op">=</span> Matter<span class="op">.</span><span class="at">Vertices</span><span class="op">.</span><span class="fu">centre</span>(pointsB)<span class="op">;</span></span>
+<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> bodyA <span class="op">=</span> Matter<span class="op">.</span><span class="at">Bodies</span><span class="op">.</span><span class="fu">fromVertices</span>(centerA<span class="op">.</span><span class="at">x</span><span class="op">,</span> centerA<span class="op">.</span><span class="at">y</span><span class="op">,</span> [pointsA]<span class="op">,</span> {</span>
+<span id="cb4-12"><a href="#cb4-12" aria-hidden="true" tabindex="-1"></a>        <span class="dt">render</span><span class="op">:</span> { <span class="dt">fillStyle</span><span class="op">:</span> body<span class="op">.</span><span class="at">render</span><span class="op">.</span><span class="at">fillStyle</span> }</span>
+<span id="cb4-13"><a href="#cb4-13" aria-hidden="true" tabindex="-1"></a>    })<span class="op">;</span></span>
+<span id="cb4-14"><a href="#cb4-14" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-15"><a href="#cb4-15" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> bodyB <span class="op">=</span> Matter<span class="op">.</span><span class="at">Bodies</span><span class="op">.</span><span class="fu">fromVertices</span>(centerB<span class="op">.</span><span class="at">x</span><span class="op">,</span> centerB<span class="op">.</span><span class="at">y</span><span class="op">,</span> [pointsB]<span class="op">,</span> {</span>
+<span id="cb4-16"><a href="#cb4-16" aria-hidden="true" tabindex="-1"></a>        <span class="dt">render</span><span class="op">:</span> { <span class="dt">fillStyle</span><span class="op">:</span> body<span class="op">.</span><span class="at">render</span><span class="op">.</span><span class="at">fillStyle</span> }</span>
+<span id="cb4-17"><a href="#cb4-17" aria-hidden="true" tabindex="-1"></a>    })<span class="op">;</span></span>
+<span id="cb4-18"><a href="#cb4-18" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-19"><a href="#cb4-19" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (bodyA <span class="op">&amp;&amp;</span> bodyB) {</span>
+<span id="cb4-20"><a href="#cb4-20" aria-hidden="true" tabindex="-1"></a>        <span class="co">// Inherit parent linear and angular velocity</span></span>
+<span id="cb4-21"><a href="#cb4-21" aria-hidden="true" tabindex="-1"></a>        Matter<span class="op">.</span><span class="at">Body</span><span class="op">.</span><span class="fu">setVelocity</span>(bodyA<span class="op">,</span> body<span class="op">.</span><span class="at">velocity</span>)<span class="op">;</span></span>
+<span id="cb4-22"><a href="#cb4-22" aria-hidden="true" tabindex="-1"></a>        Matter<span class="op">.</span><span class="at">Body</span><span class="op">.</span><span class="fu">setVelocity</span>(bodyB<span class="op">,</span> body<span class="op">.</span><span class="at">velocity</span>)<span class="op">;</span></span>
+<span id="cb4-23"><a href="#cb4-23" aria-hidden="true" tabindex="-1"></a>        Matter<span class="op">.</span><span class="at">Body</span><span class="op">.</span><span class="fu">setAngularVelocity</span>(bodyA<span class="op">,</span> body<span class="op">.</span><span class="at">angularVelocity</span>)<span class="op">;</span></span>
+<span id="cb4-24"><a href="#cb4-24" aria-hidden="true" tabindex="-1"></a>        Matter<span class="op">.</span><span class="at">Body</span><span class="op">.</span><span class="fu">setAngularVelocity</span>(bodyB<span class="op">,</span> body<span class="op">.</span><span class="at">angularVelocity</span>)<span class="op">;</span></span>
+<span id="cb4-25"><a href="#cb4-25" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-26"><a href="#cb4-26" aria-hidden="true" tabindex="-1"></a>        <span class="co">// Swap out old body for new severed bodies</span></span>
+<span id="cb4-27"><a href="#cb4-27" aria-hidden="true" tabindex="-1"></a>        Matter<span class="op">.</span><span class="at">Composite</span><span class="op">.</span><span class="fu">remove</span>(world<span class="op">,</span> body)<span class="op">;</span></span>
+<span id="cb4-28"><a href="#cb4-28" aria-hidden="true" tabindex="-1"></a>        Matter<span class="op">.</span><span class="at">Composite</span><span class="op">.</span><span class="fu">add</span>(world<span class="op">,</span> [bodyA<span class="op">,</span> bodyB])<span class="op">;</span></span>
+<span id="cb4-29"><a href="#cb4-29" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb4-30"><a href="#cb4-30" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<p>This dynamic polygon replacement severs the geometry instantly while
+preserving kinetic continuity in the simulation.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/matter.js'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/matter.js/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/matter.js/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

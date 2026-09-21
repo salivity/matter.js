@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Active Ragdoll Balance in Matter.js - matter.js</title>
+    <meta name="description" content="Simulating an active ragdoll in Matter.js requires combining a multi-part rigid body assembly with procedural torque control to keep the character upright against gravity. Because Matter.js does not provide built-in motorized constraints like some tradit">
+    <link rel="canonical" href="https://salivity.github.io/matter.js/article/active-ragdoll-balance-in-matter-js">
+    <link rel="search" type="application/opensearchdescription+xml" title="matter.js" href="/matter.js/opensearch.xml">
+    <link rel="icon" href="/matter.js/favicon.ico">
+    <link rel="stylesheet" href="/matter.js/css/style.css">
+    <link media="print" rel="stylesheet" href="/matter.js/css/print.css">
+    <script src="/matter.js/js/fuse.min.js"></script>
+    <script src="/matter.js/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Active Ragdoll Balance in Matter.js - matter.js" />
+    <meta property="og:url" content="https://salivity.github.io/matter.js/article/active-ragdoll-balance-in-matter-js" />
+    <meta property="og:image" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Simulating an active ragdoll in Matter.js requires combining a multi-part rigid body assembly with procedural torque control to keep the character upright against gravity. Because Matter.js does not provide built-in motorized constraints like some tradit" />
+    <link rel="manifest" href="/matter.js/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/matter.js/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>matter.js</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/matter.js/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="active-ragdoll-balance-in-matterjs">Active Ragdoll Balance in
+Matter.js</h1>
+<p>Simulating an active ragdoll in Matter.js requires combining a
+multi-part rigid body assembly with procedural torque control to keep
+the character upright against gravity. Because Matter.js does not
+provide built-in motorized constraints like some traditional game
+physics engines, active balancing is achieved by manually applying
+corrective forces via a Proportional-Derivative (PD) controller inside
+the engine update loop. This guide breaks down the core architecture,
+joint motorization, and balance algorithms needed to build a
+self-balancing ragdoll.</p>
+<h3 id="1-constructing-the-ragdoll-hierarchy">1. Constructing the
+Ragdoll Hierarchy</h3>
+<p>An active ragdoll requires individual rigid bodies for each body
+segment (e.g., torso, upper legs, lower legs, and feet) interconnected
+by constraints:</p>
+<ul>
+<li><strong>Bodies:</strong> Use <code>Matter.Bodies.rectangle()</code>
+to define limb segments. Keep the feet wide and heavy enough to provide
+sufficient ground friction.</li>
+<li><strong>Constraints:</strong> Connect adjacent segments with
+<code>Matter.Constraint.create()</code>. Set the constraint
+<code>stiffness</code> close to <code>1</code> and set non-zero lengths
+only if flexibility is required. Pin constraints at segment overlap
+points (such as hips, knees, and ankles) to act as revolute hinges.</li>
+<li><strong>Collision Filtering:</strong> Assign identical negative
+<code>collisionFilter.group</code> values to connected limbs to prevent
+adjacent segments from colliding with each other while still colliding
+with the floor.</li>
+</ul>
+<h3 id="2-motorizing-joints-using-a-pd-controller">2. Motorizing Joints
+Using a PD Controller</h3>
+<p>To make a passive joint behave like an active motor, you must
+calculate the rotational force needed to drive a joint toward a target
+angle. A Proportional-Derivative (PD) controller calculates this
+corrective torque:</p>
+<p><span class="math display">\[\tau = K_p \times
+(\theta_{\text{target}} - \theta_{\text{current}}) - K_d \times
+\omega\]</span></p>
+<ul>
+<li><strong><span class="math inline">\(K_p\)</span> (Proportional
+Gain):</strong> Determines how aggressively the joint tries to reach its
+target orientation.</li>
+<li><strong><span class="math inline">\(K_d\)</span> (Derivative
+Gain):</strong> Dampens the motion to prevent erratic oscillations.</li>
+<li><strong><span class="math inline">\(\omega\)</span> (Angular
+Velocity):</strong> The relative angular velocity between the two
+connected bodies.</li>
+</ul>
+<p>In Matter.js, apply the calculated torque during the physics update
+loop using <code>body.torque</code>:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">applyJointTorque</span>(parent<span class="op">,</span> child<span class="op">,</span> targetRelativeAngle<span class="op">,</span> kp<span class="op">,</span> kd) {</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> currentRelativeAngle <span class="op">=</span> child<span class="op">.</span><span class="at">angle</span> <span class="op">-</span> parent<span class="op">.</span><span class="at">angle</span><span class="op">;</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> angleError <span class="op">=</span> targetRelativeAngle <span class="op">-</span> currentRelativeAngle<span class="op">;</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> relativeAngularVelocity <span class="op">=</span> child<span class="op">.</span><span class="at">angularVelocity</span> <span class="op">-</span> parent<span class="op">.</span><span class="at">angularVelocity</span><span class="op">;</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> torque <span class="op">=</span> (kp <span class="op">*</span> angleError) <span class="op">-</span> (kd <span class="op">*</span> relativeAngularVelocity)<span class="op">;</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>  child<span class="op">.</span><span class="at">torque</span> <span class="op">+=</span> torque<span class="op">;</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>  parent<span class="op">.</span><span class="at">torque</span> <span class="op">-=</span> torque<span class="op">;</span> <span class="co">// Newton&#39;s third law: equal and opposite reaction</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<h3 id="3-implementing-upright-torso-balance">3. Implementing Upright
+Torso Balance</h3>
+<p>Local joint motors alone are not enough to keep a ragdoll standing;
+the entire structure must orient itself relative to the global world
+vector.</p>
+<ol type="1">
+<li><strong>Global Torso Alignment:</strong> Calculate the torso's
+deviation from absolute vertical (<code>angle = 0</code>). Apply
+corrective torque directly to the torso:
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> torsoError <span class="op">=</span> <span class="dv">0</span> <span class="op">-</span> torso<span class="op">.</span><span class="at">angle</span><span class="op">;</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>torso<span class="op">.</span><span class="at">torque</span> <span class="op">+=</span> (torsoKp <span class="op">*</span> torsoError) <span class="op">-</span> (torsoKd <span class="op">*</span> torso<span class="op">.</span><span class="at">angularVelocity</span>)<span class="op">;</span></span></code></pre></div></li>
+<li><strong>Ground Reaction Through Ankles:</strong> For realistic
+physical balance, balance torque should push against the ground. When
+the feet are in contact with the floor, apply an inverted balancing
+torque to the ankles based on the ragdoll's Center of Mass (CoM). If the
+CoM shifts forward beyond the feet, exert negative ankle torque to pivot
+the body backward.</li>
+</ol>
+<h3 id="4-hooking-into-the-matterjs-update-loop">4. Hooking into the
+Matter.js Update Loop</h3>
+<p>Balancing logic must execute prior to every physics step so the
+engine can integrate the applied forces alongside gravity and contact
+collisions. Register your control loop using
+<code>Matter.Events</code>:</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a>Matter<span class="op">.</span><span class="at">Events</span><span class="op">.</span><span class="fu">on</span>(engine<span class="op">,</span> <span class="st">&#39;beforeUpdate&#39;</span><span class="op">,</span> () <span class="kw">=&gt;</span> {</span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>  <span class="co">// 1. Maintain local joint postures (hips and knees)</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">applyJointTorque</span>(torso<span class="op">,</span> upperLeg<span class="op">,</span> <span class="dv">0</span><span class="op">,</span> <span class="fl">0.05</span><span class="op">,</span> <span class="fl">0.01</span>)<span class="op">;</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">applyJointTorque</span>(upperLeg<span class="op">,</span> lowerLeg<span class="op">,</span> <span class="dv">0</span><span class="op">,</span> <span class="fl">0.05</span><span class="op">,</span> <span class="fl">0.01</span>)<span class="op">;</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>  <span class="co">// 2. Apply global upright balance to the torso</span></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> balanceTorque <span class="op">=</span> (<span class="fl">0.1</span> <span class="op">*</span> (<span class="dv">0</span> <span class="op">-</span> torso<span class="op">.</span><span class="at">angle</span>)) <span class="op">-</span> (<span class="fl">0.02</span> <span class="op">*</span> torso<span class="op">.</span><span class="at">angularVelocity</span>)<span class="op">;</span></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>  torso<span class="op">.</span><span class="at">torque</span> <span class="op">+=</span> balanceTorque<span class="op">;</span></span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a>  <span class="co">// 3. Counter-balance through the support foot when grounded</span></span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (<span class="fu">isGrounded</span>(foot)) {</span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a>    foot<span class="op">.</span><span class="at">torque</span> <span class="op">-=</span> balanceTorque <span class="op">*</span> <span class="fl">0.5</span><span class="op">;</span></span>
+<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb3-14"><a href="#cb3-14" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div>
+<h3 id="5-tuning-stability">5. Tuning Stability</h3>
+<ul>
+<li><strong>Limit Maximum Torque:</strong> Clamp
+<code>body.torque</code> values to avoid physics explosions caused by
+massive impulses during high-velocity impacts.</li>
+<li><strong>High Ground Friction:</strong> Increase
+<code>friction</code> on foot bodies (e.g., <code>0.8</code> to
+<code>1.0</code>) to prevent feet from sliding out while the ankles
+exert corrective torque.</li>
+<li><strong>Engine Sub-stepping:</strong> Increase the engine's position
+and velocity iterations via <code>engine.positionIterations</code> and
+<code>engine.velocityIterations</code> (e.g., set both to
+<code>10</code> or higher) to prevent constraint stretching under high
+joint torques.</li>
+</ul></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/matter.js'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/matter.js/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/matter.js/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

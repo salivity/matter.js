@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Recalculate Mass and Inertia for Matter.js Bodies - matter.js</title>
+    <meta name="description" content="When dynamic slicing or fracturing algorithms split a rigid body into smaller pieces in Matter.js, the resulting polygons require updated physical properties to behave realistically. Matter.js does not automatically synchronize density and rotational ine">
+    <link rel="canonical" href="https://salivity.github.io/matter.js/article/recalculate-mass-and-inertia-for-matter-js-bodies">
+    <link rel="search" type="application/opensearchdescription+xml" title="matter.js" href="/matter.js/opensearch.xml">
+    <link rel="icon" href="/matter.js/favicon.ico">
+    <link rel="stylesheet" href="/matter.js/css/style.css">
+    <link media="print" rel="stylesheet" href="/matter.js/css/print.css">
+    <script src="/matter.js/js/fuse.min.js"></script>
+    <script src="/matter.js/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Recalculate Mass and Inertia for Matter.js Bodies - matter.js" />
+    <meta property="og:url" content="https://salivity.github.io/matter.js/article/recalculate-mass-and-inertia-for-matter-js-bodies" />
+    <meta property="og:image" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="When dynamic slicing or fracturing algorithms split a rigid body into smaller pieces in Matter.js, the resulting polygons require updated physical properties to behave realistically. Matter.js does not automatically synchronize density and rotational ine" />
+    <link rel="manifest" href="/matter.js/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/matter.js/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>matter.js</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/matter.js/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="recalculate-mass-and-inertia-for-matterjs-bodies">Recalculate
+Mass and Inertia for Matter.js Bodies</h1>
+<p>When dynamic slicing or fracturing algorithms split a rigid body into
+smaller pieces in Matter.js, the resulting polygons require updated
+physical properties to behave realistically. Matter.js does not
+automatically synchronize density and rotational inertia if vertices are
+manually reassigned to an existing body. This guide explains how to
+properly recalculate mass, center of mass, and moment of inertia for
+newly sliced body pieces using both Matter.js built-in utilities and
+custom vertex math.</p>
+<hr />
+<h3 id="understanding-the-slicing-problem">Understanding the Slicing
+Problem</h3>
+<p>When a 2D physics body is cut:</p>
+<ol type="1">
+<li>The polygon vertex set is divided into two or more distinct sets of
+vertices.</li>
+<li>The center of mass (centroid) shifts for each new piece.</li>
+<li>The surface area decreases, which should lower the total mass if
+material density remains constant.</li>
+<li>The moment of inertia (resistance to rotational acceleration)
+drastically changes based on the new mass distribution relative to the
+new centroid.</li>
+</ol>
+<p>Failing to recalculate these values causes sliced objects to rotate
+around off-center points or spin erratically due to mismatched inertia
+tensors.</p>
+<hr />
+<h3 id="method-1-automatic-recalculation-using-built-in-methods">Method
+1: Automatic Recalculation Using Built-in Methods</h3>
+<p>Matter.js provides built-in methods that recompute area, mass, and
+inertia automatically when new vertices are applied.</p>
+<h4 id="creating-new-bodies-from-slices">Creating New Bodies from
+Slices</h4>
+<p>The cleanest approach is instantiating each sliced polygon as a fresh
+<code>Body</code> using <code>Bodies.fromVertices</code>. This
+automatically calculates the centroid, moment of inertia, and mass based
+on the provided density:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="co">// vertices: Array of Matter.Vector objects [{x, y}, ...] forming the sliced polygon</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="co">// parentBody: The original Body that was sliced</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> centroid <span class="op">=</span> Matter<span class="op">.</span><span class="at">Vertices</span><span class="op">.</span><span class="fu">centre</span>(vertices)<span class="op">;</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> slicedBody <span class="op">=</span> Matter<span class="op">.</span><span class="at">Bodies</span><span class="op">.</span><span class="fu">fromVertices</span>(</span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>  centroid<span class="op">.</span><span class="at">x</span><span class="op">,</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>  centroid<span class="op">.</span><span class="at">y</span><span class="op">,</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>  [vertices]<span class="op">,</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>  {</span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>    <span class="dt">density</span><span class="op">:</span> parentBody<span class="op">.</span><span class="at">density</span><span class="op">,</span></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>    <span class="dt">friction</span><span class="op">:</span> parentBody<span class="op">.</span><span class="at">friction</span><span class="op">,</span></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>    <span class="dt">frictionAir</span><span class="op">:</span> parentBody<span class="op">.</span><span class="at">frictionAir</span><span class="op">,</span></span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>    <span class="dt">restitution</span><span class="op">:</span> parentBody<span class="op">.</span><span class="at">restitution</span></span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a>)<span class="op">;</span></span>
+<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a>Matter<span class="op">.</span><span class="at">Composite</span><span class="op">.</span><span class="fu">add</span>(engine<span class="op">.</span><span class="at">world</span><span class="op">,</span> slicedBody)<span class="op">;</span></span></code></pre></div>
+<h4 id="updating-an-existing-body">Updating an Existing Body</h4>
+<p>If you mutate an existing body instead of creating a new one, use
+<code>Body.setVertices</code> followed by
+<code>Body.setDensity</code>:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="co">// 1. Assign the new polygon geometry</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>Matter<span class="op">.</span><span class="at">Body</span><span class="op">.</span><span class="fu">setVertices</span>(body<span class="op">,</span> slicedVertices)<span class="op">;</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a><span class="co">// 2. Re-apply the target density to recalculate mass and inertia automatically</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>Matter<span class="op">.</span><span class="at">Body</span><span class="op">.</span><span class="fu">setDensity</span>(body<span class="op">,</span> targetDensity)<span class="op">;</span></span></code></pre></div>
+<p><code>Matter.Body.setVertices</code> automatically moves the body's
+position to the new geometric centroid and updates the inertia tensor
+according to the new vertex distribution.</p>
+<hr />
+<h3 id="method-2-manual-recalculation-of-mass-and-inertia">Method 2:
+Manual Recalculation of Mass and Inertia</h3>
+<p>If your application requires custom mass distribution or non-standard
+polygonal density, manually calculate the properties using Matter.js
+helper modules.</p>
+<h4 id="1-calculate-area-and-centroid">1. Calculate Area and
+Centroid</h4>
+<p>First, determine the geometric centroid and area using
+<code>Matter.Vertices</code>:</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> area <span class="op">=</span> Matter<span class="op">.</span><span class="at">Vertices</span><span class="op">.</span><span class="fu">area</span>(vertices)<span class="op">;</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> centroid <span class="op">=</span> Matter<span class="op">.</span><span class="at">Vertices</span><span class="op">.</span><span class="fu">centre</span>(vertices)<span class="op">;</span></span></code></pre></div>
+<h4 id="2-recalculate-mass">2. Recalculate Mass</h4>
+<p>Mass is defined as area multiplied by density:</p>
+<div class="sourceCode" id="cb4"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> mass <span class="op">=</span> area <span class="op">*</span> density<span class="op">;</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>Matter<span class="op">.</span><span class="at">Body</span><span class="op">.</span><span class="fu">setMass</span>(body<span class="op">,</span> mass)<span class="op">;</span></span></code></pre></div>
+<h4 id="3-recalculate-the-moment-of-inertia">3. Recalculate the Moment
+of Inertia</h4>
+<p>The moment of inertia <span class="math inline">\(I\)</span> for an
+arbitrary 2D polygon about its centroid can be calculated directly using
+<code>Matter.Vertices.inertia</code>:</p>
+<div class="sourceCode" id="cb5"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Vertices must be centered relative to (0, 0) before calculating inertia</span></span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> centeredVertices <span class="op">=</span> vertices<span class="op">.</span><span class="fu">map</span>(v <span class="kw">=&gt;</span> ({</span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a>  <span class="dt">x</span><span class="op">:</span> v<span class="op">.</span><span class="at">x</span> <span class="op">-</span> centroid<span class="op">.</span><span class="at">x</span><span class="op">,</span></span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a>  <span class="dt">y</span><span class="op">:</span> v<span class="op">.</span><span class="at">y</span> <span class="op">-</span> centroid<span class="op">.</span><span class="at">y</span></span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a>}))<span class="op">;</span></span>
+<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> inertia <span class="op">=</span> Matter<span class="op">.</span><span class="at">Vertices</span><span class="op">.</span><span class="fu">inertia</span>(centeredVertices<span class="op">,</span> mass)<span class="op">;</span></span>
+<span id="cb5-8"><a href="#cb5-8" aria-hidden="true" tabindex="-1"></a>Matter<span class="op">.</span><span class="at">Body</span><span class="op">.</span><span class="fu">setInertia</span>(body<span class="op">,</span> inertia)<span class="op">;</span></span></code></pre></div>
+<p>Under the hood, <code>Matter.Vertices.inertia</code> computes the
+second moment of area for a polygon using the cross-product summation
+formula:</p>
+<p><span class="math display">\[I = \frac{\text{mass}}{6} \cdot
+\frac{\sum |v_i \times v_{i+1}| \left( \|v_i\|^2 + v_i \cdot v_{i+1} +
+\|v_{i+1}\|^2 \right)}{\sum |v_i \times v_{i+1}|}\]</span></p>
+<hr />
+<h3 id="handling-non-convex-slices">Handling Non-Convex Slices</h3>
+<p>Matter.js assumes primitive bodies are convex. Slicing concave shapes
+can yield complex concave pieces. If a cut produces a concave piece:</p>
+<ol type="1">
+<li>Decompose the piece into convex parts using a decomposition library
+(such as <code>poly-decomp.js</code>, which Matter.js supports
+natively).</li>
+<li>Pass the decomposed vertex array into
+<code>Bodies.fromVertices(x, y, [partA, partB, ...])</code>.</li>
+<li>Matter.js will assemble a compound body where each sub-part has its
+own correctly calculated inertia and mass, properly weighted around the
+combined center of mass.</li>
+</ol></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/matter.js'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/matter.js/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/matter.js/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

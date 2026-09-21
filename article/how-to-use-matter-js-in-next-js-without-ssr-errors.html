@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How to Use Matter.js in Next.js Without SSR Errors - matter.js</title>
+    <meta name="description" content="Integrating Matter.js into Next.js applications often results in server-side rendering (SSR) errors like window is not defined because the physics engine relies directly on browser-only APIs. This guide explains why these SSR issues occur and details how">
+    <link rel="canonical" href="https://salivity.github.io/matter.js/article/how-to-use-matter-js-in-next-js-without-ssr-errors">
+    <link rel="search" type="application/opensearchdescription+xml" title="matter.js" href="/matter.js/opensearch.xml">
+    <link rel="icon" href="/matter.js/favicon.ico">
+    <link rel="stylesheet" href="/matter.js/css/style.css">
+    <link media="print" rel="stylesheet" href="/matter.js/css/print.css">
+    <script src="/matter.js/js/fuse.min.js"></script>
+    <script src="/matter.js/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How to Use Matter.js in Next.js Without SSR Errors - matter.js" />
+    <meta property="og:url" content="https://salivity.github.io/matter.js/article/how-to-use-matter-js-in-next-js-without-ssr-errors" />
+    <meta property="og:image" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Integrating Matter.js into Next.js applications often results in server-side rendering (SSR) errors like window is not defined because the physics engine relies directly on browser-only APIs. This guide explains why these SSR issues occur and details how" />
+    <link rel="manifest" href="/matter.js/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/matter.js/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>matter.js</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/matter.js/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="how-to-use-matterjs-in-nextjs-without-ssr-errors">How to Use
+Matter.js in Next.js Without SSR Errors</h1>
+<p>Integrating Matter.js into Next.js applications often results in
+server-side rendering (SSR) errors like
+<code>window is not defined</code> because the physics engine relies
+directly on browser-only APIs. This guide explains why these SSR issues
+occur and details how to solve them using Next.js dynamic imports,
+client-side lifecycle hooks, and proper physics engine cleanup
+routines.</p>
+<h3 id="why-matterjs-fails-during-ssr">Why Matter.js Fails During
+SSR</h3>
+<p>Next.js executes code on the Node.js server before delivering the
+rendered HTML to the client. Matter.js immediately evaluates globals
+such as <code>window</code>, <code>document</code>, and browser-based
+rendering APIs (such as <code>HTMLCanvasElement</code> and
+<code>requestAnimationFrame</code>). Because these do not exist in
+Node.js, standard static imports
+(<code>import Matter from 'matter-js'</code>) cause build or runtime
+crashes during server execution.</p>
+<h3 id="solution-1-dynamic-import-with-ssr-disabled">Solution 1: Dynamic
+Import with SSR Disabled</h3>
+<p>The most robust way to prevent Matter.js from executing on the server
+is using <code>next/dynamic</code> with <code>{ ssr: false }</code>.
+This ensures the component containing the physics logic is only
+downloaded and mounted in the browser.</p>
+<p>Create an isolated physics component:</p>
+<pre class="tsx"><code>// components/PhysicsCanvas.tsx
+&#39;use client&#39;;
+
+import { useEffect, useRef } from &#39;react&#39;;
+import Matter from &#39;matter-js&#39;;
+
+export default function PhysicsCanvas() {
+  const sceneRef = useRef&lt;HTMLDivElement&gt;(null);
+
+  useEffect(() =&gt; {
+    if (!sceneRef.current) return;
+
+    const { Engine, Render, Runner, Bodies, Composite } = Matter;
+
+    const engine = Engine.create();
+    const render = Render.create({
+      element: sceneRef.current,
+      engine: engine,
+      options: {
+        width: 800,
+        height: 600,
+        wireframes: false,
+      },
+    });
+
+    const box = Bodies.rectangle(400, 200, 80, 80);
+    const ground = Bodies.rectangle(400, 590, 810, 60, { isStatic: true });
+
+    Composite.add(engine.world, [box, ground]);
+
+    Render.run(render);
+    const runner = Runner.create();
+    Runner.run(runner, engine);
+
+    return () =&gt; {
+      Render.stop(render);
+      Runner.stop(runner);
+      Composite.clear(engine.world, false);
+      Engine.clear(engine);
+      render.canvas.remove();
+    };
+  }, []);
+
+  return &lt;div ref={sceneRef} /&gt;;
+}</code></pre>
+<p>Import it dynamically in your page:</p>
+<pre class="tsx"><code>// app/page.tsx or pages/index.tsx
+import dynamic from &#39;next/dynamic&#39;;
+
+const PhysicsCanvas = dynamic(() =&gt; import(&#39;@/components/PhysicsCanvas&#39;), {
+  ssr: false,
+});
+
+export default function Page() {
+  return (
+    &lt;main&gt;
+      &lt;h1&gt;Matter.js Next.js Simulation&lt;/h1&gt;
+      &lt;PhysicsCanvas /&gt;
+    &lt;/main&gt;
+  );
+}</code></pre>
+<h3 id="solution-2-inline-dynamic-import-inside-useeffect">Solution 2:
+Inline Dynamic Import Inside <code>useEffect</code></h3>
+<p>If you prefer keeping your imports within a single component file
+without setting up dynamic wrappers, load Matter.js dynamically inside a
+<code>useEffect</code> hook. Since <code>useEffect</code> only runs on
+the client side, Node.js will never attempt to execute the module.</p>
+<pre class="tsx"><code>&#39;use client&#39;;
+
+import { useEffect, useRef } from &#39;react&#39;;
+
+export default function PhysicsView() {
+  const containerRef = useRef&lt;HTMLDivElement&gt;(null);
+
+  useEffect(() =&gt; {
+    let render: any;
+    let runner: any;
+    let engine: any;
+
+    async function initMatter() {
+      const Matter = await import(&#39;matter-js&#39;);
+      const { Engine, Render, Runner, Bodies, Composite } = Matter.default || Matter;
+
+      if (!containerRef.current) return;
+
+      engine = Engine.create();
+      render = Render.create({
+        element: containerRef.current,
+        engine: engine,
+        options: { width: 600, height: 400 },
+      });
+
+      const circle = Bodies.circle(300, 50, 30);
+      const floor = Bodies.rectangle(300, 390, 600, 20, { isStatic: true });
+
+      Composite.add(engine.world, [circle, floor]);
+
+      Render.run(render);
+      runner = Runner.create();
+      Runner.run(runner, engine);
+    }
+
+    initMatter();
+
+    return () =&gt; {
+      if (render) Render.stop(render);
+      if (runner) Runner.stop(runner);
+      if (engine) Engine.clear(engine);
+    };
+  }, []);
+
+  return &lt;div ref={containerRef} /&gt;;
+}</code></pre>
+<h3 id="crucial-cleanup-considerations">Crucial Cleanup
+Considerations</h3>
+<p>When working with Next.js, React Fast Refresh and Strict Mode remount
+components frequently during development. If Matter.js instances are not
+manually dismantled in the <code>useEffect</code> cleanup return
+function:</p>
+<ol type="1">
+<li>Multiple <code>&lt;canvas&gt;</code> elements will stack on top of
+each other.</li>
+<li>Background loops (<code>Runner.run</code>) will continue executing,
+leading to memory leaks and erratic performance.</li>
+<li>Call <code>Render.stop()</code>, <code>Runner.stop()</code>, and
+remove the created <code>canvas</code> from the DOM to maintain
+consistent client performance.</li>
+</ol></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/matter.js'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/matter.js/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/matter.js/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

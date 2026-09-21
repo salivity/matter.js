@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Matter.js High vs Low Density Body Interactions - matter.js</title>
+    <meta name="description" content="This article explores the physical and computational effects of pairing high-density and low-density rigid bodies within the Matter.js 2D physics engine. It breaks down how density dictates mass calculations, examines the resulting momentum transfer and">
+    <link rel="canonical" href="https://salivity.github.io/matter.js/article/matter-js-high-vs-low-density-body-interactions">
+    <link rel="search" type="application/opensearchdescription+xml" title="matter.js" href="/matter.js/opensearch.xml">
+    <link rel="icon" href="/matter.js/favicon.ico">
+    <link rel="stylesheet" href="/matter.js/css/style.css">
+    <link media="print" rel="stylesheet" href="/matter.js/css/print.css">
+    <script src="/matter.js/js/fuse.min.js"></script>
+    <script src="/matter.js/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Matter.js High vs Low Density Body Interactions - matter.js" />
+    <meta property="og:url" content="https://salivity.github.io/matter.js/article/matter-js-high-vs-low-density-body-interactions" />
+    <meta property="og:image" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article explores the physical and computational effects of pairing high-density and low-density rigid bodies within the Matter.js 2D physics engine. It breaks down how density dictates mass calculations, examines the resulting momentum transfer and" />
+    <link rel="manifest" href="/matter.js/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/matter.js/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>matter.js</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/matter.js/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="matterjs-high-vs-low-density-body-interactions">Matter.js High
+vs Low Density Body Interactions</h1>
+<p>This article explores the physical and computational effects of
+pairing high-density and low-density rigid bodies within the Matter.js
+2D physics engine. It breaks down how density dictates mass
+calculations, examines the resulting momentum transfer and collision
+dynamics, highlights common numerical instabilities such as tunneling
+and constraint jitter, and outlines practical methods to maintain
+simulation stability.</p>
+<h3 id="mass-derivation-in-matterjs">Mass Derivation in Matter.js</h3>
+<p>In Matter.js, a body's mass is not set in isolation by default; it is
+calculated automatically using the formula:</p>
+<p><span class="math display">\[\text{mass} = \text{density} \times
+\text{area}\]</span></p>
+<p>The default density for all bodies is <code>0.001</code>. When you
+dramatically raise the density of one body while lowering or maintaining
+the default density of another, you create an extreme mass ratio. Even
+if two shapes share identical geometry and dimensions, a high-density
+body will possess significantly higher inertia than a low-density
+body.</p>
+<h3 id="collision-dynamics-and-momentum-transfer">Collision Dynamics and
+Momentum Transfer</h3>
+<p>When a high-density body collides with a low-density body, the
+interaction is governed by the conservation of linear momentum:</p>
+<p><span class="math display">\[m_1 v_{1i} + m_2 v_{2i} = m_1 v_{1f} +
+m_2 v_{2f}\]</span></p>
+<p>Because the high-density body possesses vastly more mass (<span
+class="math inline">\(m_1 \gg m_2\)</span>):</p>
+<ul>
+<li><strong>Velocity Imbalance:</strong> The high-density body barely
+registers the collision, continuing along its trajectory with virtually
+uninterrupted velocity. Conversely, the low-density body absorbs nearly
+all relative velocity change, resulting in sudden, violent
+acceleration.</li>
+<li><strong>Exaggerated Restitution:</strong> Even moderate restitution
+(bounciness) settings can cause the lighter body to rebound at extreme
+speeds when struck by the heavier body.</li>
+<li><strong>Unbalanced Pushing Forces:</strong> Low-density bodies
+cannot effectively push, block, or deflect high-density bodies. Instead,
+a moving high-density body acts almost like an immovable kinematic
+object relative to the lighter body.</li>
+</ul>
+<h3 id="engine-instabilities-and-artifacts">Engine Instabilities and
+Artifacts</h3>
+<p>Extreme mass disparities are notoriously difficult for discrete,
+iterative physics solvers like Matter.js to resolve. Combining high- and
+low-density bodies introduces several distinct simulation problems:</p>
+<h4 id="1-tunneling-passing-through-geometry">1. Tunneling (Passing
+Through Geometry)</h4>
+<p>When a high-density body imparts massive velocity to a low-density
+body in a single step, the lighter body can move further in one frame
+than its own thickness. This causes the object to skip collision checks
+entirely on the next frame, tunneling through walls, floors, or other
+objects.</p>
+<h4 id="2-constraint-jitter-and-explosions">2. Constraint Jitter and
+Explosions</h4>
+<p>Attaching a high-density body to a low-density body via a
+<code>Constraint</code> (spring or rigid link) destabilizes the
+iterative solver. The solver attempts to reconcile the positions of both
+bodies simultaneously. Because correcting the position of the heavy body
+requires massive force, the light body is overcorrected, resulting in
+violent vibration, stretching, or the simulation "exploding."</p>
+<h4 id="3-stacking-collapse">3. Stacking Collapse</h4>
+<p>If a high-density body is placed on top of a low-density body resting
+on static ground, the lighter body will often sink into the floor or be
+compressed through boundaries. The iterative impulse resolution
+algorithm prioritizes resting contacts equally, leading to penetration
+errors under extreme weight loads.</p>
+<h3 id="best-practices-for-managing-density-disparities">Best Practices
+for Managing Density Disparities</h3>
+<p>To maintain stable simulations when working with varied densities in
+Matter.js, implement the following adjustments:</p>
+<ul>
+<li><strong>Clamp Mass Ratios:</strong> Keep mass ratios between
+interacting bodies within a manageable threshold (ideally no greater
+than 1:10 or 1:20). Avoid pairing bodies with mass ratios exceeding
+1:100.</li>
+<li><strong>Increase Solver Iterations:</strong> Increase
+<code>engine.positionIterations</code> and
+<code>engine.velocityIterations</code> (default is 6 and 4,
+respectively). Raising these values to 10–15 helps resolve stiff
+contacts and reduces constraint instability.</li>
+<li><strong>Substep the Engine:</strong> Instead of taking large frame
+steps, update the engine multiple times per frame with a smaller delta
+time (<code>Engine.update(engine, 1000 / 60 / substeps)</code>). This
+directly counteracts tunneling caused by sudden high-speed
+impulses.</li>
+<li><strong>Apply Velocity Clamps:</strong> Manually restrict the
+maximum linear velocity (<code>body.velocity</code>) of low-density
+bodies inside an <code>afterUpdate</code> or <code>beforeUpdate</code>
+event listener to prevent them from accelerating beyond the simulation's
+collision threshold.</li>
+</ul></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/matter.js'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/matter.js/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/matter.js/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

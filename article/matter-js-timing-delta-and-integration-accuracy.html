@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Matter.js Timing Delta and Integration Accuracy - matter.js</title>
+    <meta name="description" content="Modifying the engine timing delta in Matter.js directly alters the discrete time step used to calculate body positions and velocities, dictating the precision of the physics simulation. The delta parameter controls the numerical integration scheme—Matt">
+    <link rel="canonical" href="https://salivity.github.io/matter.js/article/matter-js-timing-delta-and-integration-accuracy">
+    <link rel="search" type="application/opensearchdescription+xml" title="matter.js" href="/matter.js/opensearch.xml">
+    <link rel="icon" href="/matter.js/favicon.ico">
+    <link rel="stylesheet" href="/matter.js/css/style.css">
+    <link media="print" rel="stylesheet" href="/matter.js/css/print.css">
+    <script src="/matter.js/js/fuse.min.js"></script>
+    <script src="/matter.js/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Matter.js Timing Delta and Integration Accuracy - matter.js" />
+    <meta property="og:url" content="https://salivity.github.io/matter.js/article/matter-js-timing-delta-and-integration-accuracy" />
+    <meta property="og:image" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Modifying the engine timing delta in Matter.js directly alters the discrete time step used to calculate body positions and velocities, dictating the precision of the physics simulation. The delta parameter controls the numerical integration scheme—Matt" />
+    <link rel="manifest" href="/matter.js/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/matter.js/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>matter.js</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/matter.js/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="matterjs-timing-delta-and-integration-accuracy">Matter.js Timing
+Delta and Integration Accuracy</h1>
+<p>Modifying the engine timing delta in Matter.js directly alters the
+discrete time step used to calculate body positions and velocities,
+dictating the precision of the physics simulation. The
+<code>delta</code> parameter controls the numerical integration
+scheme—Matter.js's implementation of semi-implicit Euler integration.
+While lower delta values reduce truncation errors, prevent tunneling,
+and enhance constraint stability at the expense of higher CPU usage,
+larger or variable deltas introduce integration drift, jitter, and
+simulation collapse.</p>
+<h2 id="the-role-of-delta-in-numerical-integration">The Role of Delta in
+Numerical Integration</h2>
+<p>Matter.js updates bodies sequentially: it calculates forces, updates
+velocities based on acceleration, and then updates positions based on
+those new velocities. This process relies on a discrete approximation of
+continuous calculus:</p>
+<ul>
+<li><strong>Velocity Update:</strong> <span class="math inline">\(v(t +
+\Delta t) = v(t) + a(t) \cdot \Delta t\)</span></li>
+<li><strong>Position Update:</strong> <span class="math inline">\(x(t +
+\Delta t) = x(t) + v(t + \Delta t) \cdot \Delta t\)</span></li>
+</ul>
+<p>The variable <span class="math inline">\(\Delta t\)</span>
+corresponds to <code>engine.timing.delta</code> (defaulting to <span
+class="math inline">\(16.666\text{ ms}\)</span>, representing a 60 Hz
+display refresh rate). Numerical integration accumulates a local
+truncation error per step proportional to <span
+class="math inline">\(O(\Delta t)\)</span> or <span
+class="math inline">\(O(\Delta t^2)\)</span>. Modifying
+<code>delta</code> scales these integration errors proportionally.</p>
+<h2 id="consequences-of-decreasing-delta-smaller-timesteps">Consequences
+of Decreasing Delta (Smaller Timesteps)</h2>
+<p>Reducing the delta value (e.g., from <span
+class="math inline">\(16.666\text{ ms}\)</span> to <span
+class="math inline">\(8.333\text{ ms}\)</span>) improves integration
+accuracy significantly:</p>
+<ul>
+<li><strong>Mitigation of Tunneling:</strong> High-speed bodies travel
+less distance per frame. This ensures broadphase and narrowphase
+collision checks detect overlaps before an object passes entirely
+through a barrier.</li>
+<li><strong>Enhanced Constraint and Joint Rigidity:</strong> Matter.js
+solves constraints iteratively. Smaller position displacements per step
+mean constraints (springs, distance constraints, and contact manifolds)
+experience smaller corrective impulses, virtually eliminating visual
+rubber-banding and oscillation.</li>
+<li><strong>Energy Conservation:</strong> Smaller steps approximate
+continuous trajectories more closely, drastically reducing artificial
+kinetic energy generation during complex collisions.</li>
+</ul>
+<p>The trade-off for higher accuracy is increased CPU demand, as more
+sub-steps must be evaluated per real-world second.</p>
+<h2 id="consequences-of-increasing-delta-larger-timesteps">Consequences
+of Increasing Delta (Larger Timesteps)</h2>
+<p>Increasing the delta (e.g., greater than <span
+class="math inline">\(20\text{ ms}\)</span>) degrades simulation
+fidelity:</p>
+<ul>
+<li><strong>Truncation and Overshooting:</strong> Large steps cause
+accelerations to be applied over too long a duration, leading bodies to
+overshoot their true physical paths.</li>
+<li><strong>Tunneling:</strong> Fast-moving objects move farther in a
+single tick than their own collision bounds, bypassing thin walls
+entirely.</li>
+<li><strong>Explosive Instability:</strong> When bodies deeply penetrate
+one another due to an oversized step, the collision solver generates
+massive separation impulses. This introduces rapid energy growth,
+causing bodies to violently launch away from contact points.</li>
+</ul>
+<h2 id="fixed-vs-variable-delta">Fixed vs. Variable Delta</h2>
+<p>Using a variable delta derived dynamically from frame render times
+(such as browser <code>requestAnimationFrame</code> deltas) compromises
+deterministic behavior. A sudden frame-rate drop spikes the delta,
+introducing large integration errors that disrupt established equilibria
+(such as stacked boxes).</p>
+<p>To preserve accuracy, the engine delta should remain constant. If
+frame rates drop or higher precision is needed, decouple rendering from
+simulation by executing multiple fixed-delta updates per frame
+(sub-stepping) rather than adjusting <code>delta</code> to match elapsed
+wall-clock time.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/matter.js'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/matter.js/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/matter.js/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

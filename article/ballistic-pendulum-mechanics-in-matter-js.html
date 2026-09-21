@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ballistic Pendulum Mechanics in Matter.js - matter.js</title>
+    <meta name="description" content="This article explains how to simulate a ballistic pendulum using the Matter.js 2D physics engine to derive an unknown projectile launch speed. By modeling an inelastic collision between a high-speed projectile and a suspended pendulum bob, you can measur">
+    <link rel="canonical" href="https://salivity.github.io/matter.js/article/ballistic-pendulum-mechanics-in-matter-js">
+    <link rel="search" type="application/opensearchdescription+xml" title="matter.js" href="/matter.js/opensearch.xml">
+    <link rel="icon" href="/matter.js/favicon.ico">
+    <link rel="stylesheet" href="/matter.js/css/style.css">
+    <link media="print" rel="stylesheet" href="/matter.js/css/print.css">
+    <script src="/matter.js/js/fuse.min.js"></script>
+    <script src="/matter.js/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Ballistic Pendulum Mechanics in Matter.js - matter.js" />
+    <meta property="og:url" content="https://salivity.github.io/matter.js/article/ballistic-pendulum-mechanics-in-matter-js" />
+    <meta property="og:image" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article explains how to simulate a ballistic pendulum using the Matter.js 2D physics engine to derive an unknown projectile launch speed. By modeling an inelastic collision between a high-speed projectile and a suspended pendulum bob, you can measur" />
+    <link rel="manifest" href="/matter.js/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/matter.js/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>matter.js</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/matter.js/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="ballistic-pendulum-mechanics-in-matterjs">Ballistic Pendulum
+Mechanics in Matter.js</h1>
+<p>This article explains how to simulate a ballistic pendulum using the
+Matter.js 2D physics engine to derive an unknown projectile launch
+speed. By modeling an inelastic collision between a high-speed
+projectile and a suspended pendulum bob, you can measure the maximum
+swing height of the combined mass and apply the laws of conservation of
+momentum and mechanical energy to calculate the projectile's initial
+velocity.</p>
+<h2 id="physics-principles-of-the-ballistic-pendulum">Physics Principles
+of the Ballistic Pendulum</h2>
+<p>A ballistic pendulum operates in two distinct stages:</p>
+<ol type="1">
+<li><p><strong>The Inelastic Collision:</strong> A projectile of mass
+<span class="math inline">\(m\)</span> moving with an initial horizontal
+velocity <span class="math inline">\(v\)</span> embeds itself into a
+stationary pendulum bob of mass <span class="math inline">\(M\)</span>.
+Momentum is conserved: <span class="math display">\[m \cdot v = (m + M)
+\cdot V\]</span> where <span class="math inline">\(V\)</span> is the
+combined velocity immediately after impact.</p></li>
+<li><p><strong>The Swing (Mechanical Energy Conservation):</strong> The
+combined mass swings upward to a maximum height <span
+class="math inline">\(h\)</span>. Kinetic energy converts into
+gravitational potential energy: <span
+class="math display">\[\frac{1}{2}(m + M)V^2 = (m + M)gh \implies V =
+\sqrt{2gh}\]</span></p></li>
+</ol>
+<p>Combining both stages allows you to calculate the projectile's launch
+velocity: <span class="math display">\[v = \frac{m +
+M}{m}\sqrt{2gh}\]</span></p>
+<p>In computer coordinates, <span class="math inline">\(h =
+y_{\text{rest}} - y_{\text{peak}}\)</span>, representing the upward
+vertical displacement of the pendulum's center of mass.</p>
+<h2 id="setting-up-the-simulation-environment">Setting Up the Simulation
+Environment</h2>
+<p>To implement this in Matter.js, include the library and set up the
+foundational components: the physics engine, a renderer, and an update
+runner.</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> { Engine<span class="op">,</span> Render<span class="op">,</span> Runner<span class="op">,</span> Bodies<span class="op">,</span> Composite<span class="op">,</span> Constraint<span class="op">,</span> Events<span class="op">,</span> Body } <span class="op">=</span> Matter<span class="op">;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> engine <span class="op">=</span> Engine<span class="op">.</span><span class="fu">create</span>()<span class="op">;</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> world <span class="op">=</span> engine<span class="op">.</span><span class="at">world</span><span class="op">;</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> render <span class="op">=</span> Render<span class="op">.</span><span class="fu">create</span>({</span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>    <span class="dt">element</span><span class="op">:</span> <span class="bu">document</span><span class="op">.</span><span class="at">body</span><span class="op">,</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>    <span class="dt">engine</span><span class="op">:</span> engine<span class="op">,</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>    <span class="dt">options</span><span class="op">:</span> {</span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>        <span class="dt">width</span><span class="op">:</span> <span class="dv">800</span><span class="op">,</span></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>        <span class="dt">height</span><span class="op">:</span> <span class="dv">600</span><span class="op">,</span></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>        <span class="dt">wireframes</span><span class="op">:</span> <span class="kw">false</span></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a>Render<span class="op">.</span><span class="fu">run</span>(render)<span class="op">;</span></span>
+<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> runner <span class="op">=</span> Runner<span class="op">.</span><span class="fu">create</span>()<span class="op">;</span></span>
+<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a>Runner<span class="op">.</span><span class="fu">run</span>(runner<span class="op">,</span> engine)<span class="op">;</span></span></code></pre></div>
+<h2 id="constructing-the-pendulum-and-projectile">Constructing the
+Pendulum and Projectile</h2>
+<p>Construct the pendulum using a stationary anchor point and a dynamic
+body connected by a rigid <code>Constraint</code>. Place the projectile
+at a distance aligned with the resting bob's center.</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> pendulumLength <span class="op">=</span> <span class="dv">300</span><span class="op">;</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> anchorX <span class="op">=</span> <span class="dv">400</span><span class="op">;</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> anchorY <span class="op">=</span> <span class="dv">100</span><span class="op">;</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a><span class="co">// Pendulum Bob (Mass M)</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> bobRadius <span class="op">=</span> <span class="dv">40</span><span class="op">;</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> bob <span class="op">=</span> Bodies<span class="op">.</span><span class="fu">circle</span>(anchorX<span class="op">,</span> anchorY <span class="op">+</span> pendulumLength<span class="op">,</span> bobRadius<span class="op">,</span> {</span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>    <span class="dt">mass</span><span class="op">:</span> <span class="fl">2.0</span><span class="op">,</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>    <span class="dt">restitution</span><span class="op">:</span> <span class="dv">0</span><span class="op">,</span> <span class="co">// Prevent elastic bouncing</span></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>    <span class="dt">frictionAir</span><span class="op">:</span> <span class="dv">0</span>  <span class="co">// Minimize drag to preserve energy</span></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a><span class="co">// Rigid Arm Constraint</span></span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> arm <span class="op">=</span> Constraint<span class="op">.</span><span class="fu">create</span>({</span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a>    <span class="dt">pointA</span><span class="op">:</span> { <span class="dt">x</span><span class="op">:</span> anchorX<span class="op">,</span> <span class="dt">y</span><span class="op">:</span> anchorY }<span class="op">,</span></span>
+<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a>    <span class="dt">bodyB</span><span class="op">:</span> bob<span class="op">,</span></span>
+<span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a>    <span class="dt">length</span><span class="op">:</span> pendulumLength<span class="op">,</span></span>
+<span id="cb2-18"><a href="#cb2-18" aria-hidden="true" tabindex="-1"></a>    <span class="dt">stiffness</span><span class="op">:</span> <span class="dv">1</span></span>
+<span id="cb2-19"><a href="#cb2-19" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span>
+<span id="cb2-20"><a href="#cb2-20" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-21"><a href="#cb2-21" aria-hidden="true" tabindex="-1"></a><span class="co">// Projectile (Mass m)</span></span>
+<span id="cb2-22"><a href="#cb2-22" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> projectileRadius <span class="op">=</span> <span class="dv">10</span><span class="op">;</span></span>
+<span id="cb2-23"><a href="#cb2-23" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> projectile <span class="op">=</span> Bodies<span class="op">.</span><span class="fu">circle</span>(<span class="dv">100</span><span class="op">,</span> anchorY <span class="op">+</span> pendulumLength<span class="op">,</span> projectileRadius<span class="op">,</span> {</span>
+<span id="cb2-24"><a href="#cb2-24" aria-hidden="true" tabindex="-1"></a>    <span class="dt">mass</span><span class="op">:</span> <span class="fl">0.1</span><span class="op">,</span></span>
+<span id="cb2-25"><a href="#cb2-25" aria-hidden="true" tabindex="-1"></a>    <span class="dt">restitution</span><span class="op">:</span> <span class="dv">0</span><span class="op">,</span></span>
+<span id="cb2-26"><a href="#cb2-26" aria-hidden="true" tabindex="-1"></a>    <span class="dt">frictionAir</span><span class="op">:</span> <span class="dv">0</span></span>
+<span id="cb2-27"><a href="#cb2-27" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span>
+<span id="cb2-28"><a href="#cb2-28" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-29"><a href="#cb2-29" aria-hidden="true" tabindex="-1"></a>Composite<span class="op">.</span><span class="fu">add</span>(world<span class="op">,</span> [bob<span class="op">,</span> arm<span class="op">,</span> projectile])<span class="op">;</span></span></code></pre></div>
+<h2 id="simulating-the-inelastic-capture">Simulating the Inelastic
+Capture</h2>
+<p>A classical ballistic pendulum captures the bullet completely. In
+Matter.js, rigid body collisions tend to push bodies apart. To simulate
+capture, listen for the collision event between the projectile and the
+bob, then bind them together using a fixed constraint.</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="kw">let</span> isCaptured <span class="op">=</span> <span class="kw">false</span><span class="op">;</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="kw">let</span> initialRestY <span class="op">=</span> bob<span class="op">.</span><span class="at">position</span><span class="op">.</span><span class="at">y</span><span class="op">;</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a><span class="kw">let</span> peakY <span class="op">=</span> initialRestY<span class="op">;</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a><span class="kw">let</span> trackingActive <span class="op">=</span> <span class="kw">false</span><span class="op">;</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>Events<span class="op">.</span><span class="fu">on</span>(engine<span class="op">,</span> <span class="st">&#39;collisionStart&#39;</span><span class="op">,</span> (<span class="bu">event</span>) <span class="kw">=&gt;</span> {</span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>    <span class="bu">event</span><span class="op">.</span><span class="at">pairs</span><span class="op">.</span><span class="fu">forEach</span>((pair) <span class="kw">=&gt;</span> {</span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>        <span class="kw">const</span> { bodyA<span class="op">,</span> bodyB } <span class="op">=</span> pair<span class="op">;</span></span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a>        <span class="kw">const</span> involvesProjectile <span class="op">=</span> (bodyA <span class="op">===</span> projectile <span class="op">||</span> bodyB <span class="op">===</span> projectile)<span class="op">;</span></span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a>        <span class="kw">const</span> involvesBob <span class="op">=</span> (bodyA <span class="op">===</span> bob <span class="op">||</span> bodyB <span class="op">===</span> bob)<span class="op">;</span></span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> (involvesProjectile <span class="op">&amp;&amp;</span> involvesBob <span class="op">&amp;&amp;</span> <span class="op">!</span>isCaptured) {</span>
+<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a>            isCaptured <span class="op">=</span> <span class="kw">true</span><span class="op">;</span></span>
+<span id="cb3-14"><a href="#cb3-14" aria-hidden="true" tabindex="-1"></a>            trackingActive <span class="op">=</span> <span class="kw">true</span><span class="op">;</span></span>
+<span id="cb3-15"><a href="#cb3-15" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-16"><a href="#cb3-16" aria-hidden="true" tabindex="-1"></a>            <span class="co">// Pin projectile to bob to mimic an embedded impact</span></span>
+<span id="cb3-17"><a href="#cb3-17" aria-hidden="true" tabindex="-1"></a>            <span class="kw">const</span> joint <span class="op">=</span> Constraint<span class="op">.</span><span class="fu">create</span>({</span>
+<span id="cb3-18"><a href="#cb3-18" aria-hidden="true" tabindex="-1"></a>                <span class="dt">bodyA</span><span class="op">:</span> bob<span class="op">,</span></span>
+<span id="cb3-19"><a href="#cb3-19" aria-hidden="true" tabindex="-1"></a>                <span class="dt">bodyB</span><span class="op">:</span> projectile<span class="op">,</span></span>
+<span id="cb3-20"><a href="#cb3-20" aria-hidden="true" tabindex="-1"></a>                <span class="dt">stiffness</span><span class="op">:</span> <span class="dv">1</span><span class="op">,</span></span>
+<span id="cb3-21"><a href="#cb3-21" aria-hidden="true" tabindex="-1"></a>                <span class="dt">length</span><span class="op">:</span> <span class="dv">0</span></span>
+<span id="cb3-22"><a href="#cb3-22" aria-hidden="true" tabindex="-1"></a>            })<span class="op">;</span></span>
+<span id="cb3-23"><a href="#cb3-23" aria-hidden="true" tabindex="-1"></a>            Composite<span class="op">.</span><span class="fu">add</span>(world<span class="op">,</span> joint)<span class="op">;</span></span>
+<span id="cb3-24"><a href="#cb3-24" aria-hidden="true" tabindex="-1"></a>        }</span>
+<span id="cb3-25"><a href="#cb3-25" aria-hidden="true" tabindex="-1"></a>    })<span class="op">;</span></span>
+<span id="cb3-26"><a href="#cb3-26" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div>
+<h2 id="launching-the-projectile">Launching the Projectile</h2>
+<p>Apply an initial velocity to the projectile using
+<code>Body.setVelocity</code>. This represents the launch speed <span
+class="math inline">\(v\)</span> that the simulation will later
+calculate from the swing height.</p>
+<div class="sourceCode" id="cb4"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> actualLaunchSpeed <span class="op">=</span> <span class="dv">25</span><span class="op">;</span> <span class="co">// Pixels per frame</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>Body<span class="op">.</span><span class="fu">setVelocity</span>(projectile<span class="op">,</span> { <span class="dt">x</span><span class="op">:</span> actualLaunchSpeed<span class="op">,</span> <span class="dt">y</span><span class="op">:</span> <span class="dv">0</span> })<span class="op">;</span></span></code></pre></div>
+<h2 id="tracking-displacement-and-calculating-launch-speed">Tracking
+Displacement and Calculating Launch Speed</h2>
+<p>Monitor the bob's vertical position across engine update cycles.
+Matter.js screen coordinates increase downward, so the peak height
+corresponds to the minimum <span class="math inline">\(y\)</span>-value
+reached during the upward swing.</p>
+<div class="sourceCode" id="cb5"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a>Events<span class="op">.</span><span class="fu">on</span>(engine<span class="op">,</span> <span class="st">&#39;afterUpdate&#39;</span><span class="op">,</span> () <span class="kw">=&gt;</span> {</span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (<span class="op">!</span>trackingActive) <span class="cf">return</span><span class="op">;</span></span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Track highest elevation (lowest Y coordinate)</span></span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (bob<span class="op">.</span><span class="at">position</span><span class="op">.</span><span class="at">y</span> <span class="op">&lt;</span> peakY) {</span>
+<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a>        peakY <span class="op">=</span> bob<span class="op">.</span><span class="at">position</span><span class="op">.</span><span class="at">y</span><span class="op">;</span></span>
+<span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb5-8"><a href="#cb5-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-9"><a href="#cb5-9" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Detect when the pendulum stops rising and begins falling</span></span>
+<span id="cb5-10"><a href="#cb5-10" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (bob<span class="op">.</span><span class="at">velocity</span><span class="op">.</span><span class="at">y</span> <span class="op">&gt;</span> <span class="dv">0</span> <span class="op">&amp;&amp;</span> peakY <span class="op">&lt;</span> initialRestY) {</span>
+<span id="cb5-11"><a href="#cb5-11" aria-hidden="true" tabindex="-1"></a>        trackingActive <span class="op">=</span> <span class="kw">false</span><span class="op">;</span></span>
+<span id="cb5-12"><a href="#cb5-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-13"><a href="#cb5-13" aria-hidden="true" tabindex="-1"></a>        <span class="kw">const</span> h <span class="op">=</span> initialRestY <span class="op">-</span> peakY<span class="op">;</span></span>
+<span id="cb5-14"><a href="#cb5-14" aria-hidden="true" tabindex="-1"></a>        <span class="kw">const</span> g <span class="op">=</span> engine<span class="op">.</span><span class="at">gravity</span><span class="op">.</span><span class="at">y</span> <span class="op">*</span> engine<span class="op">.</span><span class="at">gravity</span><span class="op">.</span><span class="at">scale</span> <span class="op">*</span> <span class="dv">1000</span><span class="op">;</span> <span class="co">// Gravity scaled to frame time</span></span>
+<span id="cb5-15"><a href="#cb5-15" aria-hidden="true" tabindex="-1"></a>        <span class="kw">const</span> m <span class="op">=</span> projectile<span class="op">.</span><span class="at">mass</span><span class="op">;</span></span>
+<span id="cb5-16"><a href="#cb5-16" aria-hidden="true" tabindex="-1"></a>        <span class="kw">const</span> M <span class="op">=</span> bob<span class="op">.</span><span class="at">mass</span><span class="op">;</span></span>
+<span id="cb5-17"><a href="#cb5-17" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-18"><a href="#cb5-18" aria-hidden="true" tabindex="-1"></a>        <span class="co">// Ballistic pendulum equation: v = ((m + M) / m) * sqrt(2 * g * h)</span></span>
+<span id="cb5-19"><a href="#cb5-19" aria-hidden="true" tabindex="-1"></a>        <span class="kw">const</span> calculatedVelocity <span class="op">=</span> ((m <span class="op">+</span> M) <span class="op">/</span> m) <span class="op">*</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">sqrt</span>(<span class="dv">2</span> <span class="op">*</span> g <span class="op">*</span> h)<span class="op">;</span></span>
+<span id="cb5-20"><a href="#cb5-20" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-21"><a href="#cb5-21" aria-hidden="true" tabindex="-1"></a>        <span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(<span class="vs">`Measured Rise (h): </span><span class="sc">${</span>h<span class="op">.</span><span class="fu">toFixed</span>(<span class="dv">2</span>)<span class="sc">}</span><span class="vs"> px`</span>)<span class="op">;</span></span>
+<span id="cb5-22"><a href="#cb5-22" aria-hidden="true" tabindex="-1"></a>        <span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(<span class="vs">`Calculated Speed: </span><span class="sc">${</span>calculatedVelocity<span class="op">.</span><span class="fu">toFixed</span>(<span class="dv">2</span>)<span class="sc">}</span><span class="vs"> px/frame`</span>)<span class="op">;</span></span>
+<span id="cb5-23"><a href="#cb5-23" aria-hidden="true" tabindex="-1"></a>        <span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(<span class="vs">`Actual Launch Speed: </span><span class="sc">${</span>actualLaunchSpeed<span class="sc">}</span><span class="vs"> px/frame`</span>)<span class="op">;</span></span>
+<span id="cb5-24"><a href="#cb5-24" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb5-25"><a href="#cb5-25" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div>
+<h2 id="adjusting-for-simulation-constraints">Adjusting for Simulation
+Constraints</h2>
+<p>Physics engines resolve constraints iteratively, which can introduce
+small numerical damping during instantaneous high-speed impacts. To
+maximize calculation accuracy:</p>
+<ol type="1">
+<li>Set <code>engine.positionIterations = 10</code> and
+<code>engine.velocityIterations = 10</code> to reduce solver
+compliance.</li>
+<li>Ensure <code>frictionAir</code> remains <code>0</code> on both
+dynamic bodies to satisfy the ideal conservation of energy
+assumption.</li>
+<li>Ensure the projectile's trajectory hits precisely at the center of
+mass of the bob to avoid introducing unwanted rotational kinetic energy
+into the arm system.</li>
+</ol></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/matter.js'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/matter.js/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/matter.js/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

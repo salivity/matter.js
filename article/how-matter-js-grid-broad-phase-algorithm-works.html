@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How Matter.js Grid Broad-Phase Algorithm Works - matter.js</title>
+    <meta name="description" content="In 2D physics engines, collision detection is divided into broad-phase and narrow-phase stages to maintain performance. This article explains how the grid-based broad-phase collision detection algorithm functions in Matter.js, breaking down how it partit">
+    <link rel="canonical" href="https://salivity.github.io/matter.js/article/how-matter-js-grid-broad-phase-algorithm-works">
+    <link rel="search" type="application/opensearchdescription+xml" title="matter.js" href="/matter.js/opensearch.xml">
+    <link rel="icon" href="/matter.js/favicon.ico">
+    <link rel="stylesheet" href="/matter.js/css/style.css">
+    <link media="print" rel="stylesheet" href="/matter.js/css/print.css">
+    <script src="/matter.js/js/fuse.min.js"></script>
+    <script src="/matter.js/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How Matter.js Grid Broad-Phase Algorithm Works - matter.js" />
+    <meta property="og:url" content="https://salivity.github.io/matter.js/article/how-matter-js-grid-broad-phase-algorithm-works" />
+    <meta property="og:image" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="In 2D physics engines, collision detection is divided into broad-phase and narrow-phase stages to maintain performance. This article explains how the grid-based broad-phase collision detection algorithm functions in Matter.js, breaking down how it partit" />
+    <link rel="manifest" href="/matter.js/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/matter.js/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>matter.js</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/matter.js/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="how-matterjs-grid-broad-phase-algorithm-works">How Matter.js
+Grid Broad-Phase Algorithm Works</h1>
+<p>In 2D physics engines, collision detection is divided into
+broad-phase and narrow-phase stages to maintain performance. This
+article explains how the grid-based broad-phase collision detection
+algorithm functions in Matter.js, breaking down how it partitions 2D
+space, assigns object bounding boxes to uniform cells, removes duplicate
+pairs, and optimizes processing before passing potential collisions to
+the narrow-phase solver.</p>
+<h2 id="the-purpose-of-broad-phase-detection">The Purpose of Broad-Phase
+Detection</h2>
+<p>Directly testing every body against every other body using
+narrow-phase algorithms (such as the Separating Axis Theorem) results in
+an <span class="math inline">\(O(N^2)\)</span> time complexity, which
+rapidly degrades frame rates as object counts grow. The broad-phase
+algorithm acts as an early culling filter. Its sole responsibility is to
+quickly discard pairs of objects that are too far apart to possibly
+collide, forwarding only a small list of candidate pairs to the
+narrow-phase.</p>
+<h2 id="spatial-partitioning-via-uniform-grids">Spatial Partitioning via
+Uniform Grids</h2>
+<p>Matter.js implements broad-phase collision detection using a spatial
+hash grid (<code>Matter.Grid</code>). The 2D world coordinate space is
+mathematically sliced into a uniform matrix of rectangular cells, or
+"buckets."</p>
+<p>Each cell has a predefined width and height. Instead of storing exact
+geometric boundaries, the grid only tracks the presence of bodies within
+these spatial regions.</p>
+<h2 id="step-by-step-execution-of-the-grid-algorithm">Step-by-Step
+Execution of the Grid Algorithm</h2>
+<h3 id="1-bounding-box-calculation-aabb">1. Bounding Box Calculation
+(AABB)</h3>
+<p>Before interacting with the grid, Matter.js calculates an
+Axis-Aligned Bounding Box (AABB) for every active physics body. An AABB
+is a non-rotated rectangle defined simply by minimum and maximum
+coordinates: <code>(min.x, min.y)</code> and
+<code>(max.x, max.y)</code>.</p>
+<h3 id="2-cell-key-mapping">2. Cell Key Mapping</h3>
+<p>Using the AABB coordinates and the configured cell dimensions, the
+algorithm determines which grid coordinates the body spans:</p>
+<ul>
+<li><code>startCol = floor(aabb.min.x / cellWidth)</code></li>
+<li><code>endCol = floor(aabb.max.x / cellWidth)</code></li>
+<li><code>startRow = floor(aabb.min.y / cellHeight)</code></li>
+<li><code>endRow = floor(aabb.max.y / cellHeight)</code></li>
+</ul>
+<h3 id="3-bucket-insertion">3. Bucket Insertion</h3>
+<p>Matter.js iterates through the computed column and row ranges. The
+body reference is placed into the corresponding grid cells. If a body is
+small, it might reside in a single cell; if it is large or overlaps a
+boundary, it is inserted into multiple adjacent cells.</p>
+<h3 id="4-pair-generation-and-deduplication">4. Pair Generation and
+Deduplication</h3>
+<p>Once all bodies are mapped to their respective cells, the engine
+iterates through each occupied cell to generate collision pairs:</p>
+<ul>
+<li>Objects that do not share at least one cell are immediately
+ignored.</li>
+<li>For objects sharing a cell, a collision pair is registered.</li>
+<li>Because a large body overlapping multiple cells might encounter the
+same neighbor across several adjacent buckets, Matter.js generates a
+unique identifier for each pair (typically combining the body IDs, e.g.,
+<code>idA_idB</code>). A hash map or set tracks generated pairs,
+ensuring that duplicate checks are skipped.</li>
+</ul>
+<h3 id="5-transition-to-narrow-phase">5. Transition to Narrow-Phase</h3>
+<p>Once the grid traversal completes, the resulting unique set of
+candidate pairs is handed off to the narrow-phase algorithm. The
+narrow-phase then performs exact vertex, edge, and SAT calculations on
+this drastically reduced subset.</p>
+<h2 id="dynamic-grid-updates">Dynamic Grid Updates</h2>
+<p>At each engine update step (tick):</p>
+<ul>
+<li>Bodies that have moved or rotated have their AABBs
+recalculated.</li>
+<li>The grid removes references to bodies from their previous cells and
+registers them in their new coordinates.</li>
+<li>Sleeping or static bodies remain indexed in their existing cells
+without incurring recalculation costs until an external force or
+collision wakes them.</li>
+</ul>
+<h2 id="strengths-and-limitations">Strengths and Limitations</h2>
+<ul>
+<li><strong>Strengths:</strong> The uniform grid runs in near <span
+class="math inline">\(O(N)\)</span> time when bodies are uniformly
+distributed and similar in size to the grid cells. Adding and removing
+bodies is computationally inexpensive compared to rebalancing tree
+structures.</li>
+<li><strong>Limitations:</strong> If bodies vary wildly in size, tuning
+cell dimensions becomes difficult. Cells that are too large contain too
+many bodies (degrading back toward <span
+class="math inline">\(O(N^2)\)</span>), while cells that are too small
+force large bodies to register across dozens of cells, increasing memory
+usage and deduplication overhead.</li>
+</ul></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/matter.js'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/matter.js/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/matter.js/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

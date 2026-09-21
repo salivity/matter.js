@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simulating Motor Protein Transport in Matter.js - matter.js</title>
+    <meta name="description" content="This article explains how to simulate biological motor protein cargo transport along microtubule filaments using the Matter.js 2D physics engine. You will learn how to represent biological components—such as microtubules, motor heads (like kinesin), an">
+    <link rel="canonical" href="https://salivity.github.io/matter.js/article/simulating-motor-protein-transport-in-matter-js">
+    <link rel="search" type="application/opensearchdescription+xml" title="matter.js" href="/matter.js/opensearch.xml">
+    <link rel="icon" href="/matter.js/favicon.ico">
+    <link rel="stylesheet" href="/matter.js/css/style.css">
+    <link media="print" rel="stylesheet" href="/matter.js/css/print.css">
+    <script src="/matter.js/js/fuse.min.js"></script>
+    <script src="/matter.js/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Simulating Motor Protein Transport in Matter.js - matter.js" />
+    <meta property="og:url" content="https://salivity.github.io/matter.js/article/simulating-motor-protein-transport-in-matter-js" />
+    <meta property="og:image" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article explains how to simulate biological motor protein cargo transport along microtubule filaments using the Matter.js 2D physics engine. You will learn how to represent biological components—such as microtubules, motor heads (like kinesin), an" />
+    <link rel="manifest" href="/matter.js/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/matter.js/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>matter.js</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/matter.js/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="simulating-motor-protein-transport-in-matterjs">Simulating Motor
+Protein Transport in Matter.js</h1>
+<p>This article explains how to simulate biological motor protein cargo
+transport along microtubule filaments using the Matter.js 2D physics
+engine. You will learn how to represent biological components—such as
+microtubules, motor heads (like kinesin), and vesicle cargo—as rigid
+bodies and constraints, while applying low Reynolds number dynamics,
+Brownian thermal noise, and step-wise propulsion to realistically mimic
+intracellular transport.</p>
+<h3 id="1-conceptual-mapping-to-matterjs">1. Conceptual Mapping to
+Matter.js</h3>
+<p>To model intracellular transport, biological structures must be
+mapped to 2D rigid body mechanics:</p>
+<ul>
+<li><strong>Microtubule Track:</strong> A static linear body
+(<code>isStatic: true</code>) or a fixed vector pathway defining the
+direction of movement.</li>
+<li><strong>Motor Protein:</strong> A small dynamic body or kinematic
+anchor that traverses along the track vector in discrete steps.</li>
+<li><strong>Cargo (Vesicle):</strong> A larger circular body
+(<code>Bodies.circle</code>) with mass and high friction to mimic
+movement through viscous cytoplasm.</li>
+<li><strong>Tether (Coiled-coil stalk):</strong> A spring-like
+constraint (<code>Matter.Constraint</code>) connecting the motor body to
+the cargo.</li>
+</ul>
+<h3 id="2-setting-up-the-environment">2. Setting Up the Environment</h3>
+<p>Intracellular environments operate at very low Reynolds numbers,
+meaning viscous drag dominates over inertia. Set the world's standard
+gravity to zero and apply high <code>frictionAir</code> to the cargo to
+simulate the viscosity of the cytosol.</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> { Engine<span class="op">,</span> Render<span class="op">,</span> Runner<span class="op">,</span> Bodies<span class="op">,</span> Composite<span class="op">,</span> Constraint<span class="op">,</span> Body<span class="op">,</span> Vector } <span class="op">=</span> Matter<span class="op">;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> engine <span class="op">=</span> Engine<span class="op">.</span><span class="fu">create</span>({</span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>    <span class="dt">gravity</span><span class="op">:</span> { <span class="dt">x</span><span class="op">:</span> <span class="dv">0</span><span class="op">,</span> <span class="dt">y</span><span class="op">:</span> <span class="dv">0</span><span class="op">,</span> <span class="dt">scale</span><span class="op">:</span> <span class="dv">0</span> }</span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div>
+<h3 id="3-creating-track-motor-and-cargo-bodies">3. Creating Track,
+Motor, and Cargo Bodies</h3>
+<p>Define the static microtubule track, the stepping motor unit, and the
+suspended cargo.</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Microtubule track</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> track <span class="op">=</span> Bodies<span class="op">.</span><span class="fu">rectangle</span>(<span class="dv">400</span><span class="op">,</span> <span class="dv">300</span><span class="op">,</span> <span class="dv">700</span><span class="op">,</span> <span class="dv">10</span><span class="op">,</span> {</span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>    <span class="dt">isStatic</span><span class="op">:</span> <span class="kw">true</span><span class="op">,</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>    <span class="dt">isSensor</span><span class="op">:</span> <span class="kw">true</span><span class="op">,</span> <span class="co">// Prevents physical collisions with the motor</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>    <span class="dt">render</span><span class="op">:</span> { <span class="dt">fillStyle</span><span class="op">:</span> <span class="st">&#39;#4CAF50&#39;</span> }</span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a><span class="co">// Cargo vesicle</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> cargo <span class="op">=</span> Bodies<span class="op">.</span><span class="fu">circle</span>(<span class="dv">100</span><span class="op">,</span> <span class="dv">240</span><span class="op">,</span> <span class="dv">30</span><span class="op">,</span> {</span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>    <span class="dt">mass</span><span class="op">:</span> <span class="dv">5</span><span class="op">,</span></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>    <span class="dt">frictionAir</span><span class="op">:</span> <span class="fl">0.15</span><span class="op">,</span> <span class="co">// High drag to simulate cytosol</span></span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>    <span class="dt">render</span><span class="op">:</span> { <span class="dt">fillStyle</span><span class="op">:</span> <span class="st">&#39;#FF5722&#39;</span> }</span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a><span class="co">// Motor head</span></span>
+<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> motor <span class="op">=</span> Bodies<span class="op">.</span><span class="fu">circle</span>(<span class="dv">100</span><span class="op">,</span> <span class="dv">290</span><span class="op">,</span> <span class="dv">8</span><span class="op">,</span> {</span>
+<span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a>    <span class="dt">mass</span><span class="op">:</span> <span class="fl">0.5</span><span class="op">,</span></span>
+<span id="cb2-18"><a href="#cb2-18" aria-hidden="true" tabindex="-1"></a>    <span class="dt">frictionAir</span><span class="op">:</span> <span class="fl">0.2</span><span class="op">,</span></span>
+<span id="cb2-19"><a href="#cb2-19" aria-hidden="true" tabindex="-1"></a>    <span class="dt">render</span><span class="op">:</span> { <span class="dt">fillStyle</span><span class="op">:</span> <span class="st">&#39;#2196F3&#39;</span> }</span>
+<span id="cb2-20"><a href="#cb2-20" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span>
+<span id="cb2-21"><a href="#cb2-21" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-22"><a href="#cb2-22" aria-hidden="true" tabindex="-1"></a><span class="co">// Tether between motor and cargo</span></span>
+<span id="cb2-23"><a href="#cb2-23" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> tether <span class="op">=</span> Constraint<span class="op">.</span><span class="fu">create</span>({</span>
+<span id="cb2-24"><a href="#cb2-24" aria-hidden="true" tabindex="-1"></a>    <span class="dt">bodyA</span><span class="op">:</span> motor<span class="op">,</span></span>
+<span id="cb2-25"><a href="#cb2-25" aria-hidden="true" tabindex="-1"></a>    <span class="dt">bodyB</span><span class="op">:</span> cargo<span class="op">,</span></span>
+<span id="cb2-26"><a href="#cb2-26" aria-hidden="true" tabindex="-1"></a>    <span class="dt">stiffness</span><span class="op">:</span> <span class="fl">0.05</span><span class="op">,</span></span>
+<span id="cb2-27"><a href="#cb2-27" aria-hidden="true" tabindex="-1"></a>    <span class="dt">damping</span><span class="op">:</span> <span class="fl">0.01</span><span class="op">,</span></span>
+<span id="cb2-28"><a href="#cb2-28" aria-hidden="true" tabindex="-1"></a>    <span class="dt">render</span><span class="op">:</span> { <span class="dt">strokeStyle</span><span class="op">:</span> <span class="st">&#39;#9E9E9E&#39;</span><span class="op">,</span> <span class="dt">lineWidth</span><span class="op">:</span> <span class="dv">2</span> }</span>
+<span id="cb2-29"><a href="#cb2-29" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span>
+<span id="cb2-30"><a href="#cb2-30" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-31"><a href="#cb2-31" aria-hidden="true" tabindex="-1"></a>Composite<span class="op">.</span><span class="fu">add</span>(engine<span class="op">.</span><span class="at">world</span><span class="op">,</span> [track<span class="op">,</span> cargo<span class="op">,</span> motor<span class="op">,</span> tether])<span class="op">;</span></span></code></pre></div>
+<h3 id="4-simulating-the-stepping-mechanism">4. Simulating the Stepping
+Mechanism</h3>
+<p>Motor proteins like kinesin move processively along microtubules in
+discrete, hand-over-hand steps (typically 8 nm per ATP hydrolyzed). In
+Matter.js, this is simulated using an event loop listener
+(<code>beforeUpdate</code>) that applies intermittent forward forces or
+positional displacements along the track's directional vector.</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> stepSize <span class="op">=</span> <span class="dv">4</span><span class="op">;</span> <span class="co">// Visual step magnitude</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> stepInterval <span class="op">=</span> <span class="dv">15</span><span class="op">;</span> <span class="co">// Engine ticks between steps</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a><span class="kw">let</span> tick <span class="op">=</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>Matter<span class="op">.</span><span class="at">Events</span><span class="op">.</span><span class="fu">on</span>(engine<span class="op">,</span> <span class="st">&#39;beforeUpdate&#39;</span><span class="op">,</span> () <span class="kw">=&gt;</span> {</span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>    tick<span class="op">++;</span></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Step-wise forward movement along the track (X-axis)</span></span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (tick <span class="op">%</span> stepInterval <span class="op">===</span> <span class="dv">0</span> <span class="op">&amp;&amp;</span> motor<span class="op">.</span><span class="at">position</span><span class="op">.</span><span class="at">x</span> <span class="op">&lt;</span> <span class="dv">700</span>) {</span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a>        Body<span class="op">.</span><span class="fu">setPosition</span>(motor<span class="op">,</span> {</span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a>            <span class="dt">x</span><span class="op">:</span> motor<span class="op">.</span><span class="at">position</span><span class="op">.</span><span class="at">x</span> <span class="op">+</span> stepSize<span class="op">,</span></span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a>            <span class="dt">y</span><span class="op">:</span> track<span class="op">.</span><span class="at">position</span><span class="op">.</span><span class="at">y</span> <span class="op">-</span> <span class="dv">10</span></span>
+<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a>        })<span class="op">;</span></span>
+<span id="cb3-14"><a href="#cb3-14" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb3-15"><a href="#cb3-15" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-16"><a href="#cb3-16" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Brownian motion: Apply slight random thermal forces to cargo</span></span>
+<span id="cb3-17"><a href="#cb3-17" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> thermalForce <span class="op">=</span> Vector<span class="op">.</span><span class="fu">create</span>(</span>
+<span id="cb3-18"><a href="#cb3-18" aria-hidden="true" tabindex="-1"></a>        (<span class="bu">Math</span><span class="op">.</span><span class="fu">random</span>() <span class="op">-</span> <span class="fl">0.5</span>) <span class="op">*</span> <span class="fl">0.002</span><span class="op">,</span></span>
+<span id="cb3-19"><a href="#cb3-19" aria-hidden="true" tabindex="-1"></a>        (<span class="bu">Math</span><span class="op">.</span><span class="fu">random</span>() <span class="op">-</span> <span class="fl">0.5</span>) <span class="op">*</span> <span class="fl">0.002</span></span>
+<span id="cb3-20"><a href="#cb3-20" aria-hidden="true" tabindex="-1"></a>    )<span class="op">;</span></span>
+<span id="cb3-21"><a href="#cb3-21" aria-hidden="true" tabindex="-1"></a>    Body<span class="op">.</span><span class="fu">applyForce</span>(cargo<span class="op">,</span> cargo<span class="op">.</span><span class="at">position</span><span class="op">,</span> thermalForce)<span class="op">;</span></span>
+<span id="cb3-22"><a href="#cb3-22" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div>
+<h3 id="5-tuning-physical-properties-for-realism">5. Tuning Physical
+Properties for Realism</h3>
+<ul>
+<li><strong>Tether Elasticity:</strong> Adjust the
+<code>stiffness</code> and <code>length</code> properties of the
+<code>Constraint</code>. Lower stiffness creates visual lag, showing the
+cargo being pulled behind the motor through a viscous medium.</li>
+<li><strong>Stall Force:</strong> Motor proteins have a stall force
+limit (around 6–7 pN for kinesin). You can track the extension distance
+of the tether constraint; if the stretch exceeds a threshold (due to
+simulated biological obstacles), prevent the motor from stepping forward
+to simulate motor stalling.</li>
+<li><strong>Processivity and Detachment:</strong> Introduce a random
+probability check per step where the tether or motor is removed from the
+track to model spontaneous detachment into the cytoplasm.</li>
+</ul></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/matter.js'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/matter.js/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/matter.js/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How Matter.Vertices.area Calculates Mass in Matter.js - matter.js</title>
+    <meta name="description" content="In Matter.js, the mass of a custom convex body is fundamentally linked to its two-dimensional geometry through the formula mass = density area. The Matter.Vertices.area function plays a critical role by calculating the exact geometric surface area of a p">
+    <link rel="canonical" href="https://salivity.github.io/matter.js/article/how-matter-vertices-area-calculates-mass-in-matter-js">
+    <link rel="search" type="application/opensearchdescription+xml" title="matter.js" href="/matter.js/opensearch.xml">
+    <link rel="icon" href="/matter.js/favicon.ico">
+    <link rel="stylesheet" href="/matter.js/css/style.css">
+    <link media="print" rel="stylesheet" href="/matter.js/css/print.css">
+    <script src="/matter.js/js/fuse.min.js"></script>
+    <script src="/matter.js/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How Matter.Vertices.area Calculates Mass in Matter.js - matter.js" />
+    <meta property="og:url" content="https://salivity.github.io/matter.js/article/how-matter-vertices-area-calculates-mass-in-matter-js" />
+    <meta property="og:image" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="In Matter.js, the mass of a custom convex body is fundamentally linked to its two-dimensional geometry through the formula mass = density area. The Matter.Vertices.area function plays a critical role by calculating the exact geometric surface area of a p" />
+    <link rel="manifest" href="/matter.js/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/matter.js/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>matter.js</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/matter.js/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="how-matterverticesarea-calculates-mass-in-matterjs">How
+Matter.Vertices.area Calculates Mass in Matter.js</h1>
+<p>In Matter.js, the mass of a custom convex body is fundamentally
+linked to its two-dimensional geometry through the formula
+<code>mass = density * area</code>. The
+<code>Matter.Vertices.area</code> function plays a critical role by
+calculating the exact geometric surface area of a polygon from its
+defining coordinate points. This article explains how Matter.js uses
+this function during body generation, how it ensures realistic mass and
+rotational inertia distribution for custom shapes, and what developers
+need to know about the engine's underlying area calculations.</p>
+<h2 id="the-relationship-between-area-density-and-mass">The Relationship
+Between Area, Density, and Mass</h2>
+<p>Matter.js is a two-dimensional rigid-body physics engine. Because
+bodies do not have depth or volume, mass cannot be calculated using
+volumetric density. Instead, the engine represents mass proportionally
+through two-dimensional areal density:</p>
+<p><span class="math display">\[\text{Mass} = \text{Density} \times
+\text{Area}\]</span></p>
+<p>When you create standard geometric primitives such as rectangles or
+circles using factory methods like <code>Matter.Bodies.rectangle</code>
+or <code>Matter.Bodies.circle</code>, the engine calculates their areas
+using standard closed-form equations (<span class="math inline">\(w
+\times h\)</span> or <span class="math inline">\(\pi r^2\)</span>).
+However, for custom convex polygons defined by an arbitrary set of
+points, no single geometric formula applies. This is where
+<code>Matter.Vertices.area</code> becomes necessary.</p>
+<h2 id="how-matterverticesarea-operates">How
+<code>Matter.Vertices.area</code> Operates</h2>
+<p>The <code>Matter.Vertices.area(vertices, signed)</code> method takes
+an array of vertex objects (each containing <code>x</code> and
+<code>y</code> coordinates) and computes the total area of the closed
+polygon.</p>
+<p>Under the hood, this function implements the <strong>Shoelace
+formula</strong> (also known as Gauss's area formula). It traverses the
+perimeter of the polygon, calculating the determinant of adjacent
+coordinate pairs:</p>
+<p><span class="math display">\[A = \frac{1}{2} \left| \sum_{i=0}^{n-1}
+(x_i y_{i+1} - x_{i+1} y_i) \right|\]</span></p>
+<p>Key behaviors of this function include:</p>
+<ul>
+<li><strong>Signed vs. Unsigned Output:</strong> By default, or when
+<code>signed</code> is set to <code>false</code>, the function returns
+the absolute (positive) area. If <code>signed</code> is
+<code>true</code>, the sign indicates the winding order (clockwise
+versus counter-clockwise) of the vertices.</li>
+<li><strong>Vertex Ordering:</strong> The algorithm assumes the vertices
+are passed in sequential order along the perimeter of the convex
+hull.</li>
+</ul>
+<h2 id="the-initialization-pipeline-for-custom-convex-bodies">The
+Initialization Pipeline for Custom Convex Bodies</h2>
+<p>When a custom body is created using
+<code>Matter.Bodies.fromVertices</code> or
+<code>Matter.Body.create</code>, the engine executes a specific
+initialization sequence:</p>
+<ol type="1">
+<li><strong>Vertex Validation and Convex Hull Processing:</strong> The
+input points are normalized, validated, and ensured to form a convex
+shape (or decomposed into convex sub-parts if the original shape is
+concave).</li>
+<li><strong>Area Calculation:</strong> The engine invokes
+<code>Matter.Vertices.area</code> on the processed vertices.</li>
+<li><strong>Mass Computation:</strong> Using the default density
+(<code>0.001</code> unless explicitly overridden), the body sets its
+<code>mass</code> property equal to the calculated area multiplied by
+that density.</li>
+<li><strong>Inverse Mass:</strong> The engine automatically calculates
+<code>inverseMass = 1 / mass</code>, which is used across all constraint
+and collision impulse solvers to improve performance.</li>
+</ol>
+<h2 id="impact-on-rotational-inertia">Impact on Rotational Inertia</h2>
+<p><code>Matter.Vertices.area</code> indirectly impacts how a custom
+body rotates. Along with mass, custom convex bodies require an accurate
+moment of inertia (<code>body.inertia</code>).</p>
+<p>Matter.js computes the inertia of a polygon by summing the second
+moments of area across its triangular sub-segments relative to the
+body's centroid. Because the total mass is distributed across the
+calculated area, any inaccuracy in the vertex area calculation would
+distort the body's resistance to angular acceleration, causing unnatural
+rotations during collisions and joint constraints.</p>
+<h2 id="overriding-default-behavior">Overriding Default Behavior</h2>
+<p>While <code>Matter.Vertices.area</code> handles mass automation
+reliably, developers can override the resulting mass at or after
+instantiation:</p>
+<ul>
+<li><strong>Explicit Mass:</strong> Setting <code>{ mass: 50 }</code> in
+the body's definition options bypasses the density-area calculation,
+forcing the specified mass while internally scaling the
+<code>density</code> property to match the computed area.</li>
+<li><strong>Explicit Density:</strong> Setting a custom
+<code>density</code> allows <code>Matter.Vertices.area</code> to scale
+the mass naturally with the size of the shape, preserving dynamic
+realism when bodies are scaled at runtime via
+<code>Matter.Body.scale</code>.</li>
+</ul></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/matter.js'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/matter.js/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/matter.js/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

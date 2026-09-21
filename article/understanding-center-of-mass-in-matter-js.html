@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Understanding Center of Mass in Matter.js - matter.js</title>
+    <meta name="description" content="In Matter.js, the center of mass represents the physical balance point of a rigid body around which all linear motion, rotations, and applied torques revolve. This article explains what the center of mass represents within the 2D physics engine, how it d">
+    <link rel="canonical" href="https://salivity.github.io/matter.js/article/understanding-center-of-mass-in-matter-js">
+    <link rel="search" type="application/opensearchdescription+xml" title="matter.js" href="/matter.js/opensearch.xml">
+    <link rel="icon" href="/matter.js/favicon.ico">
+    <link rel="stylesheet" href="/matter.js/css/style.css">
+    <link media="print" rel="stylesheet" href="/matter.js/css/print.css">
+    <script src="/matter.js/js/fuse.min.js"></script>
+    <script src="/matter.js/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Understanding Center of Mass in Matter.js - matter.js" />
+    <meta property="og:url" content="https://salivity.github.io/matter.js/article/understanding-center-of-mass-in-matter-js" />
+    <meta property="og:image" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="In Matter.js, the center of mass represents the physical balance point of a rigid body around which all linear motion, rotations, and applied torques revolve. This article explains what the center of mass represents within the 2D physics engine, how it d" />
+    <link rel="manifest" href="/matter.js/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/matter.js/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>matter.js</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/matter.js/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="understanding-center-of-mass-in-matterjs">Understanding Center
+of Mass in Matter.js</h1>
+<p>In Matter.js, the center of mass represents the physical balance
+point of a rigid body around which all linear motion, rotations, and
+applied torques revolve. This article explains what the center of mass
+represents within the 2D physics engine, how it directly corresponds to
+a body's coordinates, its effect on physical interactions, and how you
+can adjust or offset it to create realistic behavioral simulations.</p>
+<h2 id="the-role-of-the-center-of-mass">The Role of the Center of
+Mass</h2>
+<p>In Matter.js, a body's <code>position</code> property
+(<code>body.position</code>) is precisely its center of mass. Unlike
+traditional DOM elements or canvas drawing logic that often measure
+coordinates from the top-left corner or an arbitrary bounding box
+origin, Matter.js defines every rigid body in 2D space relative to its
+center of mass.</p>
+<p>When you create a standard primitive using
+<code>Matter.Bodies.rectangle</code> or
+<code>Matter.Bodies.circle</code>, the engine automatically assigns the
+center of mass to the geometric center (centroid) of the shape. For
+arbitrary polygons defined by a custom array of vertices, the engine
+computes the centroid of the polygon geometry and sets that point as the
+body’s initial <code>position</code>.</p>
+<h2 id="how-the-center-of-mass-dictates-physics">How the Center of Mass
+Dictates Physics</h2>
+<p>The center of mass governs how a body interacts dynamically in the
+physics world:</p>
+<ul>
+<li><strong>Rotation:</strong> All angular velocity and rotation
+(<code>body.angle</code>) occur around the center of mass. If a body
+spins freely in space without external constraints, it pivots strictly
+around this point.</li>
+<li><strong>Force and Acceleration:</strong> Applying a force directly
+along a vector passing through the center of mass generates purely
+linear acceleration.</li>
+<li><strong>Torque:</strong> Applying a force at an offset position away
+from the center of mass generates both linear acceleration and torque,
+causing the body to rotate.</li>
+<li><strong>Collisions:</strong> When two bodies collide, collision
+impulses are applied at the contact points. The distance from the
+contact point to each body's center of mass determines how much of the
+impact energy translates into rotation versus linear recoil.</li>
+</ul>
+<h2 id="center-of-mass-in-compound-bodies">Center of Mass in Compound
+Bodies</h2>
+<p>When multiple bodies are grouped into a compound body using
+<code>Matter.Body.create({ parts: [...] })</code>, Matter.js
+automatically recalculates the global center of mass.</p>
+<p>The engine evaluates the mass and position of each individual part to
+determine the overall weighted balance point. Once established, the
+compound body's <code>position</code> shifts to this collective center,
+and all individual sub-parts have their relative vertices adjusted so
+that rotation and linear dynamics occur realistically around the unified
+center of mass.</p>
+<h2 id="modifying-and-offsetting-the-center-of-mass">Modifying and
+Offsetting the Center of Mass</h2>
+<p>By default, Matter.js assumes uniform density across a body's
+geometry, which places the center of mass at the centroid. However,
+certain simulations require an uneven weight distribution, such as a
+weighted punching bag, a self-righting buoy, or a car chassis.</p>
+<p>You can alter the center of mass using the built-in function:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a>Matter<span class="op">.</span><span class="at">Body</span><span class="op">.</span><span class="fu">setCentre</span>(body<span class="op">,</span> centre<span class="op">,</span> relative)<span class="op">;</span></span></code></pre></div>
+<ul>
+<li><strong><code>body</code></strong>: The target
+<code>Matter.Body</code> instance.</li>
+<li><strong><code>centre</code></strong>: A vector <code>{ x, y }</code>
+defining the new center coordinates.</li>
+<li><strong><code>relative</code></strong>: A boolean flag. When set to
+<code>true</code>, the <code>centre</code> vector is treated as an
+offset relative to the current center of mass. When set to
+<code>false</code>, it is treated as absolute world coordinates.</li>
+</ul>
+<p>Calling <code>setCentre</code> shifts the body's internal vertices
+relative to the <code>position</code> vector without moving the body
+visibly in the world. This shifts the internal pivot point, causing the
+body to naturally swing, settle, or rotate around the newly designated
+center of mass.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/matter.js'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/matter.js/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/matter.js/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

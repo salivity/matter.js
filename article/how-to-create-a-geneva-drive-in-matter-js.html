@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How to Create a Geneva Drive in Matter.js - matter.js</title>
+    <meta name="description" content="This guide explains how to design, assemble, and simulate a functioning Geneva drive mechanism using Matter.js. You will learn the principles of constructing the driving wheel and the slotted driven wheel using compound bodies, anchoring them with pivot">
+    <link rel="canonical" href="https://salivity.github.io/matter.js/article/how-to-create-a-geneva-drive-in-matter-js">
+    <link rel="search" type="application/opensearchdescription+xml" title="matter.js" href="/matter.js/opensearch.xml">
+    <link rel="icon" href="/matter.js/favicon.ico">
+    <link rel="stylesheet" href="/matter.js/css/style.css">
+    <link media="print" rel="stylesheet" href="/matter.js/css/print.css">
+    <script src="/matter.js/js/fuse.min.js"></script>
+    <script src="/matter.js/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How to Create a Geneva Drive in Matter.js - matter.js" />
+    <meta property="og:url" content="https://salivity.github.io/matter.js/article/how-to-create-a-geneva-drive-in-matter-js" />
+    <meta property="og:image" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This guide explains how to design, assemble, and simulate a functioning Geneva drive mechanism using Matter.js. You will learn the principles of constructing the driving wheel and the slotted driven wheel using compound bodies, anchoring them with pivot" />
+    <link rel="manifest" href="/matter.js/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/matter.js/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>matter.js</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/matter.js/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="how-to-create-a-geneva-drive-in-matterjs">How to Create a Geneva
+Drive in Matter.js</h1>
+<p>This guide explains how to design, assemble, and simulate a
+functioning Geneva drive mechanism using Matter.js. You will learn the
+principles of constructing the driving wheel and the slotted driven
+wheel using compound bodies, anchoring them with pivot constraints, and
+tuning collision parameters to achieve reliable intermittent rotary
+motion in a 2D physics environment.</p>
+<hr />
+<h3 id="understanding-the-mechanics">Understanding the Mechanics</h3>
+<p>A Geneva drive (or Maltese cross) translates continuous rotational
+motion into intermittent rotary motion. It consists of two primary
+interacting components:</p>
+<ol type="1">
+<li><strong>The Drive Wheel:</strong> Rotates continuously and features
+a driving pin offset from its center, along with a raised circular
+blocking disc.</li>
+<li><strong>The Driven Wheel:</strong> Features symmetrical slots
+(typically four to six) radiating from its center, alternating with
+concave locking cutouts that interface with the blocking disc to prevent
+rotation between index steps.</li>
+</ol>
+<p>In Matter.js, rigid-body physics replaces ideal mathematical
+linkages. The mechanism relies purely on contact forces: the pin enters
+a slot, pushes the wheel forward by a fraction of a turn, and exits,
+while friction and constraints regulate the movement.</p>
+<hr />
+<h3 id="1-environment-setup">1. Environment Setup</h3>
+<p>Matter.js requires standard module initialization. Import the engine,
+runner, bodies, composite, and constraint classes:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> { Engine<span class="op">,</span> Render<span class="op">,</span> Runner<span class="op">,</span> Bodies<span class="op">,</span> Body<span class="op">,</span> Composite<span class="op">,</span> Constraint<span class="op">,</span> Vertices } <span class="op">=</span> Matter<span class="op">;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> engine <span class="op">=</span> Engine<span class="op">.</span><span class="fu">create</span>()<span class="op">;</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> world <span class="op">=</span> engine<span class="op">.</span><span class="at">world</span><span class="op">;</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a><span class="co">// Geneva drives require higher solver fidelity to avoid pin tunneling</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>engine<span class="op">.</span><span class="at">positionIterations</span> <span class="op">=</span> <span class="dv">12</span><span class="op">;</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>engine<span class="op">.</span><span class="at">velocityIterations</span> <span class="op">=</span> <span class="dv">8</span><span class="op">;</span></span></code></pre></div>
+<hr />
+<h3 id="2-modeling-the-driven-wheel-geneva-cross">2. Modeling the Driven
+Wheel (Geneva Cross)</h3>
+<p>Because standard Geneva wheels have concave geometry (slots),
+Matter.js cannot treat them as simple single-polygon shapes without
+concave decomposition or compound assemblies. The most stable approach
+is building a compound body using overlapping rectangles to form the
+slots.</p>
+<p>For a classic 4-slot Geneva wheel:</p>
+<ul>
+<li>Create central spoke segments.</li>
+<li>Arrange four rectangular boundary walls around each slot to leave a
+recessed opening.</li>
+<li>Combine these sub-bodies into a single composite rigid body.</li>
+</ul>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">createGenevaWheel</span>(x<span class="op">,</span> y<span class="op">,</span> radius<span class="op">,</span> slotWidth) {</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> parts <span class="op">=</span> []<span class="op">;</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> numSlots <span class="op">=</span> <span class="dv">4</span><span class="op">;</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> spokeWidth <span class="op">=</span> radius <span class="op">*</span> <span class="fl">0.4</span><span class="op">;</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> spokeLength <span class="op">=</span> radius<span class="op">;</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Create central core</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> core <span class="op">=</span> Bodies<span class="op">.</span><span class="fu">circle</span>(x<span class="op">,</span> y<span class="op">,</span> radius <span class="op">*</span> <span class="fl">0.3</span><span class="op">,</span> { <span class="dt">isSensor</span><span class="op">:</span> <span class="kw">true</span> })<span class="op">;</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>    parts<span class="op">.</span><span class="fu">push</span>(core)<span class="op">;</span></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Build arm walls to define slots</span></span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> (<span class="kw">let</span> i <span class="op">=</span> <span class="dv">0</span><span class="op">;</span> i <span class="op">&lt;</span> numSlots<span class="op">;</span> i<span class="op">++</span>) {</span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>        <span class="kw">const</span> angle <span class="op">=</span> (i <span class="op">*</span> <span class="bu">Math</span><span class="op">.</span><span class="cn">PI</span>) <span class="op">/</span> <span class="dv">2</span><span class="op">;</span></span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a>        </span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a>        <span class="co">// Offset rectangular plates defining the slot walls</span></span>
+<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a>        <span class="kw">const</span> wallOffset <span class="op">=</span> slotWidth <span class="op">/</span> <span class="dv">2</span> <span class="op">+</span> spokeWidth <span class="op">/</span> <span class="dv">2</span><span class="op">;</span></span>
+<span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a>        <span class="kw">const</span> armLeft <span class="op">=</span> Bodies<span class="op">.</span><span class="fu">rectangle</span>(</span>
+<span id="cb2-18"><a href="#cb2-18" aria-hidden="true" tabindex="-1"></a>            x <span class="op">+</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">cos</span>(angle <span class="op">-</span> <span class="fl">0.2</span>) <span class="op">*</span> (radius <span class="op">*</span> <span class="fl">0.6</span>)<span class="op">,</span></span>
+<span id="cb2-19"><a href="#cb2-19" aria-hidden="true" tabindex="-1"></a>            y <span class="op">+</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">sin</span>(angle <span class="op">-</span> <span class="fl">0.2</span>) <span class="op">*</span> (radius <span class="op">*</span> <span class="fl">0.6</span>)<span class="op">,</span></span>
+<span id="cb2-20"><a href="#cb2-20" aria-hidden="true" tabindex="-1"></a>            spokeLength<span class="op">,</span></span>
+<span id="cb2-21"><a href="#cb2-21" aria-hidden="true" tabindex="-1"></a>            spokeWidth<span class="op">,</span></span>
+<span id="cb2-22"><a href="#cb2-22" aria-hidden="true" tabindex="-1"></a>            { <span class="dt">angle</span><span class="op">:</span> angle }</span>
+<span id="cb2-23"><a href="#cb2-23" aria-hidden="true" tabindex="-1"></a>        )<span class="op">;</span></span>
+<span id="cb2-24"><a href="#cb2-24" aria-hidden="true" tabindex="-1"></a>        parts<span class="op">.</span><span class="fu">push</span>(armLeft)<span class="op">;</span></span>
+<span id="cb2-25"><a href="#cb2-25" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb2-26"><a href="#cb2-26" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-27"><a href="#cb2-27" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> drivenWheel <span class="op">=</span> Body<span class="op">.</span><span class="fu">create</span>({</span>
+<span id="cb2-28"><a href="#cb2-28" aria-hidden="true" tabindex="-1"></a>        <span class="dt">parts</span><span class="op">:</span> parts<span class="op">,</span></span>
+<span id="cb2-29"><a href="#cb2-29" aria-hidden="true" tabindex="-1"></a>        <span class="dt">friction</span><span class="op">:</span> <span class="fl">0.05</span><span class="op">,</span></span>
+<span id="cb2-30"><a href="#cb2-30" aria-hidden="true" tabindex="-1"></a>        <span class="dt">restitution</span><span class="op">:</span> <span class="dv">0</span><span class="op">,</span></span>
+<span id="cb2-31"><a href="#cb2-31" aria-hidden="true" tabindex="-1"></a>        <span class="dt">density</span><span class="op">:</span> <span class="fl">0.005</span></span>
+<span id="cb2-32"><a href="#cb2-32" aria-hidden="true" tabindex="-1"></a>    })<span class="op">;</span></span>
+<span id="cb2-33"><a href="#cb2-33" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-34"><a href="#cb2-34" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> drivenWheel<span class="op">;</span></span>
+<span id="cb2-35"><a href="#cb2-35" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<hr />
+<h3 id="3-modeling-the-drive-wheel-and-pin">3. Modeling the Drive Wheel
+and Pin</h3>
+<p>The drive wheel consists of a central rotating hub and an offset
+drive pin that enters the slots of the driven wheel.</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">createDriveWheel</span>(x<span class="op">,</span> y<span class="op">,</span> radius<span class="op">,</span> pinDistance<span class="op">,</span> pinRadius) {</span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Base hub</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> hub <span class="op">=</span> Bodies<span class="op">.</span><span class="fu">circle</span>(x<span class="op">,</span> y<span class="op">,</span> radius<span class="op">,</span> {</span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>        <span class="dt">collisionFilter</span><span class="op">:</span> { <span class="dt">mask</span><span class="op">:</span> <span class="dv">0</span> } <span class="co">// Prevent base body from interfering with slots</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>    })<span class="op">;</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Pin positioned on the perimeter</span></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> pin <span class="op">=</span> Bodies<span class="op">.</span><span class="fu">circle</span>(x <span class="op">+</span> pinDistance<span class="op">,</span> y<span class="op">,</span> pinRadius<span class="op">,</span> {</span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a>        <span class="dt">friction</span><span class="op">:</span> <span class="fl">0.02</span><span class="op">,</span></span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a>        <span class="dt">restitution</span><span class="op">:</span> <span class="dv">0</span><span class="op">,</span></span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a>        <span class="dt">density</span><span class="op">:</span> <span class="fl">0.01</span></span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a>    })<span class="op">;</span></span>
+<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-14"><a href="#cb3-14" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> Body<span class="op">.</span><span class="fu">create</span>({</span>
+<span id="cb3-15"><a href="#cb3-15" aria-hidden="true" tabindex="-1"></a>        <span class="dt">parts</span><span class="op">:</span> [hub<span class="op">,</span> pin]<span class="op">,</span></span>
+<span id="cb3-16"><a href="#cb3-16" aria-hidden="true" tabindex="-1"></a>        <span class="dt">frictionAir</span><span class="op">:</span> <span class="dv">0</span></span>
+<span id="cb3-17"><a href="#cb3-17" aria-hidden="true" tabindex="-1"></a>    })<span class="op">;</span></span>
+<span id="cb3-18"><a href="#cb3-18" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<hr />
+<h3 id="4-anchoring-and-constraining-the-mechanism">4. Anchoring and
+Constraining the Mechanism</h3>
+<p>Both wheels must rotate about fixed centers. Use
+<code>Constraint.create</code> with zero length to create static
+revolute joints.</p>
+<div class="sourceCode" id="cb4"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> driveCenter <span class="op">=</span> { <span class="dt">x</span><span class="op">:</span> <span class="dv">300</span><span class="op">,</span> <span class="dt">y</span><span class="op">:</span> <span class="dv">400</span> }<span class="op">;</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> centerDistance <span class="op">=</span> <span class="fl">141.4</span><span class="op">;</span> <span class="co">// Calculated based on wheel radii for a 90-degree drive</span></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> drivenCenter <span class="op">=</span> { <span class="dt">x</span><span class="op">:</span> driveCenter<span class="op">.</span><span class="at">x</span> <span class="op">+</span> centerDistance<span class="op">,</span> <span class="dt">y</span><span class="op">:</span> <span class="dv">400</span> }<span class="op">;</span></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> driveWheel <span class="op">=</span> <span class="fu">createDriveWheel</span>(driveCenter<span class="op">.</span><span class="at">x</span><span class="op">,</span> driveCenter<span class="op">.</span><span class="at">y</span><span class="op">,</span> <span class="dv">80</span><span class="op">,</span> <span class="dv">100</span><span class="op">,</span> <span class="dv">8</span>)<span class="op">;</span></span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> drivenWheel <span class="op">=</span> <span class="fu">createGenevaWheel</span>(drivenCenter<span class="op">.</span><span class="at">x</span><span class="op">,</span> drivenCenter<span class="op">.</span><span class="at">y</span><span class="op">,</span> <span class="dv">100</span><span class="op">,</span> <span class="dv">18</span>)<span class="op">;</span></span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a><span class="co">// Pivot constraints anchored to fixed world points</span></span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> drivePivot <span class="op">=</span> Constraint<span class="op">.</span><span class="fu">create</span>({</span>
+<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a>    <span class="dt">pointA</span><span class="op">:</span> driveCenter<span class="op">,</span></span>
+<span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a>    <span class="dt">bodyB</span><span class="op">:</span> driveWheel<span class="op">,</span></span>
+<span id="cb4-12"><a href="#cb4-12" aria-hidden="true" tabindex="-1"></a>    <span class="dt">pointB</span><span class="op">:</span> { <span class="dt">x</span><span class="op">:</span> <span class="dv">0</span><span class="op">,</span> <span class="dt">y</span><span class="op">:</span> <span class="dv">0</span> }<span class="op">,</span></span>
+<span id="cb4-13"><a href="#cb4-13" aria-hidden="true" tabindex="-1"></a>    <span class="dt">stiffness</span><span class="op">:</span> <span class="dv">1</span><span class="op">,</span></span>
+<span id="cb4-14"><a href="#cb4-14" aria-hidden="true" tabindex="-1"></a>    <span class="dt">length</span><span class="op">:</span> <span class="dv">0</span></span>
+<span id="cb4-15"><a href="#cb4-15" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span>
+<span id="cb4-16"><a href="#cb4-16" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-17"><a href="#cb4-17" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> drivenPivot <span class="op">=</span> Constraint<span class="op">.</span><span class="fu">create</span>({</span>
+<span id="cb4-18"><a href="#cb4-18" aria-hidden="true" tabindex="-1"></a>    <span class="dt">pointA</span><span class="op">:</span> drivenCenter<span class="op">,</span></span>
+<span id="cb4-19"><a href="#cb4-19" aria-hidden="true" tabindex="-1"></a>    <span class="dt">bodyB</span><span class="op">:</span> drivenWheel<span class="op">,</span></span>
+<span id="cb4-20"><a href="#cb4-20" aria-hidden="true" tabindex="-1"></a>    <span class="dt">pointB</span><span class="op">:</span> { <span class="dt">x</span><span class="op">:</span> <span class="dv">0</span><span class="op">,</span> <span class="dt">y</span><span class="op">:</span> <span class="dv">0</span> }<span class="op">,</span></span>
+<span id="cb4-21"><a href="#cb4-21" aria-hidden="true" tabindex="-1"></a>    <span class="dt">stiffness</span><span class="op">:</span> <span class="dv">1</span><span class="op">,</span></span>
+<span id="cb4-22"><a href="#cb4-22" aria-hidden="true" tabindex="-1"></a>    <span class="dt">length</span><span class="op">:</span> <span class="dv">0</span></span>
+<span id="cb4-23"><a href="#cb4-23" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span>
+<span id="cb4-24"><a href="#cb4-24" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-25"><a href="#cb4-25" aria-hidden="true" tabindex="-1"></a>Composite<span class="op">.</span><span class="fu">add</span>(world<span class="op">,</span> [driveWheel<span class="op">,</span> drivenWheel<span class="op">,</span> drivePivot<span class="op">,</span> drivenPivot])<span class="op">;</span></span></code></pre></div>
+<hr />
+<h3 id="5-driving-the-motion-and-physics-tuning">5. Driving the Motion
+and Physics Tuning</h3>
+<p>To operate the Geneva mechanism, apply constant angular velocity to
+the driving wheel inside the engine update loop, or maintain continuous
+rotational velocity directly:</p>
+<div class="sourceCode" id="cb5"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a>Events<span class="op">.</span><span class="fu">on</span>(engine<span class="op">,</span> <span class="st">&#39;beforeUpdate&#39;</span><span class="op">,</span> () <span class="kw">=&gt;</span> {</span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Maintain a constant drive speed</span></span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a>    Body<span class="op">.</span><span class="fu">setAngularVelocity</span>(driveWheel<span class="op">,</span> <span class="fl">0.03</span>)<span class="op">;</span></span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div>
+<h4 id="critical-parameters-for-stability">Critical Parameters for
+Stability</h4>
+<ul>
+<li><strong>Friction:</strong> Keep the friction coefficient low on both
+the driving pin and the driven wheel parts
+(<code>friction: 0.01 - 0.05</code>). High friction causes the pin to
+jam inside the slot rather than sliding smoothly.</li>
+<li><strong>Slot Width Clearance:</strong> Ensure the slot width is
+slightly larger than the pin diameter
+(<code>slotWidth ≈ pinRadius * 2 + 2px</code>) to accommodate numerical
+inaccuracies during collision resolution.</li>
+<li><strong>Sub-stepping:</strong> If the pin escapes the slot or
+tunnels through geometry at higher speeds, decrease the engine step size
+or increase <code>engine.positionIterations</code>.</li>
+</ul></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/matter.js'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/matter.js/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/matter.js/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

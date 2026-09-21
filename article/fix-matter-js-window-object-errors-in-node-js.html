@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fix Matter.js Window Object Errors in Node.js - matter.js</title>
+    <meta name="description" content="Running Matter.js in a server-side environment like Node.js often results in a ReferenceError: window is not defined. This occurs because Matter.js includes modules designed for web browsers, specifically its built-in canvas renderer. This article outlin">
+    <link rel="canonical" href="https://salivity.github.io/matter.js/article/fix-matter-js-window-object-errors-in-node-js">
+    <link rel="search" type="application/opensearchdescription+xml" title="matter.js" href="/matter.js/opensearch.xml">
+    <link rel="icon" href="/matter.js/favicon.ico">
+    <link rel="stylesheet" href="/matter.js/css/style.css">
+    <link media="print" rel="stylesheet" href="/matter.js/css/print.css">
+    <script src="/matter.js/js/fuse.min.js"></script>
+    <script src="/matter.js/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Fix Matter.js Window Object Errors in Node.js - matter.js" />
+    <meta property="og:url" content="https://salivity.github.io/matter.js/article/fix-matter-js-window-object-errors-in-node-js" />
+    <meta property="og:image" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Running Matter.js in a server-side environment like Node.js often results in a ReferenceError: window is not defined. This occurs because Matter.js includes modules designed for web browsers, specifically its built-in canvas renderer. This article outlin" />
+    <link rel="manifest" href="/matter.js/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/matter.js/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>matter.js</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/matter.js/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="fix-matterjs-window-object-errors-in-nodejs">Fix Matter.js
+Window Object Errors in Node.js</h1>
+<p>Running Matter.js in a server-side environment like Node.js often
+results in a <code>ReferenceError: window is not defined</code>. This
+occurs because Matter.js includes modules designed for web browsers,
+specifically its built-in canvas renderer. This article outlines why
+this error happens and provides actionable methods to resolve it,
+including isolating the physics engine, replacing the browser renderer,
+and polyfilling global objects.</p>
+<h2 id="why-the-error-occurs">Why the Error Occurs</h2>
+<p>Node.js is a headless JavaScript runtime that lacks browser-specific
+global APIs such as <code>window</code>, <code>document</code>, and
+<code>requestAnimationFrame</code>. Matter.js bundles both its core
+physics engine and a canvas-based visualizer
+(<code>Matter.Render</code>). When Node.js loads components that attempt
+to inspect or bind to the browser's display lifecycle via the
+<code>window</code> object, execution halts immediately with a reference
+error.</p>
+<h2 id="solution-1-do-not-use-matterrender">Solution 1: Do Not Use
+<code>Matter.Render</code></h2>
+<p>In a Node.js environment, your application should handle only the
+physics simulation, not the rendering. The most common cause of the
+error is importing or instantiating <code>Matter.Render</code>.</p>
+<p>Avoid using <code>Render.create()</code> or <code>Render.run()</code>
+on the server:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> Matter <span class="op">=</span> <span class="pp">require</span>(<span class="st">&#39;matter-js&#39;</span>)<span class="op">;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="co">// Deconstruct only physics-related modules</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> { Engine<span class="op">,</span> Bodies<span class="op">,</span> Composite } <span class="op">=</span> Matter<span class="op">;</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a><span class="co">// Create the engine</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> engine <span class="op">=</span> Engine<span class="op">.</span><span class="fu">create</span>()<span class="op">;</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a><span class="co">// Create rigid bodies</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> box <span class="op">=</span> Bodies<span class="op">.</span><span class="fu">rectangle</span>(<span class="dv">400</span><span class="op">,</span> <span class="dv">200</span><span class="op">,</span> <span class="dv">80</span><span class="op">,</span> <span class="dv">80</span>)<span class="op">;</span></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> ground <span class="op">=</span> Bodies<span class="op">.</span><span class="fu">rectangle</span>(<span class="dv">400</span><span class="op">,</span> <span class="dv">610</span><span class="op">,</span> <span class="dv">810</span><span class="op">,</span> <span class="dv">60</span><span class="op">,</span> { <span class="dt">isStatic</span><span class="op">:</span> <span class="kw">true</span> })<span class="op">;</span></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a><span class="co">// Add bodies to the world</span></span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>Composite<span class="op">.</span><span class="fu">add</span>(engine<span class="op">.</span><span class="at">world</span><span class="op">,</span> [box<span class="op">,</span> ground])<span class="op">;</span></span></code></pre></div>
+<h2 id="solution-2-run-a-headless-update-loop">Solution 2: Run a
+Headless Update Loop</h2>
+<p>Because browser-based helpers rely on
+<code>window.requestAnimationFrame</code>, run your simulation in
+Node.js using <code>Engine.update</code> inside a custom loop or via
+standard Node.js timing mechanisms:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> delta <span class="op">=</span> <span class="dv">1000</span> <span class="op">/</span> <span class="dv">60</span><span class="op">;</span> <span class="co">// 60 FPS</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="pp">setInterval</span>(() <span class="kw">=&gt;</span> {</span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>  Matter<span class="op">.</span><span class="at">Engine</span><span class="op">.</span><span class="fu">update</span>(engine<span class="op">,</span> delta)<span class="op">;</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>  <span class="co">// Access body coordinates for your server logic</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>  <span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(<span class="vs">`Box Position: x=</span><span class="sc">${</span>box<span class="op">.</span><span class="at">position</span><span class="op">.</span><span class="at">x</span><span class="sc">}</span><span class="vs">, y=</span><span class="sc">${</span>box<span class="op">.</span><span class="at">position</span><span class="op">.</span><span class="at">y</span><span class="sc">}</span><span class="vs">`</span>)<span class="op">;</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>}<span class="op">,</span> delta)<span class="op">;</span></span></code></pre></div>
+<p>For high-precision server-side physics, prefer using
+<code>process.hrtime()</code> or <code>performance.now()</code> to
+calculate the exact delta time between updates.</p>
+<h2 id="solution-3-polyfill-the-window-object">Solution 3: Polyfill the
+<code>window</code> Object</h2>
+<p>If you are using an older version of Matter.js or a plugin that
+references <code>window</code> during module initialization, create a
+mock <code>window</code> object globally before importing the
+library.</p>
+<p>Add the following polyfill at the entry point of your application
+before importing Matter.js:</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Polyfill global browser objects</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> (<span class="kw">typeof</span> <span class="bu">window</span> <span class="op">===</span> <span class="st">&#39;undefined&#39;</span>) {</span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>  <span class="bu">global</span><span class="op">.</span><span class="at">window</span> <span class="op">=</span> {}<span class="op">;</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>  <span class="bu">global</span><span class="op">.</span><span class="at">document</span> <span class="op">=</span> {</span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>    <span class="dt">createElement</span><span class="op">:</span> () <span class="kw">=&gt;</span> ({</span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>      <span class="dt">getContext</span><span class="op">:</span> () <span class="kw">=&gt;</span> <span class="kw">null</span></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>    })</span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>  }<span class="op">;</span></span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> Matter <span class="op">=</span> <span class="pp">require</span>(<span class="st">&#39;matter-js&#39;</span>)<span class="op">;</span></span></code></pre></div>
+<p>This mock satisfies initial object checks without importing
+heavyweight browser emulation libraries, allowing the core physics
+calculations to run smoothly in headless environments.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/matter.js'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/matter.js/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/matter.js/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

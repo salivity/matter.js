@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Matter.js: How Changing Density Affects Mass - matter.js</title>
+    <meta name="description" content="In the Matter.js 2D physics engine, a rigid body's mass is directly tied to its density and geometric area through the formula mass = density area. When you adjust the density of a body, Matter.js recalculates its total mass and inverse mass while keepin">
+    <link rel="canonical" href="https://salivity.github.io/matter.js/article/matter-js-how-changing-density-affects-mass">
+    <link rel="search" type="application/opensearchdescription+xml" title="matter.js" href="/matter.js/opensearch.xml">
+    <link rel="icon" href="/matter.js/favicon.ico">
+    <link rel="stylesheet" href="/matter.js/css/style.css">
+    <link media="print" rel="stylesheet" href="/matter.js/css/print.css">
+    <script src="/matter.js/js/fuse.min.js"></script>
+    <script src="/matter.js/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Matter.js: How Changing Density Affects Mass - matter.js" />
+    <meta property="og:url" content="https://salivity.github.io/matter.js/article/matter-js-how-changing-density-affects-mass" />
+    <meta property="og:image" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="In the Matter.js 2D physics engine, a rigid body's mass is directly tied to its density and geometric area through the formula mass = density area. When you adjust the density of a body, Matter.js recalculates its total mass and inverse mass while keepin" />
+    <link rel="manifest" href="/matter.js/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/matter.js/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>matter.js</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/matter.js/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="matterjs-how-changing-density-affects-mass">Matter.js: How
+Changing Density Affects Mass</h1>
+<p>In the Matter.js 2D physics engine, a rigid body's mass is directly
+tied to its density and geometric area through the formula
+<code>mass = density * area</code>. When you adjust the density of a
+body, Matter.js recalculates its total mass and inverse mass while
+keeping its physical dimensions unchanged. This guide explains the
+internal relationship between density and mass in Matter.js, how to
+modify density in code, and the resulting effects on the physics
+simulation.</p>
+<h2 id="the-mathematical-relationship-between-density-and-mass">The
+Mathematical Relationship Between Density and Mass</h2>
+<p>Matter.js automatically computes the geometric area of a body upon
+creation based on its vertices or shape definition (such as rectangles
+or circles). By default, all bodies are initialized with a standard
+density (typically <code>0.001</code>).</p>
+<p>The engine calculates mass using the following relationship:</p>
+<p><span class="math display">\[\text{mass} = \text{density} \times
+\text{area}\]</span></p>
+<p>Because the area represents the static geometric footprint of the
+shape, mass scales linearly with density:</p>
+<ul>
+<li><strong>Increasing density</strong> proportionally increases the
+body's mass.</li>
+<li><strong>Decreasing density</strong> proportionally decreases the
+body's mass.</li>
+</ul>
+<h2 id="updating-density-programmatically">Updating Density
+Programmatically</h2>
+<p>To change density after a body has been instantiated, use the
+<code>Matter.Body.setDensity</code> method rather than directly mutating
+the property:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Setting the density of an existing body</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>Matter<span class="op">.</span><span class="at">Body</span><span class="op">.</span><span class="fu">setDensity</span>(myBody<span class="op">,</span> <span class="fl">0.005</span>)<span class="op">;</span></span></code></pre></div>
+<p>When <code>Body.setDensity</code> is executed, Matter.js carries out
+three automatic updates:</p>
+<ol type="1">
+<li>Multiplies the new density value by the existing
+<code>body.area</code>.</li>
+<li>Updates <code>body.mass</code> to the resulting value.</li>
+<li>Updates <code>body.inverseMass</code> to <code>1 / mass</code> (used
+internally for performance during physics computations).</li>
+</ol>
+<p>Alternatively, if you use
+<code>Matter.Body.setMass(myBody, newMass)</code>, the reverse
+calculation occurs: Matter.js updates the mass directly and recalculates
+<code>body.density</code> as <code>newMass / body.area</code>.</p>
+<h2 id="simulation-impacts-of-changing-density">Simulation Impacts of
+Changing Density</h2>
+<p>Altering a body’s density directly alters its physical behavior in
+the simulation without changing how it looks visually:</p>
+<ul>
+<li><strong>Collision Momentum:</strong> Heavier bodies (higher density)
+possess more momentum at the same velocity. In a collision between a
+high-density body and a low-density body, the heavier object will
+deflect less and impart more force to the lighter object.</li>
+<li><strong>Constraints and Springs:</strong> Matter.js constraints
+(such as ropes or springs) behave differently under varying loads.
+Bodies with higher density will cause constraints to stretch or deform
+more under force.</li>
+<li><strong>Applied Forces:</strong> When using
+<code>Matter.Body.applyForce</code>, acceleration is governed by
+Newton's second law (<span class="math inline">\(F = ma\)</span>, or
+<span class="math inline">\(a = F/m\)</span>). Increasing density
+increases mass, meaning the same applied force will produce less
+acceleration.</li>
+<li><strong>Rotational Inertia:</strong> Changing density also alters
+the body's moment of inertia (<code>body.inertia</code>), making denser
+objects harder to rotate using equivalent angular forces.</li>
+</ul></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/matter.js'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/matter.js/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/matter.js/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

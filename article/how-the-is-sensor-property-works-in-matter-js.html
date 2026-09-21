@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How the isSensor Property Works in Matter.js - matter.js</title>
+    <meta name="description" content="In Matter.js, configuring a body as a sensor fundamentally alters how it interacts with other physics objects in a simulation. This article explains the technical behavior of setting the isSensor property to true, how it eliminates physical collisions wh">
+    <link rel="canonical" href="https://salivity.github.io/matter.js/article/how-the-is-sensor-property-works-in-matter-js">
+    <link rel="search" type="application/opensearchdescription+xml" title="matter.js" href="/matter.js/opensearch.xml">
+    <link rel="icon" href="/matter.js/favicon.ico">
+    <link rel="stylesheet" href="/matter.js/css/style.css">
+    <link media="print" rel="stylesheet" href="/matter.js/css/print.css">
+    <script src="/matter.js/js/fuse.min.js"></script>
+    <script src="/matter.js/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How the isSensor Property Works in Matter.js - matter.js" />
+    <meta property="og:url" content="https://salivity.github.io/matter.js/article/how-the-is-sensor-property-works-in-matter-js" />
+    <meta property="og:image" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="In Matter.js, configuring a body as a sensor fundamentally alters how it interacts with other physics objects in a simulation. This article explains the technical behavior of setting the isSensor property to true, how it eliminates physical collisions wh" />
+    <link rel="manifest" href="/matter.js/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/matter.js/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>matter.js</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/matter.js/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="how-the-issensor-property-works-in-matterjs">How the isSensor
+Property Works in Matter.js</h1>
+<p>In Matter.js, configuring a body as a sensor fundamentally alters how
+it interacts with other physics objects in a simulation. This article
+explains the technical behavior of setting the <code>isSensor</code>
+property to <code>true</code>, how it eliminates physical collisions
+while retaining detection events, and how to implement it effectively
+for triggers, boundaries, and detection zones in your 2D physics
+projects.</p>
+<h2 id="what-issensor-does">What isSensor Does</h2>
+<p>By default, every rigid body in Matter.js has solid physical
+boundaries. When two non-sensor bodies collide, the physics engine
+computes restitution, friction, and collision resolution forces to
+prevent them from overlapping and to bounce or push them apart.</p>
+<p>Setting <code>isSensor: true</code> disables this physical response
+entirely:</p>
+<ul>
+<li><strong>No Physical Displacement:</strong> The body becomes
+non-solid and intangible. Other bodies will pass through it seamlessly
+without being blocked, slowed down, or pushed away.</li>
+<li><strong>Collision Events Still Fire:</strong> Even though there is
+no physical reaction, the engine's collision detection pipeline remains
+fully active. Matter.js continues to compute intersection pairs and
+triggers <code>collisionStart</code>, <code>collisionActive</code>, and
+<code>collisionEnd</code> events for the sensor body.</li>
+</ul>
+<h2 id="how-to-set-a-body-as-a-sensor">How to Set a Body as a
+Sensor</h2>
+<p>You can define a body as a sensor upon creation or toggle it
+dynamically during runtime.</p>
+<h3 id="defining-at-creation">Defining at Creation</h3>
+<p>Pass <code>isSensor: true</code> within the options object when
+creating a body:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> triggerZone <span class="op">=</span> Matter<span class="op">.</span><span class="at">Bodies</span><span class="op">.</span><span class="fu">rectangle</span>(<span class="dv">400</span><span class="op">,</span> <span class="dv">300</span><span class="op">,</span> <span class="dv">200</span><span class="op">,</span> <span class="dv">100</span><span class="op">,</span> {</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>  <span class="dt">isSensor</span><span class="op">:</span> <span class="kw">true</span><span class="op">,</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>  <span class="dt">isStatic</span><span class="op">:</span> <span class="kw">true</span> <span class="co">// Frequently made static to serve as a fixed zone</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>Matter<span class="op">.</span><span class="at">Composite</span><span class="op">.</span><span class="fu">add</span>(engine<span class="op">.</span><span class="at">world</span><span class="op">,</span> triggerZone)<span class="op">;</span></span></code></pre></div>
+<h3 id="changing-at-runtime">Changing at Runtime</h3>
+<p>You can update the property directly on an existing body
+instance:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a>myBody<span class="op">.</span><span class="at">isSensor</span> <span class="op">=</span> <span class="kw">true</span><span class="op">;</span></span></code></pre></div>
+<h2 id="handling-sensor-events">Handling Sensor Events</h2>
+<p>Because sensor bodies do not produce impulses, their primary utility
+comes from listening to collision events via the
+<code>Matter.Events</code> module.</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a>Matter<span class="op">.</span><span class="at">Events</span><span class="op">.</span><span class="fu">on</span>(engine<span class="op">,</span> <span class="st">&#39;collisionStart&#39;</span><span class="op">,</span> (<span class="bu">event</span>) <span class="kw">=&gt;</span> {</span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> pairs <span class="op">=</span> <span class="bu">event</span><span class="op">.</span><span class="at">pairs</span><span class="op">;</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>  <span class="cf">for</span> (<span class="kw">let</span> i <span class="op">=</span> <span class="dv">0</span><span class="op">;</span> i <span class="op">&lt;</span> pairs<span class="op">.</span><span class="at">length</span><span class="op">;</span> i<span class="op">++</span>) {</span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> { bodyA<span class="op">,</span> bodyB } <span class="op">=</span> pairs[i]<span class="op">;</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (bodyA <span class="op">===</span> triggerZone <span class="op">||</span> bodyB <span class="op">===</span> triggerZone) {</span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>      <span class="co">// Logic for when another object enters the sensor area</span></span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a>      <span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(<span class="st">&#39;Object entered the trigger zone&#39;</span>)<span class="op">;</span></span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div>
+<h2 id="common-use-cases">Common Use Cases</h2>
+<ul>
+<li><strong>Checkpoints and Goal Areas:</strong> Detecting when a player
+or projectile crosses a finish line or hits a target without altering
+the object's trajectory.</li>
+<li><strong>Collectibles:</strong> Creating coins, power-ups, or items
+that detect when a character touches them so they can be removed and
+awarded.</li>
+<li><strong>Proximity Triggers:</strong> Setting up invisible boundaries
+around enemies or mechanisms to detect when an entity enters a specific
+field of view or detection radius.</li>
+<li><strong>Environmental Zones:</strong> Creating regions like water or
+low-gravity fields where you want to detect presence and apply custom
+forces programmatically rather than using standard collision
+mechanics.</li>
+</ul></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/matter.js'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/matter.js/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/matter.js/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

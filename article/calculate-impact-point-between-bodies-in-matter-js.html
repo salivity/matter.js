@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Calculate Impact Point Between Bodies in Matter.js - matter.js</title>
+    <meta name="description" content="This article explains how to determine the precise point of impact between colliding rigid bodies using the Matter.js 2D physics engine. Matter.js detects collisions using the Separating Axis Theorem (SAT) and generates contact manifolds containing the v">
+    <link rel="canonical" href="https://salivity.github.io/matter.js/article/calculate-impact-point-between-bodies-in-matter-js">
+    <link rel="search" type="application/opensearchdescription+xml" title="matter.js" href="/matter.js/opensearch.xml">
+    <link rel="icon" href="/matter.js/favicon.ico">
+    <link rel="stylesheet" href="/matter.js/css/style.css">
+    <link media="print" rel="stylesheet" href="/matter.js/css/print.css">
+    <script src="/matter.js/js/fuse.min.js"></script>
+    <script src="/matter.js/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Calculate Impact Point Between Bodies in Matter.js - matter.js" />
+    <meta property="og:url" content="https://salivity.github.io/matter.js/article/calculate-impact-point-between-bodies-in-matter-js" />
+    <meta property="og:image" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article explains how to determine the precise point of impact between colliding rigid bodies using the Matter.js 2D physics engine. Matter.js detects collisions using the Separating Axis Theorem (SAT) and generates contact manifolds containing the v" />
+    <link rel="manifest" href="/matter.js/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/matter.js/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>matter.js</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/matter.js/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="calculate-impact-point-between-bodies-in-matterjs">Calculate
+Impact Point Between Bodies in Matter.js</h1>
+<p>This article explains how to determine the precise point of impact
+between colliding rigid bodies using the Matter.js 2D physics engine.
+Matter.js detects collisions using the Separating Axis Theorem (SAT) and
+generates contact manifolds containing the vertices where bodies
+intersect. By capturing collision events, extracting support points, and
+calculating their geometric midpoint or using raycasting for continuous
+collision detection, you can accurately pinpoint where two bodies
+collide.</p>
+<h2 id="1-listen-for-collision-events">1. Listen for Collision
+Events</h2>
+<p>Matter.js provides collision lifecycle events through
+<code>Matter.Events</code>. The <code>collisionStart</code> event fires
+during the initial frame in which two bodies intersect, making it the
+ideal place to detect an impact.</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a>Matter<span class="op">.</span><span class="at">Events</span><span class="op">.</span><span class="fu">on</span>(engine<span class="op">,</span> <span class="st">&#39;collisionStart&#39;</span><span class="op">,</span> (<span class="bu">event</span>) <span class="kw">=&gt;</span> {</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> pairs <span class="op">=</span> <span class="bu">event</span><span class="op">.</span><span class="at">pairs</span><span class="op">;</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> (<span class="kw">let</span> i <span class="op">=</span> <span class="dv">0</span><span class="op">;</span> i <span class="op">&lt;</span> pairs<span class="op">.</span><span class="at">length</span><span class="op">;</span> i<span class="op">++</span>) {</span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>        <span class="kw">const</span> pair <span class="op">=</span> pairs[i]<span class="op">;</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>        <span class="kw">const</span> bodyA <span class="op">=</span> pair<span class="op">.</span><span class="at">bodyA</span><span class="op">;</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>        <span class="kw">const</span> bodyB <span class="op">=</span> pair<span class="op">.</span><span class="at">bodyB</span><span class="op">;</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>        <span class="kw">const</span> impactPoint <span class="op">=</span> <span class="fu">getImpactPoint</span>(pair)<span class="op">;</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>        <span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(<span class="st">&#39;Impact coordinates:&#39;</span><span class="op">,</span> impactPoint)<span class="op">;</span></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div>
+<h2 id="2-extract-collision-support-points">2. Extract Collision Support
+Points</h2>
+<p>Each collision pair contains a <code>collision</code> object holding
+geometric information about the overlap. The
+<code>pair.collision.supports</code> array contains the specific
+vertices (support points) from the bodies that are actively involved in
+the penetration.</p>
+<p>Depending on the collision geometry, <code>supports</code> typically
+contains one or two vertices:</p>
+<ul>
+<li><strong>One point:</strong> Corner-to-edge or corner-to-corner
+impact.</li>
+<li><strong>Two points:</strong> Edge-to-edge impact.</li>
+</ul>
+<h2 id="3-compute-the-single-impact-coordinate">3. Compute the Single
+Impact Coordinate</h2>
+<p>When two support points exist, the exact point of impact is commonly
+resolved as the midpoint between them. If only one support point exists,
+that point represents the impact location directly.</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">getImpactPoint</span>(pair) {</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> supports <span class="op">=</span> pair<span class="op">.</span><span class="at">collision</span><span class="op">.</span><span class="at">supports</span><span class="op">;</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (<span class="op">!</span>supports <span class="op">||</span> supports<span class="op">.</span><span class="at">length</span> <span class="op">===</span> <span class="dv">0</span>) {</span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>        <span class="co">// Fallback: Midpoint between body centroids if supports are unavailable</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> {</span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>            <span class="dt">x</span><span class="op">:</span> (pair<span class="op">.</span><span class="at">bodyA</span><span class="op">.</span><span class="at">position</span><span class="op">.</span><span class="at">x</span> <span class="op">+</span> pair<span class="op">.</span><span class="at">bodyB</span><span class="op">.</span><span class="at">position</span><span class="op">.</span><span class="at">x</span>) <span class="op">/</span> <span class="dv">2</span><span class="op">,</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>            <span class="dt">y</span><span class="op">:</span> (pair<span class="op">.</span><span class="at">bodyA</span><span class="op">.</span><span class="at">position</span><span class="op">.</span><span class="at">y</span> <span class="op">+</span> pair<span class="op">.</span><span class="at">bodyB</span><span class="op">.</span><span class="at">position</span><span class="op">.</span><span class="at">y</span>) <span class="op">/</span> <span class="dv">2</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>        }<span class="op">;</span></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (supports<span class="op">.</span><span class="at">length</span> <span class="op">===</span> <span class="dv">1</span>) {</span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> {</span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a>            <span class="dt">x</span><span class="op">:</span> supports[<span class="dv">0</span>]<span class="op">.</span><span class="at">x</span><span class="op">,</span></span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a>            <span class="dt">y</span><span class="op">:</span> supports[<span class="dv">0</span>]<span class="op">.</span><span class="at">y</span></span>
+<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a>        }<span class="op">;</span></span>
+<span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb2-18"><a href="#cb2-18" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-19"><a href="#cb2-19" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Midpoint between the two support points</span></span>
+<span id="cb2-20"><a href="#cb2-20" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> {</span>
+<span id="cb2-21"><a href="#cb2-21" aria-hidden="true" tabindex="-1"></a>        <span class="dt">x</span><span class="op">:</span> (supports[<span class="dv">0</span>]<span class="op">.</span><span class="at">x</span> <span class="op">+</span> supports[<span class="dv">1</span>]<span class="op">.</span><span class="at">x</span>) <span class="op">/</span> <span class="dv">2</span><span class="op">,</span></span>
+<span id="cb2-22"><a href="#cb2-22" aria-hidden="true" tabindex="-1"></a>        <span class="dt">y</span><span class="op">:</span> (supports[<span class="dv">0</span>]<span class="op">.</span><span class="at">y</span> <span class="op">+</span> supports[<span class="dv">1</span>]<span class="op">.</span><span class="at">y</span>) <span class="op">/</span> <span class="dv">2</span></span>
+<span id="cb2-23"><a href="#cb2-23" aria-hidden="true" tabindex="-1"></a>    }<span class="op">;</span></span>
+<span id="cb2-24"><a href="#cb2-24" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<h2 id="4-account-for-penetration-depth-high-precision">4. Account for
+Penetration Depth (High Precision)</h2>
+<p>Matter.js uses discrete collision detection, meaning bodies overlap
+slightly before the collision resolution separates them. If you need the
+point on the surface of <code>bodyA</code> rather than inside the
+overlapping region, offset the support point by half the collision
+penetration depth along the collision normal:</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">getExactSurfaceImpactPoint</span>(pair) {</span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> collision <span class="op">=</span> pair<span class="op">.</span><span class="at">collision</span><span class="op">;</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> supports <span class="op">=</span> collision<span class="op">.</span><span class="at">supports</span><span class="op">;</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> normal <span class="op">=</span> collision<span class="op">.</span><span class="at">normal</span><span class="op">;</span> <span class="co">// Vector pointing from bodyA to bodyB</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> depth <span class="op">=</span> collision<span class="op">.</span><span class="at">depth</span><span class="op">;</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>    <span class="kw">let</span> baseX<span class="op">,</span> baseY<span class="op">;</span></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (supports<span class="op">.</span><span class="at">length</span> <span class="op">&gt;</span> <span class="dv">1</span>) {</span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a>        baseX <span class="op">=</span> (supports[<span class="dv">0</span>]<span class="op">.</span><span class="at">x</span> <span class="op">+</span> supports[<span class="dv">1</span>]<span class="op">.</span><span class="at">x</span>) <span class="op">/</span> <span class="dv">2</span><span class="op">;</span></span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a>        baseY <span class="op">=</span> (supports[<span class="dv">0</span>]<span class="op">.</span><span class="at">y</span> <span class="op">+</span> supports[<span class="dv">1</span>]<span class="op">.</span><span class="at">y</span>) <span class="op">/</span> <span class="dv">2</span><span class="op">;</span></span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a>    } <span class="cf">else</span> {</span>
+<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a>        baseX <span class="op">=</span> supports[<span class="dv">0</span>]<span class="op">.</span><span class="at">x</span><span class="op">;</span></span>
+<span id="cb3-14"><a href="#cb3-14" aria-hidden="true" tabindex="-1"></a>        baseY <span class="op">=</span> supports[<span class="dv">0</span>]<span class="op">.</span><span class="at">y</span><span class="op">;</span></span>
+<span id="cb3-15"><a href="#cb3-15" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb3-16"><a href="#cb3-16" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-17"><a href="#cb3-17" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Adjust position along the normal to find the exact boundary</span></span>
+<span id="cb3-18"><a href="#cb3-18" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> {</span>
+<span id="cb3-19"><a href="#cb3-19" aria-hidden="true" tabindex="-1"></a>        <span class="dt">x</span><span class="op">:</span> baseX <span class="op">-</span> normal<span class="op">.</span><span class="at">x</span> <span class="op">*</span> (depth <span class="op">*</span> <span class="fl">0.5</span>)<span class="op">,</span></span>
+<span id="cb3-20"><a href="#cb3-20" aria-hidden="true" tabindex="-1"></a>        <span class="dt">y</span><span class="op">:</span> baseY <span class="op">-</span> normal<span class="op">.</span><span class="at">y</span> <span class="op">*</span> (depth <span class="op">*</span> <span class="fl">0.5</span>)</span>
+<span id="cb3-21"><a href="#cb3-21" aria-hidden="true" tabindex="-1"></a>    }<span class="op">;</span></span>
+<span id="cb3-22"><a href="#cb3-22" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<h2 id="5-alternative-raycasting-for-fast-moving-bodies">5. Alternative:
+Raycasting for Fast-Moving Bodies</h2>
+<p>For fast-moving objects subject to tunneling (passing through other
+bodies between frames), discrete contact supports may reflect
+significant overlap. You can determine the pre-impact surface contact
+using <code>Matter.Query.ray</code>:</p>
+<div class="sourceCode" id="cb4"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Cast a ray from the previous position to the current position of bodyA</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> rayHits <span class="op">=</span> Matter<span class="op">.</span><span class="at">Query</span><span class="op">.</span><span class="fu">ray</span>([bodyB]<span class="op">,</span> bodyA<span class="op">.</span><span class="at">positionPrev</span><span class="op">,</span> bodyA<span class="op">.</span><span class="at">position</span>)<span class="op">;</span></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> (rayHits<span class="op">.</span><span class="at">length</span> <span class="op">&gt;</span> <span class="dv">0</span>) {</span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> firstHit <span class="op">=</span> rayHits[<span class="dv">0</span>]<span class="op">;</span></span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> exactImpact <span class="op">=</span> {</span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a>        <span class="dt">x</span><span class="op">:</span> firstHit<span class="op">.</span><span class="at">point</span><span class="op">.</span><span class="at">x</span><span class="op">,</span></span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a>        <span class="dt">y</span><span class="op">:</span> firstHit<span class="op">.</span><span class="at">point</span><span class="op">.</span><span class="at">y</span></span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a>    }<span class="op">;</span></span>
+<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<p>Using <code>pair.collision.supports</code> handles standard collision
+responses, while combining it with penetration depth correction or
+raycasting ensures sub-frame accuracy for particle spawning, visual
+effects, and gameplay mechanics.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/matter.js'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/matter.js/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/matter.js/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

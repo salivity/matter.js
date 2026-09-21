@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Matter.js HTML Elements with CSS matrix3d - matter.js</title>
+    <meta name="description" content="This guide explains how to synchronize 2D physics bodies from Matter.js with standard HTML DOM elements using CSS matrix3d transforms. By mapping the position and rotation data of a physics body directly into a 4x4 transformation matrix, you can achieve">
+    <link rel="canonical" href="https://salivity.github.io/matter.js/article/matter-js-html-elements-with-css-matrix-3-d">
+    <link rel="search" type="application/opensearchdescription+xml" title="matter.js" href="/matter.js/opensearch.xml">
+    <link rel="icon" href="/matter.js/favicon.ico">
+    <link rel="stylesheet" href="/matter.js/css/style.css">
+    <link media="print" rel="stylesheet" href="/matter.js/css/print.css">
+    <script src="/matter.js/js/fuse.min.js"></script>
+    <script src="/matter.js/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Matter.js HTML Elements with CSS matrix3d - matter.js" />
+    <meta property="og:url" content="https://salivity.github.io/matter.js/article/matter-js-html-elements-with-css-matrix-3-d" />
+    <meta property="og:image" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This guide explains how to synchronize 2D physics bodies from Matter.js with standard HTML DOM elements using CSS matrix3d transforms. By mapping the position and rotation data of a physics body directly into a 4x4 transformation matrix, you can achieve" />
+    <link rel="manifest" href="/matter.js/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/matter.js/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>matter.js</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/matter.js/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="matterjs-html-elements-with-css-matrix3d">Matter.js HTML
+Elements with CSS matrix3d</h1>
+<p>This guide explains how to synchronize 2D physics bodies from
+Matter.js with standard HTML DOM elements using CSS
+<code>matrix3d</code> transforms. By mapping the position and rotation
+data of a physics body directly into a 4x4 transformation matrix, you
+can achieve high-performance, GPU-accelerated rendering of HTML elements
+without triggering expensive layout recalculations in the browser.</p>
+<h3 id="why-use-matrix3d">Why Use <code>matrix3d</code></h3>
+<p>Standard CSS properties like <code>top</code> and <code>left</code>
+trigger browser layout and repaint passes on every frame, leading to
+stuttering physics simulations. Using CSS transforms bypasses layout
+updates and leverages GPU compositing. While a 2D <code>matrix()</code>
+or combination of <code>translate()</code> and <code>rotate()</code>
+works, <code>matrix3d()</code> explicitly promotes the element to its
+own hardware-accelerated compositing layer, reducing latency and
+subpixel jitter during fast-paced simulations.</p>
+<h3 id="matrix-structure-for-2d-physics">Matrix Structure for 2D
+Physics</h3>
+<p>A CSS <code>matrix3d</code> expects 16 values in column-major order
+representing an affine 4x4 transformation matrix:</p>
+<pre><code>matrix3d(
+  m11, m12, m13, m14,
+  m21, m22, m23, m24,
+  m31, m32, m33, m34,
+  m41, m42, m43, m44
+)</code></pre>
+<p>To map a 2D rotation (angle <span
+class="math inline">\(\theta\)</span> around the Z-axis) and 2D
+translation (<span class="math inline">\(X, Y\)</span>) from Matter.js,
+configure the matrix as follows:</p>
+<ul>
+<li><span class="math inline">\(m11 = \cos(\theta)\)</span></li>
+<li><span class="math inline">\(m12 = \sin(\theta)\)</span></li>
+<li><span class="math inline">\(m21 = -\sin(\theta)\)</span></li>
+<li><span class="math inline">\(m22 = \cos(\theta)\)</span></li>
+<li><span class="math inline">\(m33 = 1\)</span></li>
+<li><span class="math inline">\(m41 = X\)</span></li>
+<li><span class="math inline">\(m42 = Y\)</span></li>
+<li><span class="math inline">\(m44 = 1\)</span></li>
+<li>All other indices remain <span
+class="math inline">\(0\)</span>.</li>
+</ul>
+<h3 id="dom-and-css-setup">DOM and CSS Setup</h3>
+<p>Matter.js defines a body's coordinates at its center of mass. To
+align an HTML element properly, ensure its transform origin is at its
+center and its initial layout coordinates start at the origin (0,
+0):</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode css"><code class="sourceCode css"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="fu">.physics-element</span> {</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>  <span class="kw">position</span><span class="ch">:</span> <span class="dv">absolute</span><span class="op">;</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>  <span class="kw">top</span><span class="ch">:</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>  <span class="kw">left</span><span class="ch">:</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>  <span class="kw">transform-origin</span><span class="ch">:</span> <span class="dv">50</span><span class="dt">%</span> <span class="dv">50</span><span class="dt">%</span><span class="op">;</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>  <span class="kw">will-change</span><span class="ch">:</span> <span class="dv">transform</span><span class="op">;</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>  <span class="kw">pointer-events</span><span class="ch">:</span> <span class="bu">auto</span><span class="op">;</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<p>If your element has dimensions <span class="math inline">\(W\)</span>
+and <span class="math inline">\(H\)</span>, offsetting the origin is
+automatically handled if the element has explicit dimensions matching
+the physics body and uses <code>transform-origin: 50% 50%</code>. The
+translation will move the center of the element directly to the physics
+body coordinates <span class="math inline">\((x, y)\)</span>.</p>
+<h3 id="the-update-loop">The Update Loop</h3>
+<p>Hook into the Matter.js update cycle using
+<code>Events.on(engine, 'afterUpdate', ...)</code> or request a standard
+<code>requestAnimationFrame</code> loop to update the DOM elements:</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> { Engine<span class="op">,</span> Events<span class="op">,</span> Bodies<span class="op">,</span> Composite } <span class="im">from</span> <span class="st">&#39;matter-js&#39;</span><span class="op">;</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a><span class="co">// Setup engine and world</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> engine <span class="op">=</span> Engine<span class="op">.</span><span class="fu">create</span>()<span class="op">;</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> domElement <span class="op">=</span> <span class="bu">document</span><span class="op">.</span><span class="fu">querySelector</span>(<span class="st">&#39;.physics-element&#39;</span>)<span class="op">;</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a><span class="co">// Create a body with matching dimensions (e.g., 100x100)</span></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> body <span class="op">=</span> Bodies<span class="op">.</span><span class="fu">rectangle</span>(<span class="dv">400</span><span class="op">,</span> <span class="dv">200</span><span class="op">,</span> <span class="dv">100</span><span class="op">,</span> <span class="dv">100</span>)<span class="op">;</span></span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a>Composite<span class="op">.</span><span class="fu">add</span>(engine<span class="op">.</span><span class="at">world</span><span class="op">,</span> body)<span class="op">;</span></span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a><span class="co">// Synchronize on every physics tick</span></span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a>Events<span class="op">.</span><span class="fu">on</span>(engine<span class="op">,</span> <span class="st">&#39;afterUpdate&#39;</span><span class="op">,</span> () <span class="kw">=&gt;</span> {</span>
+<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> { x<span class="op">,</span> y } <span class="op">=</span> body<span class="op">.</span><span class="at">position</span><span class="op">;</span></span>
+<span id="cb3-14"><a href="#cb3-14" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> angle <span class="op">=</span> body<span class="op">.</span><span class="at">angle</span><span class="op">;</span></span>
+<span id="cb3-15"><a href="#cb3-15" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-16"><a href="#cb3-16" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> cos <span class="op">=</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">cos</span>(angle)<span class="op">;</span></span>
+<span id="cb3-17"><a href="#cb3-17" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> sin <span class="op">=</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">sin</span>(angle)<span class="op">;</span></span>
+<span id="cb3-18"><a href="#cb3-18" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-19"><a href="#cb3-19" aria-hidden="true" tabindex="-1"></a>  <span class="co">// If the element&#39;s width/height offsets are required when not using 50% transform-origin:</span></span>
+<span id="cb3-20"><a href="#cb3-20" aria-hidden="true" tabindex="-1"></a>  <span class="co">// const tx = x - width / 2;</span></span>
+<span id="cb3-21"><a href="#cb3-21" aria-hidden="true" tabindex="-1"></a>  <span class="co">// const ty = y - height / 2;</span></span>
+<span id="cb3-22"><a href="#cb3-22" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb3-23"><a href="#cb3-23" aria-hidden="true" tabindex="-1"></a>  <span class="co">// Directly mapping center-to-center:</span></span>
+<span id="cb3-24"><a href="#cb3-24" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> tx <span class="op">=</span> x<span class="op">;</span></span>
+<span id="cb3-25"><a href="#cb3-25" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> ty <span class="op">=</span> y<span class="op">;</span></span>
+<span id="cb3-26"><a href="#cb3-26" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-27"><a href="#cb3-27" aria-hidden="true" tabindex="-1"></a>  <span class="co">// Construct column-major matrix3d string</span></span>
+<span id="cb3-28"><a href="#cb3-28" aria-hidden="true" tabindex="-1"></a>  domElement<span class="op">.</span><span class="at">style</span><span class="op">.</span><span class="at">transform</span> <span class="op">=</span> <span class="vs">`matrix3d(</span></span>
+<span id="cb3-29"><a href="#cb3-29" aria-hidden="true" tabindex="-1"></a><span class="vs">    </span><span class="sc">${</span>cos<span class="sc">}</span><span class="vs">, </span><span class="sc">${</span>sin<span class="sc">}</span><span class="vs">, 0, 0,</span></span>
+<span id="cb3-30"><a href="#cb3-30" aria-hidden="true" tabindex="-1"></a><span class="vs">    </span><span class="sc">${</span><span class="op">-</span>sin<span class="sc">}</span><span class="vs">, </span><span class="sc">${</span>cos<span class="sc">}</span><span class="vs">, 0, 0,</span></span>
+<span id="cb3-31"><a href="#cb3-31" aria-hidden="true" tabindex="-1"></a><span class="vs">    0, 0, 1, 0,</span></span>
+<span id="cb3-32"><a href="#cb3-32" aria-hidden="true" tabindex="-1"></a><span class="vs">    </span><span class="sc">${</span>tx<span class="sc">}</span><span class="vs">, </span><span class="sc">${</span>ty<span class="sc">}</span><span class="vs">, 0, 1</span></span>
+<span id="cb3-33"><a href="#cb3-33" aria-hidden="true" tabindex="-1"></a><span class="vs">  )`</span><span class="op">;</span></span>
+<span id="cb3-34"><a href="#cb3-34" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div>
+<h3 id="performance-considerations">Performance Considerations</h3>
+<ul>
+<li><strong>String Allocation:</strong> Constructing matrix strings
+every frame can cause minor garbage collection overhead. Pre-allocating
+template arrays or keeping string templates concise mitigates this.</li>
+<li><strong>Precision:</strong> Rounding values using
+<code>toFixed()</code> is generally unnecessary and adds CPU overhead;
+passing standard JavaScript floats directly into the transform string
+yields the best performance.</li>
+<li><strong>Layer Management:</strong> Avoid applying
+<code>matrix3d</code> to thousands of elements simultaneously, as
+excessive compositing layers can exhaust GPU memory. For large numbers
+of bodies, combine HTML syncing only for interactive elements while
+rendering static or decorative bodies on a Canvas.</li>
+</ul></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/matter.js'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/matter.js/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/matter.js/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

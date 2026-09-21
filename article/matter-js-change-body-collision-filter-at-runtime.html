@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Matter.js: Change Body Collision Filter at Runtime - matter.js</title>
+    <meta name="description" content="Modifying body collision filters dynamically at runtime in Matter.js is essential for mechanics such as passing through one-way platforms, toggling invulnerability frames, or switching entity teams. This article explains how Matter.js calculates collisio">
+    <link rel="canonical" href="https://salivity.github.io/matter.js/article/matter-js-change-body-collision-filter-at-runtime">
+    <link rel="search" type="application/opensearchdescription+xml" title="matter.js" href="/matter.js/opensearch.xml">
+    <link rel="icon" href="/matter.js/favicon.ico">
+    <link rel="stylesheet" href="/matter.js/css/style.css">
+    <link media="print" rel="stylesheet" href="/matter.js/css/print.css">
+    <script src="/matter.js/js/fuse.min.js"></script>
+    <script src="/matter.js/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Matter.js: Change Body Collision Filter at Runtime - matter.js" />
+    <meta property="og:url" content="https://salivity.github.io/matter.js/article/matter-js-change-body-collision-filter-at-runtime" />
+    <meta property="og:image" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Modifying body collision filters dynamically at runtime in Matter.js is essential for mechanics such as passing through one-way platforms, toggling invulnerability frames, or switching entity teams. This article explains how Matter.js calculates collisio" />
+    <link rel="manifest" href="/matter.js/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/matter.js/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>matter.js</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/matter.js/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="matterjs-change-body-collision-filter-at-runtime">Matter.js:
+Change Body Collision Filter at Runtime</h1>
+<p>Modifying body collision filters dynamically at runtime in Matter.js
+is essential for mechanics such as passing through one-way platforms,
+toggling invulnerability frames, or switching entity teams. This article
+explains how Matter.js calculates collision rules, how to directly
+mutate the <code>collisionFilter</code> properties on active physics
+bodies during the simulation cycle, and how to correctly apply bitwise
+masks for complex interactions.</p>
+<h3 id="understanding-collisionfilter">Understanding
+<code>collisionFilter</code></h3>
+<p>Every Matter.js body has a <code>collisionFilter</code> object
+containing three primary properties:</p>
+<ul>
+<li><strong><code>category</code></strong>: A 32-bit integer acting as a
+bitfield that defines what the body is. Default is
+<code>0x0001</code>.</li>
+<li><strong><code>mask</code></strong>: A 32-bit integer bitmask
+defining which categories the body can collide with. Default is
+<code>0xFFFFFFFF</code> (collides with everything).</li>
+<li><strong><code>group</code></strong>: A signed integer. If two
+colliding bodies share the same positive group value, they will always
+collide regardless of category and mask. If they share the same negative
+group value, they will never collide. Default is <code>0</code>.</li>
+</ul>
+<p>Two bodies (Body A and Body B) will collide if and only if:</p>
+<ol type="1">
+<li>Their <code>group</code> values are non-zero and identical (if
+positive, they collide; if negative, they do not).</li>
+<li>If <code>group</code> is zero (or unequal), they collide when
+<code>(BodyA.category &amp; BodyB.mask) !== 0</code> and
+<code>(BodyB.category &amp; BodyA.mask) !== 0</code>.</li>
+</ol>
+<h3 id="modifying-the-filter-at-runtime">Modifying the Filter at
+Runtime</h3>
+<p>To change collision behavior during the game loop or in response to
+an event, directly update the properties of
+<code>body.collisionFilter</code>. There is no need to remove and re-add
+the body to the engine; Matter.js evaluates collision pairs on every
+tick of the engine.</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Define custom categories as bitflags</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> CATEGORY_DEFAULT <span class="op">=</span> <span class="bn">0x0001</span><span class="op">;</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> CATEGORY_PLAYER  <span class="op">=</span> <span class="bn">0x0002</span><span class="op">;</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> CATEGORY_ENEMY   <span class="op">=</span> <span class="bn">0x0004</span><span class="op">;</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> CATEGORY_PASSABLE <span class="op">=</span> <span class="bn">0x0008</span><span class="op">;</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a><span class="co">// Example: Turn off collisions between a player and enemies (e.g., during a dash or invulnerability)</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">enablePlayerGhostMode</span>(playerBody) {</span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Modify the mask to collide with DEFAULT, but exclude ENEMY</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>    playerBody<span class="op">.</span><span class="at">collisionFilter</span><span class="op">.</span><span class="at">mask</span> <span class="op">=</span> CATEGORY_DEFAULT<span class="op">;</span></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">disablePlayerGhostMode</span>(playerBody) {</span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Restore mask to collide with both DEFAULT and ENEMY</span></span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a>    playerBody<span class="op">.</span><span class="at">collisionFilter</span><span class="op">.</span><span class="at">mask</span> <span class="op">=</span> CATEGORY_DEFAULT <span class="op">|</span> CATEGORY_ENEMY<span class="op">;</span></span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<h3 id="using-bitwise-operators-for-dynamic-changes">Using Bitwise
+Operators for Dynamic Changes</h3>
+<p>Bitwise operators make it straightforward to add or remove specific
+interaction layers on the fly without overwriting existing settings:</p>
+<ul>
+<li><p><strong>Add a collision target</strong>: Use the bitwise OR
+(<code>|</code>) operator.</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a>body<span class="op">.</span><span class="at">collisionFilter</span><span class="op">.</span><span class="at">mask</span> <span class="op">|=</span> CATEGORY_ENEMY<span class="op">;</span></span></code></pre></div></li>
+<li><p><strong>Remove a collision target</strong>: Use the bitwise NOT
+(<code>~</code>) and AND (<code>&amp;</code>) operators.</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a>body<span class="op">.</span><span class="at">collisionFilter</span><span class="op">.</span><span class="at">mask</span> <span class="op">&amp;=</span> <span class="op">~</span>CATEGORY_ENEMY<span class="op">;</span></span></code></pre></div></li>
+<li><p><strong>Toggle a collision target</strong>: Use the bitwise XOR
+(<code>^</code>) operator.</p>
+<div class="sourceCode" id="cb4"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a>body<span class="op">.</span><span class="at">collisionFilter</span><span class="op">.</span><span class="at">mask</span> <span class="op">^=</span> CATEGORY_ENEMY<span class="op">;</span></span></code></pre></div></li>
+</ul>
+<h3 id="instant-separation-with-the-group-property">Instant Separation
+with the <code>group</code> Property</h3>
+<p>If you need two bodies to immediately ignore each other without
+recomputing bitmasks, assign them matching negative group IDs at
+runtime:</p>
+<div class="sourceCode" id="cb5"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Prevent dynamicBodyA and dynamicBodyB from colliding</span></span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> uniqueGroupId <span class="op">=</span> Matter<span class="op">.</span><span class="at">Body</span><span class="op">.</span><span class="fu">nextGroup</span>(<span class="kw">true</span>)<span class="op">;</span> <span class="co">// Generates a negative ID</span></span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a>dynamicBodyA<span class="op">.</span><span class="at">collisionFilter</span><span class="op">.</span><span class="at">group</span> <span class="op">=</span> uniqueGroupId<span class="op">;</span></span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a>dynamicBodyB<span class="op">.</span><span class="at">collisionFilter</span><span class="op">.</span><span class="at">group</span> <span class="op">=</span> uniqueGroupId<span class="op">;</span></span></code></pre></div>
+<p>To re-enable collision rules based on category and mask, reset
+<code>collisionFilter.group</code> to <code>0</code> on both bodies.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/matter.js'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/matter.js/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/matter.js/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

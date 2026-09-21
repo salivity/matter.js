@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How to Reconcile Local Matter.js State with Server - matter.js</title>
+    <meta name="description" content="In networked multiplayer physics simulations, client-side prediction keeps gameplay responsive, but network latency and floating-point non-determinism inevitably cause client and server states to drift apart. Server reconciliation solves this by treating">
+    <link rel="canonical" href="https://salivity.github.io/matter.js/article/how-to-reconcile-local-matter-js-state-with-server">
+    <link rel="search" type="application/opensearchdescription+xml" title="matter.js" href="/matter.js/opensearch.xml">
+    <link rel="icon" href="/matter.js/favicon.ico">
+    <link rel="stylesheet" href="/matter.js/css/style.css">
+    <link media="print" rel="stylesheet" href="/matter.js/css/print.css">
+    <script src="/matter.js/js/fuse.min.js"></script>
+    <script src="/matter.js/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How to Reconcile Local Matter.js State with Server - matter.js" />
+    <meta property="og:url" content="https://salivity.github.io/matter.js/article/how-to-reconcile-local-matter-js-state-with-server" />
+    <meta property="og:image" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="In networked multiplayer physics simulations, client-side prediction keeps gameplay responsive, but network latency and floating-point non-determinism inevitably cause client and server states to drift apart. Server reconciliation solves this by treating" />
+    <link rel="manifest" href="/matter.js/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/matter.js/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>matter.js</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/matter.js/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="how-to-reconcile-local-matterjs-state-with-server">How to
+Reconcile Local Matter.js State with Server</h1>
+<p>In networked multiplayer physics simulations, client-side prediction
+keeps gameplay responsive, but network latency and floating-point
+non-determinism inevitably cause client and server states to drift
+apart. Server reconciliation solves this by treating the server as the
+ultimate authority, rolling back the local Matter.js physics engine to
+the authoritative server state when a mismatch occurs, and then
+reapplying all pending, unacknowledged local inputs to catch back up to
+the present. This article explains the exact architecture and mechanics
+required to implement robust server reconciliation using Matter.js.</p>
+<h2 id="the-prediction-and-history-architecture">The Prediction and
+History Architecture</h2>
+<p>To reconcile state deviations, the client must track history over
+time. Real-time inputs cannot simply be applied and discarded; they must
+be stamped and stored alongside state snapshots.</p>
+<ol type="1">
+<li><strong>Sequence Tagging:</strong> Every user input (such as
+directional impulses or torque applications) is tagged with a
+monotonically increasing <code>sequenceNumber</code> and sent to the
+server.</li>
+<li><strong>Input History Buffer:</strong> The client stores these
+inputs in a circular buffer along with the exact frame or tick they were
+generated.</li>
+<li><strong>State History Buffer:</strong> The client periodically
+captures physical snapshots of its Matter.js bodies (position, angle,
+linear velocity, and angular velocity) indexed by input sequence
+number.</li>
+</ol>
+<h2 id="detecting-state-desynchronization">Detecting State
+Desynchronization</h2>
+<p>The server processes incoming inputs sequentially, updates its
+authoritative Matter.js instance, and periodically broadcasts an
+authoritative snapshot back to the client. This snapshot contains:</p>
+<ul>
+<li>The authoritative transform and velocity of the entities.</li>
+<li>The <code>lastProcessedInput</code> sequence number acknowledged by
+the server.</li>
+</ul>
+<p>Upon receiving this payload, the client searches its history buffer
+for the local state snapshot matching <code>lastProcessedInput</code>.
+It calculates the error vector:</p>
+<p><span class="math display">\[\text{Error} = |\vec{P}_{\text{local}} -
+\vec{P}_{\text{server}}|\]</span></p>
+<p>If the deviation exceeds a defined threshold (for instance, a few
+pixels or units to prevent unnecessary resets due to harmless
+floating-point noise), a reconciliation is triggered.</p>
+<h2 id="the-reconciliation-and-resimulation-loop">The Reconciliation and
+Resimulation Loop</h2>
+<p>When reconciliation is necessary, the client must fast-forward the
+physics simulation from the server's confirmed state to the current
+local frame.</p>
+<h3 id="1-reset-state-to-authority">1. Reset State to Authority</h3>
+<p>Directly override the target body's physical properties in Matter.js
+using the server snapshot values:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a>Matter<span class="op">.</span><span class="at">Body</span><span class="op">.</span><span class="fu">setPosition</span>(clientBody<span class="op">,</span> serverState<span class="op">.</span><span class="at">position</span>)<span class="op">;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>Matter<span class="op">.</span><span class="at">Body</span><span class="op">.</span><span class="fu">setAngle</span>(clientBody<span class="op">,</span> serverState<span class="op">.</span><span class="at">angle</span>)<span class="op">;</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>Matter<span class="op">.</span><span class="at">Body</span><span class="op">.</span><span class="fu">setVelocity</span>(clientBody<span class="op">,</span> serverState<span class="op">.</span><span class="at">velocity</span>)<span class="op">;</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>Matter<span class="op">.</span><span class="at">Body</span><span class="op">.</span><span class="fu">setAngularVelocity</span>(clientBody<span class="op">,</span> serverState<span class="op">.</span><span class="at">angularVelocity</span>)<span class="op">;</span></span></code></pre></div>
+<h3 id="2-discard-acknowledged-inputs">2. Discard Acknowledged
+Inputs</h3>
+<p>Remove all inputs from the input history buffer whose
+<code>sequenceNumber</code> is less than or equal to
+<code>lastProcessedInput</code>, as the server has already executed
+them.</p>
+<h3 id="3-re-simulate-remaining-inputs">3. Re-simulate Remaining
+Inputs</h3>
+<p>Loop through all remaining unacknowledged inputs in chronological
+order. For each input:</p>
+<ul>
+<li>Apply the corresponding forces or impulses to the Matter.js
+body.</li>
+<li>Step the engine forward manually using a fixed delta time via
+<code>Matter.Engine.update(engine, fixedDelta)</code>.</li>
+</ul>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> (<span class="kw">const</span> input <span class="kw">of</span> pendingInputs) {</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>    <span class="fu">applyInputForces</span>(clientBody<span class="op">,</span> input)<span class="op">;</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>    Matter<span class="op">.</span><span class="at">Engine</span><span class="op">.</span><span class="fu">update</span>(engine<span class="op">,</span> FIXED_TIMESTEP)<span class="op">;</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<p>Once the loop completes, the client body has recovered the divergence
+and sits at the correct, re-predicted present state.</p>
+<h2 id="mitigating-visual-popping-with-error-smoothing">Mitigating
+Visual Popping with Error Smoothing</h2>
+<p>Instantaneously snapping the physics body to the reconciled state
+produces visible stutter or "popping." To maintain visual continuity
+while strictly reconciling the underlying physics:</p>
+<ol type="1">
+<li>Calculate the spatial difference between the old (erroneous) client
+position and the newly reconciled position: <span
+class="math display">\[\vec{O}_{\text{error}} =
+\vec{P}_{\text{pre-reconciliation}} -
+\vec{P}_{\text{post-reconciliation}}\]</span></li>
+<li>Decouple the Matter.js rigid body from the rendering layer. Keep the
+rigid body at the true, simulated physics position, but render the
+visual sprite at: <span class="math display">\[\vec{P}_{\text{render}} =
+\vec{P}_{\text{body}} + \vec{O}_{\text{error}}\]</span></li>
+<li>Exponentially decay <span
+class="math inline">\(\vec{O}_{\text{error}}\)</span> to zero over a
+short window (e.g., 50–100ms) using linear interpolation: <span
+class="math display">\[\vec{O}_{\text{error}} \leftarrow
+\vec{O}_{\text{error}} \times (1 - \lambda \cdot \Delta t)\]</span></li>
+</ol>
+<p>This technique conceals physical corrections without compromising the
+deterministic replay required for authoritative synchronization.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/matter.js'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/matter.js/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/matter.js/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

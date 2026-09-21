@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simulating Snapping Bridge Cables in Matter.js - matter.js</title>
+    <meta name="description" content="This article explains how to simulate suspension bridge cables snapping under excess vehicle weight using the Matter.js 2D physics engine. Because Matter.js constraints do not natively support breaking thresholds, you must monitor the elongation or tensi">
+    <link rel="canonical" href="https://salivity.github.io/matter.js/article/simulating-snapping-bridge-cables-in-matter-js">
+    <link rel="search" type="application/opensearchdescription+xml" title="matter.js" href="/matter.js/opensearch.xml">
+    <link rel="icon" href="/matter.js/favicon.ico">
+    <link rel="stylesheet" href="/matter.js/css/style.css">
+    <link media="print" rel="stylesheet" href="/matter.js/css/print.css">
+    <script src="/matter.js/js/fuse.min.js"></script>
+    <script src="/matter.js/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Simulating Snapping Bridge Cables in Matter.js - matter.js" />
+    <meta property="og:url" content="https://salivity.github.io/matter.js/article/simulating-snapping-bridge-cables-in-matter-js" />
+    <meta property="og:image" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article explains how to simulate suspension bridge cables snapping under excess vehicle weight using the Matter.js 2D physics engine. Because Matter.js constraints do not natively support breaking thresholds, you must monitor the elongation or tensi" />
+    <link rel="manifest" href="/matter.js/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/matter.js/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>matter.js</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/matter.js/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="simulating-snapping-bridge-cables-in-matterjs">Simulating
+Snapping Bridge Cables in Matter.js</h1>
+<p>This article explains how to simulate suspension bridge cables
+snapping under excess vehicle weight using the Matter.js 2D physics
+engine. Because Matter.js constraints do not natively support breaking
+thresholds, you must monitor the elongation or tension forces of each
+constraint in real time during the simulation loop. By measuring the
+displacement between connection points and comparing it against a
+defined breaking strain, you can dynamically remove overloaded
+constraints to realistically simulate catastrophic structural failure
+under heavy vehicular loads.</p>
+<h3 id="1-constructing-the-bridge-architecture">1. Constructing the
+Bridge Architecture</h3>
+<p>A suspension bridge model requires anchor towers, a segmented bridge
+deck, and vertical suspension cables.</p>
+<ul>
+<li><strong>Towers:</strong> Fixed static bodies
+(<code>isStatic: true</code>) positioned at both ends of the bridge
+span.</li>
+<li><strong>Deck Segments:</strong> A chain of rectangular dynamic
+bodies placed horizontally across the span, linked end-to-end with stiff
+pin constraints.</li>
+<li><strong>Suspension Cables:</strong> Matter.js
+<code>Constraint</code> instances connecting the upper bridge structure
+or anchor points to individual deck segments.</li>
+</ul>
+<p>When initializing these cable constraints, specify a high stiffness
+value (e.g., <code>stiffness: 0.9</code> to <code>1.0</code>) and assign
+a custom property to store their maximum elongation threshold:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> cable <span class="op">=</span> Matter<span class="op">.</span><span class="at">Constraint</span><span class="op">.</span><span class="fu">create</span>({</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>    <span class="dt">bodyA</span><span class="op">:</span> anchorPointBody<span class="op">,</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>    <span class="dt">bodyB</span><span class="op">:</span> deckSegmentBody<span class="op">,</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>    <span class="dt">pointA</span><span class="op">:</span> { <span class="dt">x</span><span class="op">:</span> <span class="dv">0</span><span class="op">,</span> <span class="dt">y</span><span class="op">:</span> <span class="dv">0</span> }<span class="op">,</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>    <span class="dt">pointB</span><span class="op">:</span> { <span class="dt">x</span><span class="op">:</span> <span class="dv">0</span><span class="op">,</span> <span class="dt">y</span><span class="op">:</span> <span class="dv">0</span> }<span class="op">,</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>    <span class="dt">stiffness</span><span class="op">:</span> <span class="fl">0.9</span><span class="op">,</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>    <span class="dt">damping</span><span class="op">:</span> <span class="fl">0.05</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a><span class="co">// Attach a custom breaking threshold</span></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>cable<span class="op">.</span><span class="at">maxElongation</span> <span class="op">=</span> <span class="dv">15</span><span class="op">;</span> <span class="co">// Max allowed stretch in pixels beyond rest length</span></span></code></pre></div>
+<h3 id="2-measuring-cable-tension-and-stretch">2. Measuring Cable
+Tension and Stretch</h3>
+<p>Matter.js updates constraint positions using an iterative solver.
+Rather than directly exposing internal tensile stress, the engine
+adjusts the bodies attached to the constraint, causing the distance
+between the two anchor points to deviate from the constraint's original
+<code>length</code>.</p>
+<p>You can determine the tension or stretch during each frame by
+calculating the Euclidean distance between the current world coordinates
+of <code>pointA</code> and <code>pointB</code>:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">getConstraintStretch</span>(constraint) {</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> pA <span class="op">=</span> constraint<span class="op">.</span><span class="at">bodyA</span> </span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>        <span class="op">?</span> Matter<span class="op">.</span><span class="at">Vector</span><span class="op">.</span><span class="fu">add</span>(constraint<span class="op">.</span><span class="at">bodyA</span><span class="op">.</span><span class="at">position</span><span class="op">,</span> constraint<span class="op">.</span><span class="at">pointA</span>) </span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>        <span class="op">:</span> constraint<span class="op">.</span><span class="at">pointA</span><span class="op">;</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>        </span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> pB <span class="op">=</span> constraint<span class="op">.</span><span class="at">bodyB</span> </span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>        <span class="op">?</span> Matter<span class="op">.</span><span class="at">Vector</span><span class="op">.</span><span class="fu">add</span>(constraint<span class="op">.</span><span class="at">bodyB</span><span class="op">.</span><span class="at">position</span><span class="op">,</span> constraint<span class="op">.</span><span class="at">pointB</span>) </span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>        <span class="op">:</span> constraint<span class="op">.</span><span class="at">pointB</span><span class="op">;</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> currentLength <span class="op">=</span> Matter<span class="op">.</span><span class="at">Vector</span><span class="op">.</span><span class="fu">magnitude</span>(Matter<span class="op">.</span><span class="at">Vector</span><span class="op">.</span><span class="fu">sub</span>(pA<span class="op">,</span> pB))<span class="op">;</span></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> currentLength <span class="op">-</span> constraint<span class="op">.</span><span class="at">length</span><span class="op">;</span></span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<h3 id="3-implementing-the-snapping-logic">3. Implementing the Snapping
+Logic</h3>
+<p>Hook into the engine's update cycle using
+<code>Matter.Events.on(engine, 'afterUpdate', callback)</code>. On every
+tick, iterate through the active cables, measure the stretch using the
+distance formula, and remove any cable that exceeds its threshold.</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a>Matter<span class="op">.</span><span class="at">Events</span><span class="op">.</span><span class="fu">on</span>(engine<span class="op">,</span> <span class="st">&#39;afterUpdate&#39;</span><span class="op">,</span> () <span class="kw">=&gt;</span> {</span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> (<span class="kw">let</span> i <span class="op">=</span> activeCables<span class="op">.</span><span class="at">length</span> <span class="op">-</span> <span class="dv">1</span><span class="op">;</span> i <span class="op">&gt;=</span> <span class="dv">0</span><span class="op">;</span> i<span class="op">--</span>) {</span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>        <span class="kw">const</span> cable <span class="op">=</span> activeCables[i]<span class="op">;</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>        <span class="kw">const</span> currentStretch <span class="op">=</span> <span class="fu">getConstraintStretch</span>(cable)<span class="op">;</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> (currentStretch <span class="op">&gt;</span> cable<span class="op">.</span><span class="at">maxElongation</span>) {</span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>            <span class="co">// Remove the constraint from the physics world</span></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>            Matter<span class="op">.</span><span class="at">Composite</span><span class="op">.</span><span class="fu">remove</span>(engine<span class="op">.</span><span class="at">world</span><span class="op">,</span> cable)<span class="op">;</span></span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a>            </span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a>            <span class="co">// Remove from tracking array</span></span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a>            activeCables<span class="op">.</span><span class="fu">splice</span>(i<span class="op">,</span> <span class="dv">1</span>)<span class="op">;</span></span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a>            <span class="co">// Optional: Trigger custom audio, particle effects, or visual cues</span></span>
+<span id="cb3-14"><a href="#cb3-14" aria-hidden="true" tabindex="-1"></a>            <span class="fu">onCableSnap</span>(cable)<span class="op">;</span></span>
+<span id="cb3-15"><a href="#cb3-15" aria-hidden="true" tabindex="-1"></a>        }</span>
+<span id="cb3-16"><a href="#cb3-16" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb3-17"><a href="#cb3-17" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div>
+<h3 id="4-applying-excess-vehicle-weight">4. Applying Excess Vehicle
+Weight</h3>
+<p>To test structural failure, build a vehicle with sufficient mass to
+produce the required stretch forces:</p>
+<ol type="1">
+<li><strong>Create the Vehicle Body:</strong> Combine a chassis and
+circular wheel bodies using constraints.</li>
+<li><strong>Increase Density or Mass:</strong> Call
+<code>Matter.Body.setMass(vehicleChassis, heavyMassValue)</code> or
+increase its <code>density</code>. A standard vehicle might traverse the
+deck with negligible elongation, but an overloaded vehicle will pull the
+deck downward, rapidly increasing the strain on adjacent cables.</li>
+<li><strong>Handle Progressive Failure:</strong> When the first cable
+snaps under the vehicle's weight, its load transfers immediately to
+neighboring cables. This sudden dynamic shock typically triggers a
+cascade effect, snapping adjacent cables in sequence and causing the
+deck beneath the vehicle to collapse.</li>
+</ol></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/matter.js'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/matter.js/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/matter.js/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

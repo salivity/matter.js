@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reduce Matter.js Iterations on Low-Power Devices - matter.js</title>
+    <meta name="description" content="Simulating rigid-body physics on resource-constrained mobile hardware requires balancing performance and simulation stability. In Matter.js, lowering engine.positionIterations drastically reduces CPU consumption and thermal throttling, but it frequently">
+    <link rel="canonical" href="https://salivity.github.io/matter.js/article/reduce-matter-js-iterations-on-low-power-devices">
+    <link rel="search" type="application/opensearchdescription+xml" title="matter.js" href="/matter.js/opensearch.xml">
+    <link rel="icon" href="/matter.js/favicon.ico">
+    <link rel="stylesheet" href="/matter.js/css/style.css">
+    <link media="print" rel="stylesheet" href="/matter.js/css/print.css">
+    <script src="/matter.js/js/fuse.min.js"></script>
+    <script src="/matter.js/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Reduce Matter.js Iterations on Low-Power Devices - matter.js" />
+    <meta property="og:url" content="https://salivity.github.io/matter.js/article/reduce-matter-js-iterations-on-low-power-devices" />
+    <meta property="og:image" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Simulating rigid-body physics on resource-constrained mobile hardware requires balancing performance and simulation stability. In Matter.js, lowering engine.positionIterations drastically reduces CPU consumption and thermal throttling, but it frequently" />
+    <link rel="manifest" href="/matter.js/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/matter.js/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>matter.js</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/matter.js/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="reduce-matterjs-iterations-on-low-power-devices">Reduce
+Matter.js Iterations on Low-Power Devices</h1>
+<p>Simulating rigid-body physics on resource-constrained mobile hardware
+requires balancing performance and simulation stability. In Matter.js,
+lowering <code>engine.positionIterations</code> drastically reduces CPU
+consumption and thermal throttling, but it frequently introduces stack
+instability, resulting in jitter, body penetration, and collapsing
+structures. This article outlines practical architectural adjustments,
+engine parameters, and physics design choices to safely decrease
+position iterations without compromising the integrity of stacked
+objects.</p>
+<h3 id="1-normalize-mass-ratios-in-stacks">1. Normalize Mass Ratios in
+Stacks</h3>
+<p>Physics solvers struggle to resolve contacts between bodies with
+vastly differing masses using low iteration counts. When a heavy body
+sits on a lighter one, low position iterations cause the heavier object
+to penetrate the lower object, producing spring-like jitter.</p>
+<ul>
+<li>Ensure stacked bodies have uniform or gradually tapering
+masses.</li>
+<li>Avoid placing objects with high mass density atop low-density
+objects.</li>
+<li>Clamp <code>body.density</code> values across stackable elements to
+maintain a 1:1 or near 1:1 mass ratio.</li>
+</ul>
+<h3 id="2-tune-collision-slop-and-restitution">2. Tune Collision Slop
+and Restitution</h3>
+<p>The <code>slop</code> property dictates the depth by which bodies can
+penetrate before position corrections trigger. Increasing this value
+prevents the solver from violently over-correcting slight overlaps at
+low iteration counts.</p>
+<ul>
+<li>Increase <code>Matter.Resolver._restingThresh</code> to suppress
+micro-bounces within stacks.</li>
+<li>Set the <code>restitution</code> (bounciness) of all stack elements
+to <code>0</code>. Any elastic response rapidly destabilizes stacks when
+positional solver cycles are limited.</li>
+<li>Adjust <code>body.slop</code> from its default (typically
+<code>0.05</code>) upward slightly (e.g., <code>0.1</code> to
+<code>0.2</code>) to provide the solver a wider tolerance window before
+applying corrective impulses.</li>
+</ul>
+<h3 id="3-aggressively-enable-body-sleeping">3. Aggressively Enable Body
+Sleeping</h3>
+<p>The most effective way to run low iterations without stack collapse
+is to remove resting stacks from the simulation loop altogether.</p>
+<ul>
+<li>Set <code>enableSleeping: true</code> on the
+<code>Matter.Engine</code> configuration.</li>
+<li>Lower the sleep threshold by decreasing
+<code>Matter.Sleeping._motionSleepThreshold</code> to force stacked
+bodies to enter a sleeping state sooner.</li>
+<li>Once stacked bodies sleep, their positions lock until an external
+dynamic impulse awakens them, eliminating idle computational overhead
+and drift.</li>
+</ul>
+<h3 id="4-adjust-the-balance-between-solver-passes">4. Adjust the
+Balance Between Solver Passes</h3>
+<p>Matter.js decouples constraint calculations into
+<code>positionIterations</code> and <code>velocityIterations</code>.
+While position iterations correct overlap, velocity iterations resolve
+kinetic impulses.</p>
+<ul>
+<li>Reduce <code>positionIterations</code> (e.g., from <code>6</code>
+down to <code>2</code> or <code>3</code>).</li>
+<li>Keep <code>velocityIterations</code> slightly higher (e.g.,
+<code>4</code> or <code>5</code>).</li>
+<li>Resolving velocities accurately prevents bodies from building up
+phantom kinetic energy between frames, which naturally keeps stacks
+aligned even when position corrections are low.</li>
+</ul>
+<h3 id="5-utilize-chamfered-geometry">5. Utilize Chamfered Geometry</h3>
+<p>Sharp 90-degree corners on stacked boxes cause erratic contact
+normals when objects overlap under low solver precision.</p>
+<ul>
+<li>Apply rounded corners to rectangular bodies using the
+<code>chamfer</code> option:
+<code>Bodies.rectangle(x, y, w, h, { chamfer: { radius: 2 } })</code>.</li>
+<li>Chamfering smooths contact manifold transitions, allowing faces to
+slide into resting equilibrium rather than catching on vertex
+boundaries.</li>
+</ul>
+<h3 id="6-clamp-variable-delta-time">6. Clamp Variable Delta Time</h3>
+<p>Mobile web environments frequently experience frame drops, leading to
+large, unpredictable time-step deltas (<code>dt</code>). When
+<code>dt</code> spikes, a low-iteration solver fails completely, causing
+stacks to explode.</p>
+<ul>
+<li>Enforce a fixed time step inside your game loop (e.g.,
+<code>16.66ms</code> for 60 FPS).</li>
+<li>Clamp the maximum allowable delta inside the
+<code>Engine.update(engine, delta)</code> call to prevent the physics
+engine from attempting to resolve large positional displacements in a
+single step.</li>
+</ul></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/matter.js'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/matter.js/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/matter.js/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

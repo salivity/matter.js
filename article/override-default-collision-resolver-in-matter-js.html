@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Override Default Collision Resolver in Matter.js - matter.js</title>
+    <meta name="description" content="Overriding the default collision resolver in Matter.js allows developers to implement custom physics responses, such as non-standard restitution, customized impulse distribution, or specialized kinematic behaviors. This article explains how to directly i">
+    <link rel="canonical" href="https://salivity.github.io/matter.js/article/override-default-collision-resolver-in-matter-js">
+    <link rel="search" type="application/opensearchdescription+xml" title="matter.js" href="/matter.js/opensearch.xml">
+    <link rel="icon" href="/matter.js/favicon.ico">
+    <link rel="stylesheet" href="/matter.js/css/style.css">
+    <link media="print" rel="stylesheet" href="/matter.js/css/print.css">
+    <script src="/matter.js/js/fuse.min.js"></script>
+    <script src="/matter.js/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Override Default Collision Resolver in Matter.js - matter.js" />
+    <meta property="og:url" content="https://salivity.github.io/matter.js/article/override-default-collision-resolver-in-matter-js" />
+    <meta property="og:image" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Overriding the default collision resolver in Matter.js allows developers to implement custom physics responses, such as non-standard restitution, customized impulse distribution, or specialized kinematic behaviors. This article explains how to directly i" />
+    <link rel="manifest" href="/matter.js/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/matter.js/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>matter.js</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/matter.js/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="override-default-collision-resolver-in-matterjs">Override
+Default Collision Resolver in Matter.js</h1>
+<p>Overriding the default collision resolver in Matter.js allows
+developers to implement custom physics responses, such as non-standard
+restitution, customized impulse distribution, or specialized kinematic
+behaviors. This article explains how to directly intercept and replace
+the internal methods of <code>Matter.Resolver</code>—specifically
+<code>solvePosition</code> and <code>solveVelocity</code>—as well as how
+to use collision events with sensor bodies for a non-destructive
+alternative to custom resolution.</p>
+<hr />
+<h3 id="understanding-the-matterjs-resolver">Understanding the Matter.js
+Resolver</h3>
+<p>During each simulation step (<code>Engine.update</code>), Matter.js
+detects collisions via <code>Matter.Detector</code> and generates pairs.
+It then executes the collision resolution phase through
+<code>Matter.Resolver</code>, which contains two core static
+functions:</p>
+<ol type="1">
+<li><strong><code>Matter.Resolver.solvePosition(pairs, timeScale)</code></strong>:
+Separates overlapping bodies to prevent interpenetration.</li>
+<li><strong><code>Matter.Resolver.solveVelocity(pairs, timeScale)</code></strong>:
+Adjusts body velocities and angular velocities based on mass,
+restitution, and friction.</li>
+</ol>
+<p>To globally change how Matter.js resolves physical impacts, you must
+patch these functions.</p>
+<hr />
+<h3 id="method-1-monkey-patching-matterresolver">Method 1:
+Monkey-Patching <code>Matter.Resolver</code></h3>
+<p>The most direct way to override the collision resolver is to
+overwrite <code>Matter.Resolver.solvePosition</code> and
+<code>Matter.Resolver.solveVelocity</code> before initializing or
+running your engine.</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> Matter <span class="im">from</span> <span class="st">&#39;matter-js&#39;</span><span class="op">;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="co">// Cache the original implementations if fallback is needed</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> originalSolvePosition <span class="op">=</span> Matter<span class="op">.</span><span class="at">Resolver</span><span class="op">.</span><span class="at">solvePosition</span><span class="op">;</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> originalSolveVelocity <span class="op">=</span> Matter<span class="op">.</span><span class="at">Resolver</span><span class="op">.</span><span class="at">solveVelocity</span><span class="op">;</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a><span class="co">// 1. Override Position Resolution (Penetration Correction)</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>Matter<span class="op">.</span><span class="at">Resolver</span><span class="op">.</span><span class="at">solvePosition</span> <span class="op">=</span> <span class="kw">function</span>(pairs<span class="op">,</span> timeScale) {</span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> (<span class="kw">let</span> i <span class="op">=</span> <span class="dv">0</span><span class="op">;</span> i <span class="op">&lt;</span> pairs<span class="op">.</span><span class="at">length</span><span class="op">;</span> i<span class="op">++</span>) {</span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>        <span class="kw">const</span> pair <span class="op">=</span> pairs[i]<span class="op">;</span></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>        </span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>        <span class="co">// Skip inactive or sensor collisions</span></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> (<span class="op">!</span>pair<span class="op">.</span><span class="at">isActive</span> <span class="op">||</span> pair<span class="op">.</span><span class="at">isSensor</span>) <span class="cf">continue</span><span class="op">;</span></span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a>        <span class="kw">const</span> collision <span class="op">=</span> pair<span class="op">.</span><span class="at">collision</span><span class="op">;</span></span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a>        <span class="kw">const</span> bodyA <span class="op">=</span> collision<span class="op">.</span><span class="at">bodyA</span><span class="op">;</span></span>
+<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a>        <span class="kw">const</span> bodyB <span class="op">=</span> collision<span class="op">.</span><span class="at">bodyB</span><span class="op">;</span></span>
+<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-19"><a href="#cb1-19" aria-hidden="true" tabindex="-1"></a>        <span class="co">// Custom position separation logic:</span></span>
+<span id="cb1-20"><a href="#cb1-20" aria-hidden="true" tabindex="-1"></a>        <span class="co">// Move bodies apart along collision.normal by collision.depth</span></span>
+<span id="cb1-21"><a href="#cb1-21" aria-hidden="true" tabindex="-1"></a>        <span class="kw">const</span> separation <span class="op">=</span> collision<span class="op">.</span><span class="at">depth</span> <span class="op">*</span> <span class="fl">0.5</span><span class="op">;</span></span>
+<span id="cb1-22"><a href="#cb1-22" aria-hidden="true" tabindex="-1"></a>        </span>
+<span id="cb1-23"><a href="#cb1-23" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> (<span class="op">!</span>bodyA<span class="op">.</span><span class="at">isStatic</span>) {</span>
+<span id="cb1-24"><a href="#cb1-24" aria-hidden="true" tabindex="-1"></a>            bodyA<span class="op">.</span><span class="at">position</span><span class="op">.</span><span class="at">x</span> <span class="op">-=</span> collision<span class="op">.</span><span class="at">normal</span><span class="op">.</span><span class="at">x</span> <span class="op">*</span> separation<span class="op">;</span></span>
+<span id="cb1-25"><a href="#cb1-25" aria-hidden="true" tabindex="-1"></a>            bodyA<span class="op">.</span><span class="at">position</span><span class="op">.</span><span class="at">y</span> <span class="op">-=</span> collision<span class="op">.</span><span class="at">normal</span><span class="op">.</span><span class="at">y</span> <span class="op">*</span> separation<span class="op">;</span></span>
+<span id="cb1-26"><a href="#cb1-26" aria-hidden="true" tabindex="-1"></a>        }</span>
+<span id="cb1-27"><a href="#cb1-27" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> (<span class="op">!</span>bodyB<span class="op">.</span><span class="at">isStatic</span>) {</span>
+<span id="cb1-28"><a href="#cb1-28" aria-hidden="true" tabindex="-1"></a>            bodyB<span class="op">.</span><span class="at">position</span><span class="op">.</span><span class="at">x</span> <span class="op">+=</span> collision<span class="op">.</span><span class="at">normal</span><span class="op">.</span><span class="at">x</span> <span class="op">*</span> separation<span class="op">;</span></span>
+<span id="cb1-29"><a href="#cb1-29" aria-hidden="true" tabindex="-1"></a>            bodyB<span class="op">.</span><span class="at">position</span><span class="op">.</span><span class="at">y</span> <span class="op">+=</span> collision<span class="op">.</span><span class="at">normal</span><span class="op">.</span><span class="at">y</span> <span class="op">*</span> separation<span class="op">;</span></span>
+<span id="cb1-30"><a href="#cb1-30" aria-hidden="true" tabindex="-1"></a>        }</span>
+<span id="cb1-31"><a href="#cb1-31" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb1-32"><a href="#cb1-32" aria-hidden="true" tabindex="-1"></a>}<span class="op">;</span></span>
+<span id="cb1-33"><a href="#cb1-33" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-34"><a href="#cb1-34" aria-hidden="true" tabindex="-1"></a><span class="co">// 2. Override Velocity Resolution (Impulse and Momentum)</span></span>
+<span id="cb1-35"><a href="#cb1-35" aria-hidden="true" tabindex="-1"></a>Matter<span class="op">.</span><span class="at">Resolver</span><span class="op">.</span><span class="at">solveVelocity</span> <span class="op">=</span> <span class="kw">function</span>(pairs<span class="op">,</span> timeScale) {</span>
+<span id="cb1-36"><a href="#cb1-36" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> (<span class="kw">let</span> i <span class="op">=</span> <span class="dv">0</span><span class="op">;</span> i <span class="op">&lt;</span> pairs<span class="op">.</span><span class="at">length</span><span class="op">;</span> i<span class="op">++</span>) {</span>
+<span id="cb1-37"><a href="#cb1-37" aria-hidden="true" tabindex="-1"></a>        <span class="kw">const</span> pair <span class="op">=</span> pairs[i]<span class="op">;</span></span>
+<span id="cb1-38"><a href="#cb1-38" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-39"><a href="#cb1-39" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> (<span class="op">!</span>pair<span class="op">.</span><span class="at">isActive</span> <span class="op">||</span> pair<span class="op">.</span><span class="at">isSensor</span>) <span class="cf">continue</span><span class="op">;</span></span>
+<span id="cb1-40"><a href="#cb1-40" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-41"><a href="#cb1-41" aria-hidden="true" tabindex="-1"></a>        <span class="kw">const</span> bodyA <span class="op">=</span> pair<span class="op">.</span><span class="at">bodyA</span><span class="op">;</span></span>
+<span id="cb1-42"><a href="#cb1-42" aria-hidden="true" tabindex="-1"></a>        <span class="kw">const</span> bodyB <span class="op">=</span> pair<span class="op">.</span><span class="at">bodyB</span><span class="op">;</span></span>
+<span id="cb1-43"><a href="#cb1-43" aria-hidden="true" tabindex="-1"></a>        <span class="kw">const</span> normal <span class="op">=</span> pair<span class="op">.</span><span class="at">collision</span><span class="op">.</span><span class="at">normal</span><span class="op">;</span></span>
+<span id="cb1-44"><a href="#cb1-44" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-45"><a href="#cb1-45" aria-hidden="true" tabindex="-1"></a>        <span class="co">// Calculate relative velocity</span></span>
+<span id="cb1-46"><a href="#cb1-46" aria-hidden="true" tabindex="-1"></a>        <span class="kw">const</span> rvx <span class="op">=</span> bodyB<span class="op">.</span><span class="at">velocity</span><span class="op">.</span><span class="at">x</span> <span class="op">-</span> bodyA<span class="op">.</span><span class="at">velocity</span><span class="op">.</span><span class="at">x</span><span class="op">;</span></span>
+<span id="cb1-47"><a href="#cb1-47" aria-hidden="true" tabindex="-1"></a>        <span class="kw">const</span> rvy <span class="op">=</span> bodyB<span class="op">.</span><span class="at">velocity</span><span class="op">.</span><span class="at">y</span> <span class="op">-</span> bodyA<span class="op">.</span><span class="at">velocity</span><span class="op">.</span><span class="at">y</span><span class="op">;</span></span>
+<span id="cb1-48"><a href="#cb1-48" aria-hidden="true" tabindex="-1"></a>        <span class="kw">const</span> velAlongNormal <span class="op">=</span> rvx <span class="op">*</span> normal<span class="op">.</span><span class="at">x</span> <span class="op">+</span> rvy <span class="op">*</span> normal<span class="op">.</span><span class="at">y</span><span class="op">;</span></span>
+<span id="cb1-49"><a href="#cb1-49" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-50"><a href="#cb1-50" aria-hidden="true" tabindex="-1"></a>        <span class="co">// Do not resolve if velocities are separating</span></span>
+<span id="cb1-51"><a href="#cb1-51" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> (velAlongNormal <span class="op">&gt;</span> <span class="dv">0</span>) <span class="cf">continue</span><span class="op">;</span></span>
+<span id="cb1-52"><a href="#cb1-52" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-53"><a href="#cb1-53" aria-hidden="true" tabindex="-1"></a>        <span class="co">// Custom impulse calculation (e.g., perfectly elastic bounce)</span></span>
+<span id="cb1-54"><a href="#cb1-54" aria-hidden="true" tabindex="-1"></a>        <span class="kw">const</span> restitution <span class="op">=</span> <span class="fl">1.0</span><span class="op">;</span> </span>
+<span id="cb1-55"><a href="#cb1-55" aria-hidden="true" tabindex="-1"></a>        <span class="kw">const</span> impulseMagnitude <span class="op">=</span> <span class="op">-</span>(<span class="dv">1</span> <span class="op">+</span> restitution) <span class="op">*</span> velAlongNormal <span class="op">/</span> (bodyA<span class="op">.</span><span class="at">inverseMass</span> <span class="op">+</span> bodyB<span class="op">.</span><span class="at">inverseMass</span>)<span class="op">;</span></span>
+<span id="cb1-56"><a href="#cb1-56" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-57"><a href="#cb1-57" aria-hidden="true" tabindex="-1"></a>        <span class="kw">const</span> impulseX <span class="op">=</span> impulseMagnitude <span class="op">*</span> normal<span class="op">.</span><span class="at">x</span><span class="op">;</span></span>
+<span id="cb1-58"><a href="#cb1-58" aria-hidden="true" tabindex="-1"></a>        <span class="kw">const</span> impulseY <span class="op">=</span> impulseMagnitude <span class="op">*</span> normal<span class="op">.</span><span class="at">y</span><span class="op">;</span></span>
+<span id="cb1-59"><a href="#cb1-59" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-60"><a href="#cb1-60" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> (<span class="op">!</span>bodyA<span class="op">.</span><span class="at">isStatic</span>) {</span>
+<span id="cb1-61"><a href="#cb1-61" aria-hidden="true" tabindex="-1"></a>            Matter<span class="op">.</span><span class="at">Body</span><span class="op">.</span><span class="fu">setVelocity</span>(bodyA<span class="op">,</span> {</span>
+<span id="cb1-62"><a href="#cb1-62" aria-hidden="true" tabindex="-1"></a>                <span class="dt">x</span><span class="op">:</span> bodyA<span class="op">.</span><span class="at">velocity</span><span class="op">.</span><span class="at">x</span> <span class="op">-</span> bodyA<span class="op">.</span><span class="at">inverseMass</span> <span class="op">*</span> impulseX<span class="op">,</span></span>
+<span id="cb1-63"><a href="#cb1-63" aria-hidden="true" tabindex="-1"></a>                <span class="dt">y</span><span class="op">:</span> bodyA<span class="op">.</span><span class="at">velocity</span><span class="op">.</span><span class="at">y</span> <span class="op">-</span> bodyA<span class="op">.</span><span class="at">inverseMass</span> <span class="op">*</span> impulseY</span>
+<span id="cb1-64"><a href="#cb1-64" aria-hidden="true" tabindex="-1"></a>            })<span class="op">;</span></span>
+<span id="cb1-65"><a href="#cb1-65" aria-hidden="true" tabindex="-1"></a>        }</span>
+<span id="cb1-66"><a href="#cb1-66" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-67"><a href="#cb1-67" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> (<span class="op">!</span>bodyB<span class="op">.</span><span class="at">isStatic</span>) {</span>
+<span id="cb1-68"><a href="#cb1-68" aria-hidden="true" tabindex="-1"></a>            Matter<span class="op">.</span><span class="at">Body</span><span class="op">.</span><span class="fu">setVelocity</span>(bodyB<span class="op">,</span> {</span>
+<span id="cb1-69"><a href="#cb1-69" aria-hidden="true" tabindex="-1"></a>                <span class="dt">x</span><span class="op">:</span> bodyB<span class="op">.</span><span class="at">velocity</span><span class="op">.</span><span class="at">x</span> <span class="op">+</span> bodyB<span class="op">.</span><span class="at">inverseMass</span> <span class="op">*</span> impulseX<span class="op">,</span></span>
+<span id="cb1-70"><a href="#cb1-70" aria-hidden="true" tabindex="-1"></a>                <span class="dt">y</span><span class="op">:</span> bodyB<span class="op">.</span><span class="at">velocity</span><span class="op">.</span><span class="at">y</span> <span class="op">+</span> bodyB<span class="op">.</span><span class="at">inverseMass</span> <span class="op">*</span> impulseY</span>
+<span id="cb1-71"><a href="#cb1-71" aria-hidden="true" tabindex="-1"></a>            })<span class="op">;</span></span>
+<span id="cb1-72"><a href="#cb1-72" aria-hidden="true" tabindex="-1"></a>        }</span>
+<span id="cb1-73"><a href="#cb1-73" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb1-74"><a href="#cb1-74" aria-hidden="true" tabindex="-1"></a>}<span class="op">;</span></span></code></pre></div>
+<hr />
+<h3 id="method-2-disabling-resolution-per-body-via-sensors">Method 2:
+Disabling Resolution per Body via Sensors</h3>
+<p>If the goal is to override resolution only for specific interactions
+rather than globally altering the entire physics simulation, convert the
+bodies into sensors and compute the forces manually.</p>
+<ol type="1">
+<li>Set <code>body.isSensor = true</code>. The engine will continue to
+run broadphase and narrowphase collision detection for the body, but
+<code>Matter.Resolver</code> will skip it completely.</li>
+<li>Listen to the <code>collisionActive</code> or
+<code>collisionStart</code> events on the engine to execute custom
+resolution math.</li>
+</ol>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Configure a body as a sensor to bypass Matter.Resolver</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> customBody <span class="op">=</span> Matter<span class="op">.</span><span class="at">Bodies</span><span class="op">.</span><span class="fu">circle</span>(<span class="dv">100</span><span class="op">,</span> <span class="dv">100</span><span class="op">,</span> <span class="dv">20</span><span class="op">,</span> {</span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>    <span class="dt">isSensor</span><span class="op">:</span> <span class="kw">true</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a><span class="co">// Apply custom resolution manually inside the collision event</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>Matter<span class="op">.</span><span class="at">Events</span><span class="op">.</span><span class="fu">on</span>(engine<span class="op">,</span> <span class="st">&#39;collisionActive&#39;</span><span class="op">,</span> (<span class="bu">event</span>) <span class="kw">=&gt;</span> {</span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>    <span class="bu">event</span><span class="op">.</span><span class="at">pairs</span><span class="op">.</span><span class="fu">forEach</span>((pair) <span class="kw">=&gt;</span> {</span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> (pair<span class="op">.</span><span class="at">bodyA</span> <span class="op">===</span> customBody <span class="op">||</span> pair<span class="op">.</span><span class="at">bodyB</span> <span class="op">===</span> customBody) {</span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>            <span class="kw">const</span> normal <span class="op">=</span> pair<span class="op">.</span><span class="at">collision</span><span class="op">.</span><span class="at">normal</span><span class="op">;</span></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>            <span class="kw">const</span> depth <span class="op">=</span> pair<span class="op">.</span><span class="at">collision</span><span class="op">.</span><span class="at">depth</span><span class="op">;</span></span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>            <span class="co">// Apply manual positioning or forces</span></span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a>            Matter<span class="op">.</span><span class="at">Body</span><span class="op">.</span><span class="fu">applyForce</span>(customBody<span class="op">,</span> customBody<span class="op">.</span><span class="at">position</span><span class="op">,</span> {</span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a>                <span class="dt">x</span><span class="op">:</span> <span class="op">-</span>normal<span class="op">.</span><span class="at">x</span> <span class="op">*</span> depth <span class="op">*</span> <span class="fl">0.05</span><span class="op">,</span></span>
+<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a>                <span class="dt">y</span><span class="op">:</span> <span class="op">-</span>normal<span class="op">.</span><span class="at">y</span> <span class="op">*</span> depth <span class="op">*</span> <span class="fl">0.05</span></span>
+<span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a>            })<span class="op">;</span></span>
+<span id="cb2-18"><a href="#cb2-18" aria-hidden="true" tabindex="-1"></a>        }</span>
+<span id="cb2-19"><a href="#cb2-19" aria-hidden="true" tabindex="-1"></a>    })<span class="op">;</span></span>
+<span id="cb2-20"><a href="#cb2-20" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div>
+<hr />
+<h3 id="summary-of-differences">Summary of Differences</h3>
+<ul>
+<li><strong>Monkey-Patching <code>Matter.Resolver</code></strong>: Best
+when you need global control over the underlying physics equations,
+contact sleeping behavior, or velocity constraint solving across all
+bodies.</li>
+<li><strong>Sensor Collision Handling</strong>: Best when you want
+standard Matter.js dynamics for the majority of the world while applying
+customized collision behavior to specific game objects.</li>
+</ul></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/matter.js'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/matter.js/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/matter.js/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

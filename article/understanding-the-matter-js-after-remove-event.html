@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Understanding the Matter.js afterRemove Event - matter.js</title>
+    <meta name="description" content="This article provides an overview of the afterRemove event in Matter.js, explaining its role in the physics engine lifecycle, how it functions within composite structures, and how to implement it for resource cleanup and state synchronization in your pro">
+    <link rel="canonical" href="https://salivity.github.io/matter.js/article/understanding-the-matter-js-after-remove-event">
+    <link rel="search" type="application/opensearchdescription+xml" title="matter.js" href="/matter.js/opensearch.xml">
+    <link rel="icon" href="/matter.js/favicon.ico">
+    <link rel="stylesheet" href="/matter.js/css/style.css">
+    <link media="print" rel="stylesheet" href="/matter.js/css/print.css">
+    <script src="/matter.js/js/fuse.min.js"></script>
+    <script src="/matter.js/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Understanding the Matter.js afterRemove Event - matter.js" />
+    <meta property="og:url" content="https://salivity.github.io/matter.js/article/understanding-the-matter-js-after-remove-event" />
+    <meta property="og:image" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article provides an overview of the afterRemove event in Matter.js, explaining its role in the physics engine lifecycle, how it functions within composite structures, and how to implement it for resource cleanup and state synchronization in your pro" />
+    <link rel="manifest" href="/matter.js/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/matter.js/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>matter.js</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/matter.js/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="understanding-the-matterjs-afterremove-event">Understanding the
+Matter.js afterRemove Event</h1>
+<p>This article provides an overview of the <code>afterRemove</code>
+event in Matter.js, explaining its role in the physics engine lifecycle,
+how it functions within composite structures, and how to implement it
+for resource cleanup and state synchronization in your projects.</p>
+<h3 id="what-is-the-afterremove-event">What is the afterRemove
+Event?</h3>
+<p>In Matter.js, simulation elements such as bodies, constraints, and
+other composites are managed within composite containers, most notably
+the root <code>Matter.World</code> (<code>engine.world</code>). The
+<code>afterRemove</code> event is an event dispatched by a
+<code>Matter.Composite</code> instance immediately after an object has
+been completely removed from that composite.</p>
+<p>When you call <code>Composite.remove(world, object)</code>, Matter.js
+first fires a <code>beforeRemove</code> event, detaches the object from
+the composite's internal lists, and then fires the
+<code>afterRemove</code> event.</p>
+<h3 id="key-use-cases">Key Use Cases</h3>
+<p>The <code>afterRemove</code> event is typically used to manage
+application state and clean up resources tied to physics objects:</p>
+<ul>
+<li><strong>Visual Element Cleanup:</strong> Removing corresponding
+rendering objects (such as PixiJS sprites, Three.js meshes, or HTML DOM
+elements) when a physics body is deleted.</li>
+<li><strong>Memory Management:</strong> Clearing references, event
+listeners, or custom metadata associated with the removed body to
+prevent memory leaks.</li>
+<li><strong>Game Logic:</strong> Updating game state, such as
+decrementing active entity counters or awarding points when a target
+object is eliminated from the simulation.</li>
+</ul>
+<h3 id="how-to-use-afterremove">How to Use afterRemove</h3>
+<p>To listen for the <code>afterRemove</code> event, use the
+<code>Matter.Events.on</code> method to bind a callback function to the
+target composite or world.</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Import modules</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> { Engine<span class="op">,</span> World<span class="op">,</span> Bodies<span class="op">,</span> Composite<span class="op">,</span> Events } <span class="op">=</span> Matter<span class="op">;</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> engine <span class="op">=</span> Engine<span class="op">.</span><span class="fu">create</span>()<span class="op">;</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> world <span class="op">=</span> engine<span class="op">.</span><span class="at">world</span><span class="op">;</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a><span class="co">// Listen for the afterRemove event on the world composite</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>Events<span class="op">.</span><span class="fu">on</span>(world<span class="op">,</span> <span class="st">&#39;afterRemove&#39;</span><span class="op">,</span> (<span class="bu">event</span>) <span class="kw">=&gt;</span> {</span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>    <span class="co">// The removed entity is available via event.object</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> removedObject <span class="op">=</span> <span class="bu">event</span><span class="op">.</span><span class="at">object</span><span class="op">;</span></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>    <span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(<span class="st">&#39;Object successfully removed:&#39;</span><span class="op">,</span> removedObject)<span class="op">;</span></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Example: Clean up custom rendering reference</span></span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (removedObject<span class="op">.</span><span class="at">renderSprite</span>) {</span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a>        removedObject<span class="op">.</span><span class="at">renderSprite</span><span class="op">.</span><span class="fu">destroy</span>()<span class="op">;</span></span>
+<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span>
+<span id="cb1-19"><a href="#cb1-19" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-20"><a href="#cb1-20" aria-hidden="true" tabindex="-1"></a><span class="co">// Create and add a body</span></span>
+<span id="cb1-21"><a href="#cb1-21" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> box <span class="op">=</span> Bodies<span class="op">.</span><span class="fu">rectangle</span>(<span class="dv">400</span><span class="op">,</span> <span class="dv">200</span><span class="op">,</span> <span class="dv">80</span><span class="op">,</span> <span class="dv">80</span>)<span class="op">;</span></span>
+<span id="cb1-22"><a href="#cb1-22" aria-hidden="true" tabindex="-1"></a>Composite<span class="op">.</span><span class="fu">add</span>(world<span class="op">,</span> box)<span class="op">;</span></span>
+<span id="cb1-23"><a href="#cb1-23" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-24"><a href="#cb1-24" aria-hidden="true" tabindex="-1"></a><span class="co">// Remove the body from the world, triggering afterRemove</span></span>
+<span id="cb1-25"><a href="#cb1-25" aria-hidden="true" tabindex="-1"></a>Composite<span class="op">.</span><span class="fu">remove</span>(world<span class="op">,</span> box)<span class="op">;</span></span></code></pre></div>
+<h3 id="event-data-properties">Event Data Properties</h3>
+<p>When the callback executes, it receives an event object
+containing:</p>
+<ul>
+<li><code>object</code>: The entity that was removed (a
+<code>Body</code>, <code>Constraint</code>, or child
+<code>Composite</code>).</li>
+<li><code>source</code>: The composite instance from which the object
+was removed.</li>
+<li><code>name</code>: The name of the event, which is
+<code>"afterRemove"</code>.</li>
+</ul>
+<h3 id="difference-between-beforeremove-and-afterremove">Difference
+Between beforeRemove and afterRemove</h3>
+<p>While <code>beforeRemove</code> executes while the item is still
+registered within the composite, <code>afterRemove</code> guarantees
+that the composite hierarchy has already been updated. If your cleanup
+logic relies on verifying that the body is no longer present in
+<code>composite.bodies</code> or requires the composite's bounding
+limits to be recalculated, <code>afterRemove</code> is the appropriate
+hook to use.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/matter.js'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/matter.js/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/matter.js/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How to Show Bounding Boxes in Matter.js Render - matter.js</title>
+    <meta name="description" content="Yes, you can display bounding boxes using the Matter.js Render module. The engine provides built-in configuration flags in its rendering pipeline designed specifically for debugging collision boundaries and spatial dimensions. This article explains how t">
+    <link rel="canonical" href="https://salivity.github.io/matter.js/article/how-to-show-bounding-boxes-in-matter-js-render">
+    <link rel="search" type="application/opensearchdescription+xml" title="matter.js" href="/matter.js/opensearch.xml">
+    <link rel="icon" href="/matter.js/favicon.ico">
+    <link rel="stylesheet" href="/matter.js/css/style.css">
+    <link media="print" rel="stylesheet" href="/matter.js/css/print.css">
+    <script src="/matter.js/js/fuse.min.js"></script>
+    <script src="/matter.js/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How to Show Bounding Boxes in Matter.js Render - matter.js" />
+    <meta property="og:url" content="https://salivity.github.io/matter.js/article/how-to-show-bounding-boxes-in-matter-js-render" />
+    <meta property="og:image" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Yes, you can display bounding boxes using the Matter.js Render module. The engine provides built-in configuration flags in its rendering pipeline designed specifically for debugging collision boundaries and spatial dimensions. This article explains how t" />
+    <link rel="manifest" href="/matter.js/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/matter.js/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>matter.js</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/matter.js/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="how-to-show-bounding-boxes-in-matterjs-render">How to Show
+Bounding Boxes in Matter.js Render</h1>
+<p>Yes, you can display bounding boxes using the Matter.js
+<code>Render</code> module. The engine provides built-in configuration
+flags in its rendering pipeline designed specifically for debugging
+collision boundaries and spatial dimensions. This article explains how
+to enable bounding box visualization through standard render options,
+dynamically toggle them at runtime, and render custom bounding overlays
+using Canvas API hooks.</p>
+<h3 id="enabling-bounding-boxes-in-render-options">Enabling Bounding
+Boxes in Render Options</h3>
+<p>The most direct way to visualize bounding boxes is through the
+configuration object passed to <code>Matter.Render.create()</code>. By
+setting <code>showBounds</code> to <code>true</code> within the
+<code>options</code> object, Matter.js will draw the axis-aligned
+bounding box (AABB) around every active physics body in the
+simulation.</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> { Engine<span class="op">,</span> Render<span class="op">,</span> Runner<span class="op">,</span> Bodies<span class="op">,</span> Composite } <span class="op">=</span> Matter<span class="op">;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> engine <span class="op">=</span> Engine<span class="op">.</span><span class="fu">create</span>()<span class="op">;</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> render <span class="op">=</span> Matter<span class="op">.</span><span class="at">Render</span><span class="op">.</span><span class="fu">create</span>({</span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>    <span class="dt">element</span><span class="op">:</span> <span class="bu">document</span><span class="op">.</span><span class="at">body</span><span class="op">,</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>    <span class="dt">engine</span><span class="op">:</span> engine<span class="op">,</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>    <span class="dt">options</span><span class="op">:</span> {</span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>        <span class="dt">width</span><span class="op">:</span> <span class="dv">800</span><span class="op">,</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>        <span class="dt">height</span><span class="op">:</span> <span class="dv">600</span><span class="op">,</span></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>        <span class="dt">wireframes</span><span class="op">:</span> <span class="kw">false</span><span class="op">,</span></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>        <span class="dt">showBounds</span><span class="op">:</span> <span class="kw">true</span> <span class="co">// Enables bounding box rendering</span></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a>Render<span class="op">.</span><span class="fu">run</span>(render)<span class="op">;</span></span>
+<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a>Runner<span class="op">.</span><span class="fu">run</span>(Runner<span class="op">.</span><span class="fu">create</span>()<span class="op">,</span> engine)<span class="op">;</span></span></code></pre></div>
+<p>When <code>showBounds</code> is enabled, Matter.js outlines the
+<code>body.bounds</code> property of each body. This displays the
+smallest rectangle aligned with the screen axes that completely encloses
+the shape, which updates in real-time as bodies translate and
+rotate.</p>
+<h3 id="toggling-bounding-boxes-dynamically">Toggling Bounding Boxes
+Dynamically</h3>
+<p>You do not need to recreate the renderer to enable or disable
+bounding boxes. You can modify the property directly on the existing
+<code>render</code> instance:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Enable bounding boxes</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>render<span class="op">.</span><span class="at">options</span><span class="op">.</span><span class="at">showBounds</span> <span class="op">=</span> <span class="kw">true</span><span class="op">;</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a><span class="co">// Disable bounding boxes</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>render<span class="op">.</span><span class="at">options</span><span class="op">.</span><span class="at">showBounds</span> <span class="op">=</span> <span class="kw">false</span><span class="op">;</span></span></code></pre></div>
+<p>This is particularly useful when creating debug overlays or
+user-toggled controls within an application interface.</p>
+<h3 id="how-matterjs-computes-bounding-boxes">How Matter.js Computes
+Bounding Boxes</h3>
+<p>Each body in Matter.js has an internal <code>bounds</code> property
+structured with minimum and maximum coordinate vectors:</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a>body<span class="op">.</span><span class="at">bounds</span> <span class="op">=</span> {</span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>    <span class="dt">min</span><span class="op">:</span> { <span class="dt">x</span><span class="op">:</span> <span class="bu">Number</span><span class="op">,</span> <span class="dt">y</span><span class="op">:</span> <span class="bu">Number</span> }<span class="op">,</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>    <span class="dt">max</span><span class="op">:</span> { <span class="dt">x</span><span class="op">:</span> <span class="bu">Number</span><span class="op">,</span> <span class="dt">y</span><span class="op">:</span> <span class="bu">Number</span> }</span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>}<span class="op">;</span></span></code></pre></div>
+<p>These bounds are recalculated automatically whenever a body moves,
+scales, or rotates. The broadphase collision system uses these bounding
+boxes to quickly discard pairs of bodies that are too far apart to
+collide before running more expensive narrowphase collision checks.</p>
+<h3 id="drawing-custom-bounding-boxes">Drawing Custom Bounding
+Boxes</h3>
+<p>If the default <code>showBounds</code> visual style does not meet
+your needs—such as requiring custom stroke colors, line widths, or
+labels—you can draw your own using the <code>afterRender</code>
+event:</p>
+<div class="sourceCode" id="cb4"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a>Matter<span class="op">.</span><span class="at">Events</span><span class="op">.</span><span class="fu">on</span>(render<span class="op">,</span> <span class="st">&#39;afterRender&#39;</span><span class="op">,</span> () <span class="kw">=&gt;</span> {</span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> context <span class="op">=</span> render<span class="op">.</span><span class="at">context</span><span class="op">;</span></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> bodies <span class="op">=</span> Composite<span class="op">.</span><span class="fu">allBodies</span>(engine<span class="op">.</span><span class="at">world</span>)<span class="op">;</span></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>    context<span class="op">.</span><span class="fu">beginPath</span>()<span class="op">;</span></span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a>    context<span class="op">.</span><span class="at">strokeStyle</span> <span class="op">=</span> <span class="st">&#39;rgba(255, 0, 0, 0.7)&#39;</span><span class="op">;</span></span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a>    context<span class="op">.</span><span class="at">lineWidth</span> <span class="op">=</span> <span class="dv">1</span><span class="op">;</span></span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> (<span class="kw">let</span> i <span class="op">=</span> <span class="dv">0</span><span class="op">;</span> i <span class="op">&lt;</span> bodies<span class="op">.</span><span class="at">length</span><span class="op">;</span> i<span class="op">++</span>) {</span>
+<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a>        <span class="kw">const</span> body <span class="op">=</span> bodies[i]<span class="op">;</span></span>
+<span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a>        <span class="kw">const</span> min <span class="op">=</span> body<span class="op">.</span><span class="at">bounds</span><span class="op">.</span><span class="at">min</span><span class="op">;</span></span>
+<span id="cb4-12"><a href="#cb4-12" aria-hidden="true" tabindex="-1"></a>        <span class="kw">const</span> max <span class="op">=</span> body<span class="op">.</span><span class="at">bounds</span><span class="op">.</span><span class="at">max</span><span class="op">;</span></span>
+<span id="cb4-13"><a href="#cb4-13" aria-hidden="true" tabindex="-1"></a>        <span class="kw">const</span> width <span class="op">=</span> max<span class="op">.</span><span class="at">x</span> <span class="op">-</span> min<span class="op">.</span><span class="at">x</span><span class="op">;</span></span>
+<span id="cb4-14"><a href="#cb4-14" aria-hidden="true" tabindex="-1"></a>        <span class="kw">const</span> height <span class="op">=</span> max<span class="op">.</span><span class="at">y</span> <span class="op">-</span> min<span class="op">.</span><span class="at">y</span><span class="op">;</span></span>
+<span id="cb4-15"><a href="#cb4-15" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-16"><a href="#cb4-16" aria-hidden="true" tabindex="-1"></a>        context<span class="op">.</span><span class="fu">strokeRect</span>(min<span class="op">.</span><span class="at">x</span><span class="op">,</span> min<span class="op">.</span><span class="at">y</span><span class="op">,</span> width<span class="op">,</span> height)<span class="op">;</span></span>
+<span id="cb4-17"><a href="#cb4-17" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb4-18"><a href="#cb4-18" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div>
+<p>Using <code>afterRender</code> provides complete control over the
+visual presentation while still leveraging the accurate, precomputed
+AABB coordinates provided by Matter.js.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/matter.js'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/matter.js/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/matter.js/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Create Concave Polygons in Matter.js with decomp.js - matter.js</title>
+    <meta name="description" content="This guide demonstrates how to integrate decomp.js (poly-decomp) with Matter.js to generate and simulate concave rigid bodies. While the Matter.js physics engine natively supports only convex polygons, loading the decomp.js library allows the engine to a">
+    <link rel="canonical" href="https://salivity.github.io/matter.js/article/create-concave-polygons-in-matter-js-with-decomp-js">
+    <link rel="search" type="application/opensearchdescription+xml" title="matter.js" href="/matter.js/opensearch.xml">
+    <link rel="icon" href="/matter.js/favicon.ico">
+    <link rel="stylesheet" href="/matter.js/css/style.css">
+    <link media="print" rel="stylesheet" href="/matter.js/css/print.css">
+    <script src="/matter.js/js/fuse.min.js"></script>
+    <script src="/matter.js/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Create Concave Polygons in Matter.js with decomp.js - matter.js" />
+    <meta property="og:url" content="https://salivity.github.io/matter.js/article/create-concave-polygons-in-matter-js-with-decomp-js" />
+    <meta property="og:image" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This guide demonstrates how to integrate decomp.js (poly-decomp) with Matter.js to generate and simulate concave rigid bodies. While the Matter.js physics engine natively supports only convex polygons, loading the decomp.js library allows the engine to a" />
+    <link rel="manifest" href="/matter.js/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/matter.js/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>matter.js</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/matter.js/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="create-concave-polygons-in-matterjs-with-decompjs">Create
+Concave Polygons in Matter.js with decomp.js</h1>
+<p>This guide demonstrates how to integrate <code>decomp.js</code>
+(poly-decomp) with Matter.js to generate and simulate concave rigid
+bodies. While the Matter.js physics engine natively supports only convex
+polygons, loading the <code>decomp.js</code> library allows the engine
+to automatically break down concave shapes into a compound set of convex
+parts, enabling realistic physics simulations for complex geometric
+paths.</p>
+<h2 id="why-decompjs-is-required">Why decomp.js is Required</h2>
+<p>Matter.js relies on the Separating Axis Theorem (SAT) for collision
+detection, which functions exclusively on convex hulls. When you pass
+concave vertices into Matter.js without an external decomposition
+library, the engine automatically generates a single convex hull that
+bridges across your intended indentations and hollows.</p>
+<p>To retain concave shapes (like stars, letters, or hollow containers),
+Matter.js uses <code>poly-decomp.js</code> to split the complex polygon
+into multiple adjacent convex shapes joined together into a single
+compound body.</p>
+<h2 id="1-install-and-provide-decompjs-to-matterjs">1. Install and
+Provide decomp.js to Matter.js</h2>
+<p>Matter.js needs a reference to <code>decomp.js</code> before it can
+process concave vertices. You can load it via a CDN or through a module
+bundler.</p>
+<h3 id="via-cdn-browser-environment">Via CDN (Browser Environment)</h3>
+<p>Include <code>poly-decomp.js</code> before your Matter.js script, or
+ensure it is assigned to the global <code>window</code> object:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode html"><code class="sourceCode html"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="dt">&lt;</span><span class="kw">script</span><span class="ot"> src</span><span class="op">=</span><span class="st">&quot;https://cdn.jsdelivr.net/npm/poly-decomp@0.3.0/build/decomp.min.js&quot;</span><span class="dt">&gt;&lt;/</span><span class="kw">script</span><span class="dt">&gt;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="dt">&lt;</span><span class="kw">script</span><span class="ot"> src</span><span class="op">=</span><span class="st">&quot;https://cdnjs.cloudflare.com/ajax/libs/matter-js/0.19.0/matter.min.js&quot;</span><span class="dt">&gt;&lt;/</span><span class="kw">script</span><span class="dt">&gt;</span></span></code></pre></div>
+<p>When loaded globally via a script tag, Matter.js detects
+<code>window.decomp</code> automatically.</p>
+<h3 id="via-npm--bundlers-es6--nodejs">Via NPM / Bundlers (ES6 &amp;
+Node.js)</h3>
+<p>If using Webpack, Vite, or Node.js, install the package:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="ex">npm</span> install poly-decomp matter-js</span></code></pre></div>
+<p>Then explicitly register the library using
+<code>Matter.Common.setDecomp</code>:</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> Matter <span class="im">from</span> <span class="st">&#39;matter-js&#39;</span><span class="op">;</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> decomp <span class="im">from</span> <span class="st">&#39;poly-decomp&#39;</span><span class="op">;</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>Matter<span class="op">.</span><span class="at">Common</span><span class="op">.</span><span class="fu">setDecomp</span>(decomp)<span class="op">;</span></span></code></pre></div>
+<h2 id="2-define-concave-vertices">2. Define Concave Vertices</h2>
+<p>Vertices must be defined as an array of vector objects containing
+<code>x</code> and <code>y</code> coordinates, or parsed from an SVG
+path using <code>Matter.Svg.pathToVertices()</code>.</p>
+<p>Ensure that:</p>
+<ul>
+<li>The path traces around the perimeter in a continuous loop.</li>
+<li>The polygon is not self-intersecting (lines should not cross each
+other).</li>
+</ul>
+<p>Example vertices for an arrow or chevron shape:</p>
+<div class="sourceCode" id="cb4"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> vertices <span class="op">=</span> [</span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>    { <span class="dt">x</span><span class="op">:</span> <span class="dv">0</span><span class="op">,</span> <span class="dt">y</span><span class="op">:</span> <span class="dv">0</span> }<span class="op">,</span></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>    { <span class="dt">x</span><span class="op">:</span> <span class="dv">100</span><span class="op">,</span> <span class="dt">y</span><span class="op">:</span> <span class="dv">50</span> }<span class="op">,</span></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>    { <span class="dt">x</span><span class="op">:</span> <span class="dv">0</span><span class="op">,</span> <span class="dt">y</span><span class="op">:</span> <span class="dv">100</span> }<span class="op">,</span></span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>    { <span class="dt">x</span><span class="op">:</span> <span class="dv">30</span><span class="op">,</span> <span class="dt">y</span><span class="op">:</span> <span class="dv">50</span> } <span class="co">// Indented point making the shape concave</span></span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a>]<span class="op">;</span></span></code></pre></div>
+<h2 id="3-create-the-body-using-bodiesfromvertices">3. Create the Body
+Using Bodies.fromVertices</h2>
+<p>Use <code>Matter.Bodies.fromVertices()</code> to instantiate the
+body. Matter.js calls <code>decomp.quickDecomp()</code> behind the
+scenes to split the path into convex components.</p>
+<div class="sourceCode" id="cb5"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> x <span class="op">=</span> <span class="dv">400</span><span class="op">;</span></span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> y <span class="op">=</span> <span class="dv">300</span><span class="op">;</span></span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> concaveBody <span class="op">=</span> Matter<span class="op">.</span><span class="at">Bodies</span><span class="op">.</span><span class="fu">fromVertices</span>(x<span class="op">,</span> y<span class="op">,</span> vertices<span class="op">,</span> {</span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a>    <span class="dt">isStatic</span><span class="op">:</span> <span class="kw">false</span><span class="op">,</span></span>
+<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a>    <span class="dt">render</span><span class="op">:</span> {</span>
+<span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a>        <span class="dt">fillStyle</span><span class="op">:</span> <span class="st">&#39;#2ecc71&#39;</span><span class="op">,</span></span>
+<span id="cb5-8"><a href="#cb5-8" aria-hidden="true" tabindex="-1"></a>        <span class="dt">strokeStyle</span><span class="op">:</span> <span class="st">&#39;#27ae60&#39;</span><span class="op">,</span></span>
+<span id="cb5-9"><a href="#cb5-9" aria-hidden="true" tabindex="-1"></a>        <span class="dt">lineWidth</span><span class="op">:</span> <span class="dv">1</span></span>
+<span id="cb5-10"><a href="#cb5-10" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb5-11"><a href="#cb5-11" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span>
+<span id="cb5-12"><a href="#cb5-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-13"><a href="#cb5-13" aria-hidden="true" tabindex="-1"></a>Matter<span class="op">.</span><span class="at">Composite</span><span class="op">.</span><span class="fu">add</span>(engine<span class="op">.</span><span class="at">world</span><span class="op">,</span> concaveBody)<span class="op">;</span></span></code></pre></div>
+<h2 id="complete-implementation-example">Complete Implementation
+Example</h2>
+<div class="sourceCode" id="cb6"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Setup engine and renderer</span></span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> { Engine<span class="op">,</span> Render<span class="op">,</span> Runner<span class="op">,</span> Bodies<span class="op">,</span> Composite<span class="op">,</span> Common } <span class="op">=</span> Matter<span class="op">;</span></span>
+<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a><span class="co">// Provide decomp to Matter if using a bundler</span></span>
+<span id="cb6-5"><a href="#cb6-5" aria-hidden="true" tabindex="-1"></a><span class="co">// Common.setDecomp(decomp);</span></span>
+<span id="cb6-6"><a href="#cb6-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-7"><a href="#cb6-7" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> engine <span class="op">=</span> Engine<span class="op">.</span><span class="fu">create</span>()<span class="op">;</span></span>
+<span id="cb6-8"><a href="#cb6-8" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> render <span class="op">=</span> Render<span class="op">.</span><span class="fu">create</span>({</span>
+<span id="cb6-9"><a href="#cb6-9" aria-hidden="true" tabindex="-1"></a>    <span class="dt">element</span><span class="op">:</span> <span class="bu">document</span><span class="op">.</span><span class="at">body</span><span class="op">,</span></span>
+<span id="cb6-10"><a href="#cb6-10" aria-hidden="true" tabindex="-1"></a>    <span class="dt">engine</span><span class="op">:</span> engine<span class="op">,</span></span>
+<span id="cb6-11"><a href="#cb6-11" aria-hidden="true" tabindex="-1"></a>    <span class="dt">options</span><span class="op">:</span> {</span>
+<span id="cb6-12"><a href="#cb6-12" aria-hidden="true" tabindex="-1"></a>        <span class="dt">width</span><span class="op">:</span> <span class="dv">800</span><span class="op">,</span></span>
+<span id="cb6-13"><a href="#cb6-13" aria-hidden="true" tabindex="-1"></a>        <span class="dt">height</span><span class="op">:</span> <span class="dv">600</span><span class="op">,</span></span>
+<span id="cb6-14"><a href="#cb6-14" aria-hidden="true" tabindex="-1"></a>        <span class="dt">wireframes</span><span class="op">:</span> <span class="kw">false</span></span>
+<span id="cb6-15"><a href="#cb6-15" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb6-16"><a href="#cb6-16" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span>
+<span id="cb6-17"><a href="#cb6-17" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-18"><a href="#cb6-18" aria-hidden="true" tabindex="-1"></a>Render<span class="op">.</span><span class="fu">run</span>(render)<span class="op">;</span></span>
+<span id="cb6-19"><a href="#cb6-19" aria-hidden="true" tabindex="-1"></a>Runner<span class="op">.</span><span class="fu">run</span>(Runner<span class="op">.</span><span class="fu">create</span>()<span class="op">,</span> engine)<span class="op">;</span></span>
+<span id="cb6-20"><a href="#cb6-20" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-21"><a href="#cb6-21" aria-hidden="true" tabindex="-1"></a><span class="co">// Concave star vertices</span></span>
+<span id="cb6-22"><a href="#cb6-22" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> starVertices <span class="op">=</span> [</span>
+<span id="cb6-23"><a href="#cb6-23" aria-hidden="true" tabindex="-1"></a>    { <span class="dt">x</span><span class="op">:</span> <span class="dv">50</span><span class="op">,</span> <span class="dt">y</span><span class="op">:</span> <span class="dv">0</span> }<span class="op">,</span></span>
+<span id="cb6-24"><a href="#cb6-24" aria-hidden="true" tabindex="-1"></a>    { <span class="dt">x</span><span class="op">:</span> <span class="dv">63</span><span class="op">,</span> <span class="dt">y</span><span class="op">:</span> <span class="dv">38</span> }<span class="op">,</span></span>
+<span id="cb6-25"><a href="#cb6-25" aria-hidden="true" tabindex="-1"></a>    { <span class="dt">x</span><span class="op">:</span> <span class="dv">100</span><span class="op">,</span> <span class="dt">y</span><span class="op">:</span> <span class="dv">38</span> }<span class="op">,</span></span>
+<span id="cb6-26"><a href="#cb6-26" aria-hidden="true" tabindex="-1"></a>    { <span class="dt">x</span><span class="op">:</span> <span class="dv">69</span><span class="op">,</span> <span class="dt">y</span><span class="op">:</span> <span class="dv">59</span> }<span class="op">,</span></span>
+<span id="cb6-27"><a href="#cb6-27" aria-hidden="true" tabindex="-1"></a>    { <span class="dt">x</span><span class="op">:</span> <span class="dv">82</span><span class="op">,</span> <span class="dt">y</span><span class="op">:</span> <span class="dv">100</span> }<span class="op">,</span></span>
+<span id="cb6-28"><a href="#cb6-28" aria-hidden="true" tabindex="-1"></a>    { <span class="dt">x</span><span class="op">:</span> <span class="dv">50</span><span class="op">,</span> <span class="dt">y</span><span class="op">:</span> <span class="dv">75</span> }<span class="op">,</span></span>
+<span id="cb6-29"><a href="#cb6-29" aria-hidden="true" tabindex="-1"></a>    { <span class="dt">x</span><span class="op">:</span> <span class="dv">18</span><span class="op">,</span> <span class="dt">y</span><span class="op">:</span> <span class="dv">100</span> }<span class="op">,</span></span>
+<span id="cb6-30"><a href="#cb6-30" aria-hidden="true" tabindex="-1"></a>    { <span class="dt">x</span><span class="op">:</span> <span class="dv">31</span><span class="op">,</span> <span class="dt">y</span><span class="op">:</span> <span class="dv">59</span> }<span class="op">,</span></span>
+<span id="cb6-31"><a href="#cb6-31" aria-hidden="true" tabindex="-1"></a>    { <span class="dt">x</span><span class="op">:</span> <span class="dv">0</span><span class="op">,</span> <span class="dt">y</span><span class="op">:</span> <span class="dv">38</span> }<span class="op">,</span></span>
+<span id="cb6-32"><a href="#cb6-32" aria-hidden="true" tabindex="-1"></a>    { <span class="dt">x</span><span class="op">:</span> <span class="dv">37</span><span class="op">,</span> <span class="dt">y</span><span class="op">:</span> <span class="dv">38</span> }</span>
+<span id="cb6-33"><a href="#cb6-33" aria-hidden="true" tabindex="-1"></a>]<span class="op">;</span></span>
+<span id="cb6-34"><a href="#cb6-34" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-35"><a href="#cb6-35" aria-hidden="true" tabindex="-1"></a><span class="co">// Generate compound concave body</span></span>
+<span id="cb6-36"><a href="#cb6-36" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> starBody <span class="op">=</span> Bodies<span class="op">.</span><span class="fu">fromVertices</span>(<span class="dv">400</span><span class="op">,</span> <span class="dv">100</span><span class="op">,</span> starVertices<span class="op">,</span> {</span>
+<span id="cb6-37"><a href="#cb6-37" aria-hidden="true" tabindex="-1"></a>    <span class="dt">restitution</span><span class="op">:</span> <span class="fl">0.5</span><span class="op">,</span></span>
+<span id="cb6-38"><a href="#cb6-38" aria-hidden="true" tabindex="-1"></a>    <span class="dt">render</span><span class="op">:</span> { <span class="dt">fillStyle</span><span class="op">:</span> <span class="st">&#39;#e74c3c&#39;</span> }</span>
+<span id="cb6-39"><a href="#cb6-39" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span>
+<span id="cb6-40"><a href="#cb6-40" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-41"><a href="#cb6-41" aria-hidden="true" tabindex="-1"></a><span class="co">// Ground to catch the falling shape</span></span>
+<span id="cb6-42"><a href="#cb6-42" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> ground <span class="op">=</span> Bodies<span class="op">.</span><span class="fu">rectangle</span>(<span class="dv">400</span><span class="op">,</span> <span class="dv">580</span><span class="op">,</span> <span class="dv">810</span><span class="op">,</span> <span class="dv">40</span><span class="op">,</span> { <span class="dt">isStatic</span><span class="op">:</span> <span class="kw">true</span> })<span class="op">;</span></span>
+<span id="cb6-43"><a href="#cb6-43" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-44"><a href="#cb6-44" aria-hidden="true" tabindex="-1"></a>Composite<span class="op">.</span><span class="fu">add</span>(engine<span class="op">.</span><span class="at">world</span><span class="op">,</span> [starBody<span class="op">,</span> ground])<span class="op">;</span></span></code></pre></div>
+<h2 id="best-practices-and-troubleshooting">Best Practices and
+Troubleshooting</h2>
+<ul>
+<li><strong>Self-Intersecting Geometry:</strong> <code>decomp.js</code>
+fails if polygons have overlapping lines or complex self-intersections.
+Ensure external perimeter lines never cross.</li>
+<li><strong>Vertex Simplification:</strong> Highly detailed paths from
+SVGs can create dozens of convex sub-bodies, degrading collision
+performance. Simplify SVG paths or reduce points with
+<code>Matter.Vertices.hull()</code> or external simplification
+algorithms prior to body creation.</li>
+<li><strong>Winding Order:</strong> Matter.js automatically attempts to
+normalize winding orders (clockwise vs. counter-clockwise), but
+consistently supplying clockwise perimeter points ensures reliable
+decomposition.</li>
+</ul></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/matter.js'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/matter.js/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/matter.js/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

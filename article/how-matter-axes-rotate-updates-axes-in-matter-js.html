@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How Matter.Axes.rotate Updates Axes in Matter.js - matter.js</title>
+    <meta name="description" content="This article provides an overview of how the Matter.Axes.rotate method updates projection axes for rotating bodies in Matter.js. It explains the underlying 2D rotation mathematics, the in-place array mutation used for performance, and the critical role t">
+    <link rel="canonical" href="https://salivity.github.io/matter.js/article/how-matter-axes-rotate-updates-axes-in-matter-js">
+    <link rel="search" type="application/opensearchdescription+xml" title="matter.js" href="/matter.js/opensearch.xml">
+    <link rel="icon" href="/matter.js/favicon.ico">
+    <link rel="stylesheet" href="/matter.js/css/style.css">
+    <link media="print" rel="stylesheet" href="/matter.js/css/print.css">
+    <script src="/matter.js/js/fuse.min.js"></script>
+    <script src="/matter.js/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How Matter.Axes.rotate Updates Axes in Matter.js - matter.js" />
+    <meta property="og:url" content="https://salivity.github.io/matter.js/article/how-matter-axes-rotate-updates-axes-in-matter-js" />
+    <meta property="og:image" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article provides an overview of how the Matter.Axes.rotate method updates projection axes for rotating bodies in Matter.js. It explains the underlying 2D rotation mathematics, the in-place array mutation used for performance, and the critical role t" />
+    <link rel="manifest" href="/matter.js/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/matter.js/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>matter.js</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/matter.js/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="how-matteraxesrotate-updates-axes-in-matterjs">How
+Matter.Axes.rotate Updates Axes in Matter.js</h1>
+<p>This article provides an overview of how the
+<code>Matter.Axes.rotate</code> method updates projection axes for
+rotating bodies in Matter.js. It explains the underlying 2D rotation
+mathematics, the in-place array mutation used for performance, and the
+critical role these updated axes play in rigid body collision detection
+via the Separating Axis Theorem (SAT).</p>
+<h2 id="the-role-of-axes-in-matterjs">The Role of Axes in Matter.js</h2>
+<p>Matter.js relies on the Separating Axis Theorem (SAT) to detect
+collisions between convex polygonal bodies. SAT requires projecting the
+vertices of two shapes onto a set of 1D axes (normal vectors
+perpendicular to each polygon's edges). If the projections overlap on
+all axes, a collision occurs.</p>
+<p>When a rigid body rotates, the orientation of its edges changes. To
+keep collision detection accurate without recalculating normal vectors
+from scratch every frame, Matter.js stores normalized axis vectors on
+the body and rotates them dynamically to match the body's angular
+displacement.</p>
+<h2 id="the-mathematical-transformation">The Mathematical
+Transformation</h2>
+<p>The <code>Matter.Axes.rotate</code> method takes an array of axis
+vectors and an angle <span class="math inline">\(\theta\)</span> (in
+radians). It applies a standard 2D rotation matrix to each vector in the
+collection:</p>
+<p><span class="math display">\[\begin{bmatrix} x&#39; \\ y&#39;
+\end{bmatrix} = \begin{bmatrix} \cos(\theta) &amp; -\sin(\theta) \\
+\sin(\theta) &amp; \cos(\theta) \end{bmatrix} \begin{bmatrix} x \\ y
+\end{bmatrix}\]</span></p>
+<p>In code, this operation is executed as follows:</p>
+<ol type="1">
+<li><strong>Precompute Trigonometry:</strong> The function calculates
+<code>Math.cos(angle)</code> and <code>Math.sin(angle)</code> once per
+call, minimizing redundant trigonometric operations across the axis
+array.</li>
+<li><strong>Transform Coordinates:</strong> For each axis vector <span
+class="math inline">\((x, y)\)</span>, the new coordinates are computed:
+<ul>
+<li><span class="math inline">\(x_{new} = x \cdot \cos(\theta) - y \cdot
+\sin(\theta)\)</span></li>
+<li><span class="math inline">\(y_{new} = x \cdot \sin(\theta) + y \cdot
+\cos(\theta)\)</span></li>
+</ul></li>
+<li><strong>In-Place Mutation:</strong> The function directly assigns
+the new values back to the axis object properties
+(<code>axis.x = x_new</code> and <code>axis.y = y_new</code>).</li>
+</ol>
+<p>Because pure rotation preserves vector magnitude, the normalized unit
+length of each axis vector remains unchanged, eliminating the need for
+an expensive square root normalization step after rotation.</p>
+<h2 id="execution-within-the-body-update-lifecycle">Execution Within the
+Body Update Lifecycle</h2>
+<p><code>Matter.Axes.rotate</code> is typically invoked during calls to
+<code>Matter.Body.rotate</code> or when angular velocity is integrated
+during the engine's update cycle.</p>
+<ol type="1">
+<li><strong>Trigger:</strong> An angular change <span
+class="math inline">\(\Delta\theta\)</span> is applied to a body.</li>
+<li><strong>Vertices Update:</strong> The body's actual vertices are
+rotated around its center of mass using
+<code>Matter.Vertices.rotate</code>.</li>
+<li><strong>Axes Update:</strong>
+<code>Matter.Axes.rotate(body.axes, angle)</code> is executed
+immediately to align the normal vectors with the new edge
+orientations.</li>
+<li><strong>Collision Pipeline:</strong> The updated axes are
+subsequently queried by <code>Matter.Detector</code> and
+<code>Matter.SAT</code> to perform broadphase and narrowphase collision
+checks against other bodies in world space.</li>
+</ol>
+<p>By rotating pre-existing vectors in-place rather than allocating new
+objects, <code>Matter.Axes.rotate</code> avoids garbage collection
+overhead, ensuring steady frame rates during complex multi-body
+simulations.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/matter.js'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/matter.js/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/matter.js/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

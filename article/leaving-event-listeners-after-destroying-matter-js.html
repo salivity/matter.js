@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Leaving Event Listeners After Destroying Matter.js - matter.js</title>
+    <meta name="description" content="Failing to detach event listeners after destroying or clearing a Matter.js physics engine leads to memory leaks, unexpected callback execution, and potential application crashes. Because Matter.js uses an internal pub/sub event system, listeners maintain">
+    <link rel="canonical" href="https://salivity.github.io/matter.js/article/leaving-event-listeners-after-destroying-matter-js">
+    <link rel="search" type="application/opensearchdescription+xml" title="matter.js" href="/matter.js/opensearch.xml">
+    <link rel="icon" href="/matter.js/favicon.ico">
+    <link rel="stylesheet" href="/matter.js/css/style.css">
+    <link media="print" rel="stylesheet" href="/matter.js/css/print.css">
+    <script src="/matter.js/js/fuse.min.js"></script>
+    <script src="/matter.js/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Leaving Event Listeners After Destroying Matter.js - matter.js" />
+    <meta property="og:url" content="https://salivity.github.io/matter.js/article/leaving-event-listeners-after-destroying-matter-js" />
+    <meta property="og:image" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Failing to detach event listeners after destroying or clearing a Matter.js physics engine leads to memory leaks, unexpected callback execution, and potential application crashes. Because Matter.js uses an internal pub/sub event system, listeners maintain" />
+    <link rel="manifest" href="/matter.js/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/matter.js/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>matter.js</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/matter.js/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="leaving-event-listeners-after-destroying-matterjs">Leaving Event
+Listeners After Destroying Matter.js</h1>
+<p>Failing to detach event listeners after destroying or clearing a
+Matter.js physics engine leads to memory leaks, unexpected callback
+execution, and potential application crashes. Because Matter.js uses an
+internal pub/sub event system, listeners maintain references to engine
+instances, bodies, and outer application scopes. When these listeners
+remain active, JavaScript’s garbage collector cannot free the associated
+resources, which severely degrades performance over time—especially in
+single-page applications or games where physics instances are repeatedly
+created and torn down.</p>
+<h3 id="severe-memory-leaks">Severe Memory Leaks</h3>
+<p>The most significant consequence of orphaned event listeners is the
+prevention of garbage collection. When you register a listener using
+<code>Matter.Events.on(engine, 'eventName', callback)</code>, the engine
+stores a reference to the callback function. If that callback references
+external variables, scene data, or DOM elements, those objects are
+retained in heap memory indefinitely. Even if you nullify your engine
+variable or call <code>Matter.Engine.clear(engine)</code>, any active
+reference held by an uncleaned event listener ensures that the entire
+dependency graph remains in memory, causing a persistent memory
+leak.</p>
+<h3 id="ghost-execution-and-stale-state-errors">Ghost Execution and
+Stale State Errors</h3>
+<p>If any system continues to emit events or if a runner cycle fires
+after an engine is intended to be dead, unremoved listeners will
+continue to execute. These "zombie" callbacks run against stale or
+undefined engine states. For instance, a dangling
+<code>collisionStart</code> or <code>beforeUpdate</code> listener might
+attempt to update physics properties, play audio, or mutate user
+interface elements for bodies that have already been deleted. This
+frequently results in runtime exceptions, such as
+<code>TypeError: Cannot read properties of undefined</code>, which can
+crash the entire JavaScript execution thread.</p>
+<h3 id="event-multiplying-on-re-initialization">Event Multiplying on
+Re-initialization</h3>
+<p>In frameworks like React, Vue, or dynamic canvas managers, components
+frequently mount and unmount. If you destroy a physics scene and
+instantiate a new one without explicitly clearing previous listeners
+bound to shared objects, events can multiply. The old listeners continue
+listening alongside the new ones. This causes callbacks to execute
+multiple times per frame or collision, producing severe frame rate
+drops, physics jitter, and duplicated game actions.</p>
+<h3 id="proper-cleanup-pattern">Proper Cleanup Pattern</h3>
+<p>To prevent these issues, you must manually unbind all registered
+callbacks before discarding the engine.</p>
+<ol type="1">
+<li><strong>Remove Specific Listeners:</strong> Use
+<code>Matter.Events.off(engine, 'eventName', callback)</code> for
+granular teardown.</li>
+<li><strong>Remove All Engine Listeners:</strong> Use
+<code>Matter.Events.off(engine)</code> to strip all attached listeners
+from the engine instance at once.</li>
+<li><strong>Halt Execution:</strong> Stop any active
+<code>Matter.Runner</code> using <code>Matter.Runner.stop(runner)</code>
+and cancel any active <code>requestAnimationFrame</code> loops before
+clearing the engine with <code>Matter.Engine.clear(engine)</code>.</li>
+</ol></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/matter.js'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/matter.js/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/matter.js/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

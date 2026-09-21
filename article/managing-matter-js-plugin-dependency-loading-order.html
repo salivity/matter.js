@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Managing Matter.js Plugin Dependency Loading Order - matter.js</title>
+    <meta name="description" content="Managing plugin dependencies in Matter.js requires understanding how the engine's modular architecture identifies, sequences, and registers extensions. This article explains how to properly sequence plugin installation using Matter.use(), leverage the in">
+    <link rel="canonical" href="https://salivity.github.io/matter.js/article/managing-matter-js-plugin-dependency-loading-order">
+    <link rel="search" type="application/opensearchdescription+xml" title="matter.js" href="/matter.js/opensearch.xml">
+    <link rel="icon" href="/matter.js/favicon.ico">
+    <link rel="stylesheet" href="/matter.js/css/style.css">
+    <link media="print" rel="stylesheet" href="/matter.js/css/print.css">
+    <script src="/matter.js/js/fuse.min.js"></script>
+    <script src="/matter.js/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Managing Matter.js Plugin Dependency Loading Order - matter.js" />
+    <meta property="og:url" content="https://salivity.github.io/matter.js/article/managing-matter-js-plugin-dependency-loading-order" />
+    <meta property="og:image" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Managing plugin dependencies in Matter.js requires understanding how the engine's modular architecture identifies, sequences, and registers extensions. This article explains how to properly sequence plugin installation using Matter.use(), leverage the in" />
+    <link rel="manifest" href="/matter.js/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/matter.js/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>matter.js</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/matter.js/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="managing-matterjs-plugin-dependency-loading-order">Managing
+Matter.js Plugin Dependency Loading Order</h1>
+<p>Managing plugin dependencies in Matter.js requires understanding how
+the engine's modular architecture identifies, sequences, and registers
+extensions. This article explains how to properly sequence plugin
+installation using <code>Matter.use()</code>, leverage the internal
+<code>uses</code> property for declarative dependency resolution, and
+prevent initialization errors when extensions depend on one another.</p>
+<h3 id="the-matterjs-plugin-system">The Matter.js Plugin System</h3>
+<p>Matter.js provides a built-in plugin pipeline managed through the
+<code>Matter.Plugin</code> module and the top-level
+<code>Matter.use()</code> function. Plugins can patch core methods,
+register custom collision handlers, or introduce new rendering modules.
+When multiple plugins depend on one another—such as a custom constraint
+solver relying on an extended physics attributes plugin—improper loading
+order causes runtime exceptions or silently drops patched functions.</p>
+<h3 id="defining-plugin-dependencies-declaratively">Defining Plugin
+Dependencies Declaratively</h3>
+<p>The most robust way to manage loading order is by declaring
+dependencies directly inside the plugin's definition object rather than
+relying exclusively on script execution order.</p>
+<p>A standard Matter.js plugin requires a specification object
+containing properties such as <code>name</code>, <code>version</code>,
+and <code>uses</code>:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> PhysicsExtensionPlugin <span class="op">=</span> {</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>  <span class="dt">name</span><span class="op">:</span> <span class="st">&#39;matter-physics-extension&#39;</span><span class="op">,</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>  <span class="dt">version</span><span class="op">:</span> <span class="st">&#39;1.0.0&#39;</span><span class="op">,</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>  <span class="dt">for</span><span class="op">:</span> <span class="st">&#39;matter-js@^0.19.0&#39;</span><span class="op">,</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>  <span class="dt">install</span><span class="op">:</span> <span class="kw">function</span>(base) {</span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Patches applied to Matter.js</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>}<span class="op">;</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> AdvancedToolsPlugin <span class="op">=</span> {</span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>  <span class="dt">name</span><span class="op">:</span> <span class="st">&#39;matter-advanced-tools&#39;</span><span class="op">,</span></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>  <span class="dt">version</span><span class="op">:</span> <span class="st">&#39;1.0.0&#39;</span><span class="op">,</span></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>  <span class="dt">for</span><span class="op">:</span> <span class="st">&#39;matter-js@^0.19.0&#39;</span><span class="op">,</span></span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>  <span class="dt">uses</span><span class="op">:</span> [</span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a>    <span class="st">&#39;matter-physics-extension&#39;</span> <span class="co">// Declares dependency by name</span></span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Or specify direct reference: PhysicsExtensionPlugin</span></span>
+<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a>  ]<span class="op">,</span></span>
+<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a>  <span class="dt">install</span><span class="op">:</span> <span class="kw">function</span>(base) {</span>
+<span id="cb1-19"><a href="#cb1-19" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Logic that relies on PhysicsExtensionPlugin being installed first</span></span>
+<span id="cb1-20"><a href="#cb1-20" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb1-21"><a href="#cb1-21" aria-hidden="true" tabindex="-1"></a>}<span class="op">;</span></span></code></pre></div>
+<p>When you define dependencies inside the <code>uses</code> array,
+Matter.js resolves the dependency graph. If
+<code>AdvancedToolsPlugin</code> is installed, Matter.js checks its
+internal registry (<code>Matter.Plugin._registry</code>) to verify
+whether <code>matter-physics-extension</code> is loaded. If it is
+already registered, it ensures the base patches are available; if passed
+directly as an object reference in <code>uses</code>, Matter.js
+automatically installs the prerequisite before running the dependent
+plugin's <code>install</code> method.</p>
+<h3 id="ordering-with-matteruse">Ordering with
+<code>Matter.use()</code></h3>
+<p>When loading multiple plugins globally in your application bootstrap,
+register your plugins via <code>Matter.use()</code>. You can supply
+plugins in a single call or chained sequentially.</p>
+<h4 id="sequential-loading">Sequential Loading</h4>
+<p>If your plugins are decoupled or do not explicitly declare
+<code>uses</code>, load the lowest-level base plugins first:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Register the foundation plugin first</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>Matter<span class="op">.</span><span class="fu">use</span>(PhysicsExtensionPlugin)<span class="op">;</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a><span class="co">// Register the dependent plugin second</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>Matter<span class="op">.</span><span class="fu">use</span>(AdvancedToolsPlugin)<span class="op">;</span></span></code></pre></div>
+<h4 id="batch-loading">Batch Loading</h4>
+<p><code>Matter.use()</code> accepts multiple arguments. Matter.js
+traverses the provided arguments from left to right:</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a>Matter<span class="op">.</span><span class="fu">use</span>(PhysicsExtensionPlugin<span class="op">,</span> AdvancedToolsPlugin)<span class="op">;</span></span></code></pre></div>
+<p>If <code>AdvancedToolsPlugin</code> declares
+<code>PhysicsExtensionPlugin</code> in its <code>uses</code> array,
+Matter.js validates the installation order automatically, even if the
+developer passes them to <code>Matter.use()</code> simultaneously.</p>
+<h3 id="registering-custom-plugins-before-execution">Registering Custom
+Plugins Before Execution</h3>
+<p>To enable dependency resolution by string name (e.g.,
+<code>'matter-physics-extension'</code>), the dependency must exist in
+the Matter.js registry before the dependent plugin invokes its
+installation lifecycle. Register the base plugin with
+<code>Matter.Plugin.register()</code>:</p>
+<div class="sourceCode" id="cb4"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a>Matter<span class="op">.</span><span class="at">Plugin</span><span class="op">.</span><span class="fu">register</span>(PhysicsExtensionPlugin)<span class="op">;</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>Matter<span class="op">.</span><span class="at">Plugin</span><span class="op">.</span><span class="fu">register</span>(AdvancedToolsPlugin)<span class="op">;</span></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a><span class="co">// Now invoke the top-level installation</span></span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>Matter<span class="op">.</span><span class="fu">use</span>(<span class="st">&#39;matter-advanced-tools&#39;</span>)<span class="op">;</span></span></code></pre></div>
+<p>When <code>Matter.use('matter-advanced-tools')</code> runs, the
+engine inspects the registry for items in the <code>uses</code> list and
+initializes them in the correct dependency order.</p>
+<h3 id="handling-version-constraints-and-conflicts">Handling Version
+Constraints and Conflicts</h3>
+<p>Plugin order issues frequently stem from version mismatches. When
+declaring dependencies, use semver notation within the <code>uses</code>
+definition:</p>
+<div class="sourceCode" id="cb5"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a>uses<span class="op">:</span> [</span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a>  <span class="st">&#39;matter-physics-extension@^1.0.0&#39;</span></span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a>]</span></code></pre></div>
+<p>If an incompatible version of the dependency was loaded prior to the
+dependent plugin, Matter.js outputs a console warning regarding the
+mismatch. To avoid lifecycle conflicts:</p>
+<ol type="1">
+<li>Never apply duplicate patches: wrap installation logic inside the
+<code>install</code> function with a check or rely on
+<code>Matter.use()</code>, which natively prevents reinstalling an
+already active plugin name.</li>
+<li>Initialize core engine components (<code>Engine.create()</code>,
+<code>Render.create()</code>) <strong>after</strong> all
+<code>Matter.use()</code> calls have completed so that prototypes are
+fully patched before instances are created.</li>
+</ol></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/matter.js'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/matter.js/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/matter.js/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>What Is Matter.Composites in Matter.js? - matter.js</title>
+    <meta name="description" content="The Matter.Composites module in the Matter.js 2D physics engine is a utility library used to quickly generate complex, multi-body physical structures and geometric arrangements. Instead of requiring developers to manually calculate coordinates, instantia">
+    <link rel="canonical" href="https://salivity.github.io/matter.js/article/what-is-matter-composites-in-matter-js">
+    <link rel="search" type="application/opensearchdescription+xml" title="matter.js" href="/matter.js/opensearch.xml">
+    <link rel="icon" href="/matter.js/favicon.ico">
+    <link rel="stylesheet" href="/matter.js/css/style.css">
+    <link media="print" rel="stylesheet" href="/matter.js/css/print.css">
+    <script src="/matter.js/js/fuse.min.js"></script>
+    <script src="/matter.js/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="What Is Matter.Composites in Matter.js? - matter.js" />
+    <meta property="og:url" content="https://salivity.github.io/matter.js/article/what-is-matter-composites-in-matter-js" />
+    <meta property="og:image" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="The Matter.Composites module in the Matter.js 2D physics engine is a utility library used to quickly generate complex, multi-body physical structures and geometric arrangements. Instead of requiring developers to manually calculate coordinates, instantia" />
+    <link rel="manifest" href="/matter.js/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/matter.js/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>matter.js</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/matter.js/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="what-is-mattercomposites-in-matterjs">What Is Matter.Composites
+in Matter.js?</h1>
+<p>The <code>Matter.Composites</code> module in the Matter.js 2D physics
+engine is a utility library used to quickly generate complex, multi-body
+physical structures and geometric arrangements. Instead of requiring
+developers to manually calculate coordinates, instantiate dozens of
+individual bodies, and link them with custom constraints, this module
+provides pre-packaged factory methods to generate common physics presets
+such as ropes, stacks, cloth meshes, and vehicles in just a few lines of
+code.</p>
+<h3 id="core-purpose">Core Purpose</h3>
+<p>In Matter.js, a <code>Composite</code> is simply a container that
+holds bodies, constraints, and even nested composites. The
+<code>Matter.Composites</code> module builds directly on this concept by
+offering procedural generators that produce fully assembled
+<code>Composite</code> objects configured for immediate addition to the
+physics world.</p>
+<h3 id="key-applications-and-factory-methods">Key Applications and
+Factory Methods</h3>
+<ul>
+<li><strong>Grids and Pyramids (<code>stack</code>,
+<code>pyramid</code>):</strong> Creates organized arrays of bodies. The
+<code>stack</code> method places bodies in rows and columns with
+configurable gaps, which is commonly used to build walls, block towers,
+or particle grids. The <code>pyramid</code> method creates triangular
+arrangements ideal for bowling pins or destructible structures.</li>
+<li><strong>Chains and Ropes (<code>chain</code>):</strong>
+Automatically connects an array of sequential bodies using distance
+constraints. This is primarily used to build ropes, swinging pendulums,
+suspension bridges, or hanging signs.</li>
+<li><strong>Soft Bodies and Cloth (<code>softBody</code>,
+<code>mesh</code>):</strong> Generates flexible, deformable assemblies.
+The <code>mesh</code> method connects bodies in a 2D grid using
+cross-braced constraints, simulating cloth or net physics. The
+<code>softBody</code> method creates a similar grid wrapped in an outer
+hull, simulating jelly-like, squishy objects that compress and bounce
+back into shape.</li>
+<li><strong>Vehicles (<code>car</code>):</strong> Instantiates a
+functional compound vehicle structure consisting of a main chassis, two
+wheels, and axle constraints configured to allow wheel rotation relative
+to the body.</li>
+<li><strong>Mechanical Demonstrations
+(<code>newtonsCradle</code>):</strong> Creates a functional Newton's
+Cradle toy, providing an out-of-the-box demonstration of momentum and
+energy conservation.</li>
+</ul>
+<h3 id="why-use-mattercomposites">Why Use Matter.Composites</h3>
+<p>By abstracting the math and boilerplate required to bind bodies and
+springs together, <code>Matter.Composites</code> dramatically
+accelerates game development and physics prototyping. It ensures that
+complex structures behave stably out of the box by using optimized
+default stiffness, damping, and collision filtering settings.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/matter.js'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/matter.js/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/matter.js/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

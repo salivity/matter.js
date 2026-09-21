@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How to Optimize Matter.js Constraints - matter.js</title>
+    <meta name="description" content="Running a physics simulation with hundreds of constraints in Matter.js can quickly degrade performance and cause visible physics jitter. This article outlines the key techniques required to optimize constraint-heavy simulations, including reducing solver">
+    <link rel="canonical" href="https://salivity.github.io/matter.js/article/how-to-optimize-matter-js-constraints">
+    <link rel="search" type="application/opensearchdescription+xml" title="matter.js" href="/matter.js/opensearch.xml">
+    <link rel="icon" href="/matter.js/favicon.ico">
+    <link rel="stylesheet" href="/matter.js/css/style.css">
+    <link media="print" rel="stylesheet" href="/matter.js/css/print.css">
+    <script src="/matter.js/js/fuse.min.js"></script>
+    <script src="/matter.js/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How to Optimize Matter.js Constraints - matter.js" />
+    <meta property="og:url" content="https://salivity.github.io/matter.js/article/how-to-optimize-matter-js-constraints" />
+    <meta property="og:image" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Running a physics simulation with hundreds of constraints in Matter.js can quickly degrade performance and cause visible physics jitter. This article outlines the key techniques required to optimize constraint-heavy simulations, including reducing solver" />
+    <link rel="manifest" href="/matter.js/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/matter.js/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>matter.js</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/matter.js/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="how-to-optimize-matterjs-constraints">How to Optimize Matter.js
+Constraints</h1>
+<p>Running a physics simulation with hundreds of constraints in
+Matter.js can quickly degrade performance and cause visible physics
+jitter. This article outlines the key techniques required to optimize
+constraint-heavy simulations, including reducing solver iterations,
+configuring body sleeping, eliminating redundant collisions, simplifying
+constraint graphs, and managing update loops to maintain a stable 60
+frames per second.</p>
+<h3 id="1-reduce-constraint-iterations">1. Reduce Constraint
+Iterations</h3>
+<p>By default, the Matter.js engine runs multiple solver iterations per
+frame to resolve constraint positions and velocities accurately. While
+this improves rigid stability, it scales poorly when processing hundreds
+of constraints.</p>
+<p>You can dramatically reduce CPU overhead by lowering
+<code>constraintIterations</code> on the engine instance:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a>engine<span class="op">.</span><span class="at">constraintIterations</span> <span class="op">=</span> <span class="dv">2</span><span class="op">;</span> <span class="co">// Default is usually 2 or higher depending on configuration</span></span></code></pre></div>
+<p>If your constraints are non-critical (such as soft ropes or cloth
+simulations) rather than rigid scaffolding, setting this value between 1
+and 2 frees up substantial processing time.</p>
+<h3 id="2-disable-collisions-between-connected-bodies">2. Disable
+Collisions Between Connected Bodies</h3>
+<p>When two bodies are linked by a constraint, you often do not want
+them to collide with each other. Allowing the broadphase and narrowphase
+collision detectors to check pairs that are permanently connected wastes
+resources.</p>
+<p>Use collision filtering to bypass collision checks between connected
+bodies:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> group <span class="op">=</span> Matter<span class="op">.</span><span class="at">Body</span><span class="op">.</span><span class="fu">nextGroup</span>(<span class="kw">true</span>)<span class="op">;</span> <span class="co">// Negative group disables collisions among members</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>bodyA<span class="op">.</span><span class="at">collisionFilter</span><span class="op">.</span><span class="at">group</span> <span class="op">=</span> group<span class="op">;</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>bodyB<span class="op">.</span><span class="at">collisionFilter</span><span class="op">.</span><span class="at">group</span> <span class="op">=</span> group<span class="op">;</span></span></code></pre></div>
+<p>Alternatively, set <code>collisionFilter.mask = 0</code> on bodies
+that only need to follow constraint kinematics without interacting with
+the environment.</p>
+<h3 id="3-enable-engine-sleeping">3. Enable Engine Sleeping</h3>
+<p>Simulating hundreds of stationary or slowly moving constraints
+consumes frame budget unnecessarily. Enabling the sleeping module allows
+inactive bodies and their associated constraints to rest until an
+external force or collision acts upon them.</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> engine <span class="op">=</span> Matter<span class="op">.</span><span class="at">Engine</span><span class="op">.</span><span class="fu">create</span>({</span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>  <span class="dt">enableSleeping</span><span class="op">:</span> <span class="kw">true</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div>
+<p>Ensure bodies have an appropriate <code>sleepThreshold</code> so they
+settle into a sleeping state quickly once motion drops below a specific
+velocity.</p>
+<h3 id="4-replace-rigid-constraints-with-compound-bodies">4. Replace
+Rigid Constraints with Compound Bodies</h3>
+<p>Connecting two rigid bodies with a zero-length or stiff distance
+constraint forces the constraint solver to calculate corrective forces
+every frame. If the connection between two bodies never breaks or bends,
+combine them into a single compound body instead:</p>
+<div class="sourceCode" id="cb4"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> compoundBody <span class="op">=</span> Matter<span class="op">.</span><span class="at">Body</span><span class="op">.</span><span class="fu">create</span>({</span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>  <span class="dt">parts</span><span class="op">:</span> [bodyA<span class="op">,</span> bodyB]</span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div>
+<p>Compound bodies are handled natively by the rigid-body solver,
+entirely bypassing constraint overhead.</p>
+<h3 id="5-tune-stiffness-and-damping">5. Tune Stiffness and Damping</h3>
+<p>Constraints with extremely high stiffness combined with long chains
+(like a dense rope or mesh) produce numerical instability, forcing you
+to use higher iterations to prevent "explosions."</p>
+<ul>
+<li>Lower the <code>stiffness</code> value (e.g., from <code>1</code> to
+<code>0.8</code> or lower) to create softer, more stable
+calculations.</li>
+<li>Increase <code>damping</code> slightly to prevent persistent
+harmonic oscillation, allowing bodies to reach equilibrium faster.</li>
+</ul>
+<div class="sourceCode" id="cb5"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> constraint <span class="op">=</span> Matter<span class="op">.</span><span class="at">Constraint</span><span class="op">.</span><span class="fu">create</span>({</span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a>  <span class="dt">bodyA</span><span class="op">:</span> bodyA<span class="op">,</span></span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a>  <span class="dt">bodyB</span><span class="op">:</span> bodyB<span class="op">,</span></span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a>  <span class="dt">stiffness</span><span class="op">:</span> <span class="fl">0.7</span><span class="op">,</span></span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a>  <span class="dt">damping</span><span class="op">:</span> <span class="fl">0.1</span></span>
+<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div>
+<h3 id="6-decouple-physics-updates-from-rendering">6. Decouple Physics
+Updates from Rendering</h3>
+<p>Ensure your simulation runs on a fixed time step rather than a
+variable time step tied directly to <code>requestAnimationFrame</code>.
+Variable deltas force the solver to continuously compensate for
+fluctuating step sizes, which causes performance hitches under load.</p>
+<p>Use a fixed delta with <code>Matter.Engine.update</code>:</p>
+<div class="sourceCode" id="cb6"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> fixedDelta <span class="op">=</span> <span class="dv">1000</span> <span class="op">/</span> <span class="dv">60</span><span class="op">;</span></span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">tick</span>() {</span>
+<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a>  Matter<span class="op">.</span><span class="at">Engine</span><span class="op">.</span><span class="fu">update</span>(engine<span class="op">,</span> fixedDelta)<span class="op">;</span></span>
+<span id="cb6-5"><a href="#cb6-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">requestAnimationFrame</span>(tick)<span class="op">;</span></span>
+<span id="cb6-6"><a href="#cb6-6" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<p>If rendering is a bottleneck alongside physics, avoid using the
+built-in <code>Matter.Render</code> canvas renderer for large constraint
+counts. Instead, write a custom rendering loop using PixiJS, WebGL, or
+raw Canvas paths to batch draw lines and particles efficiently.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/matter.js'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/matter.js/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/matter.js/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

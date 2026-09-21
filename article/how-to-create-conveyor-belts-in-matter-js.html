@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How to Create Conveyor Belts in Matter.js - matter.js</title>
+    <meta name="description" content="Simulating conveyor belt mechanics in Matter.js requires applying a continuous tangential force or velocity modification to bodies in contact with the belt surface. Because Matter.js lacks a native "surface velocity" property like some other 2D physics e">
+    <link rel="canonical" href="https://salivity.github.io/matter.js/article/how-to-create-conveyor-belts-in-matter-js">
+    <link rel="search" type="application/opensearchdescription+xml" title="matter.js" href="/matter.js/opensearch.xml">
+    <link rel="icon" href="/matter.js/favicon.ico">
+    <link rel="stylesheet" href="/matter.js/css/style.css">
+    <link media="print" rel="stylesheet" href="/matter.js/css/print.css">
+    <script src="/matter.js/js/fuse.min.js"></script>
+    <script src="/matter.js/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How to Create Conveyor Belts in Matter.js - matter.js" />
+    <meta property="og:url" content="https://salivity.github.io/matter.js/article/how-to-create-conveyor-belts-in-matter-js" />
+    <meta property="og:image" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Simulating conveyor belt mechanics in Matter.js requires applying a continuous tangential force or velocity modification to bodies in contact with the belt surface. Because Matter.js lacks a native "surface velocity" property like some other 2D physics e" />
+    <link rel="manifest" href="/matter.js/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/matter.js/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>matter.js</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/matter.js/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="how-to-create-conveyor-belts-in-matterjs">How to Create Conveyor
+Belts in Matter.js</h1>
+<p>Simulating conveyor belt mechanics in Matter.js requires applying a
+continuous tangential force or velocity modification to bodies in
+contact with the belt surface. Because Matter.js lacks a native "surface
+velocity" property like some other 2D physics engines, this behavior is
+achieved by detecting collisions between dynamic objects and the
+conveyor body using collision events, calculating the surface tangent
+vector, and applying directional force to the interacting bodies on each
+physics step.</p>
+<h2 id="creating-the-conveyor-body">Creating the Conveyor Body</h2>
+<p>Start by defining the conveyor belt as a static body within your
+Matter.js world. Set its friction high enough to prevent contacting
+objects from sliding freely without interacting with the belt
+surface.</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> conveyorBelt <span class="op">=</span> Matter<span class="op">.</span><span class="at">Bodies</span><span class="op">.</span><span class="fu">rectangle</span>(<span class="dv">400</span><span class="op">,</span> <span class="dv">500</span><span class="op">,</span> <span class="dv">300</span><span class="op">,</span> <span class="dv">20</span><span class="op">,</span> {</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>    <span class="dt">isStatic</span><span class="op">:</span> <span class="kw">true</span><span class="op">,</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>    <span class="dt">friction</span><span class="op">:</span> <span class="fl">0.8</span><span class="op">,</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>    <span class="dt">angle</span><span class="op">:</span> <span class="dv">0</span> <span class="co">// Can be angled to support inclined belts</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>Matter<span class="op">.</span><span class="at">Composite</span><span class="op">.</span><span class="fu">add</span>(engine<span class="op">.</span><span class="at">world</span><span class="op">,</span> conveyorBelt)<span class="op">;</span></span></code></pre></div>
+<h2 id="detecting-active-collisions">Detecting Active Collisions</h2>
+<p>To exert a continuous tangential force, listen to the
+<code>collisionActive</code> event emitted by the
+<code>Matter.Engine</code>. This event fires on every tick for any
+bodies that are currently touching, allowing you to filter for
+collisions involving your conveyor belt.</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a>Matter<span class="op">.</span><span class="at">Events</span><span class="op">.</span><span class="fu">on</span>(engine<span class="op">,</span> <span class="st">&#39;collisionActive&#39;</span><span class="op">,</span> (<span class="bu">event</span>) <span class="kw">=&gt;</span> {</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> pairs <span class="op">=</span> <span class="bu">event</span><span class="op">.</span><span class="at">pairs</span><span class="op">;</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> (<span class="kw">let</span> i <span class="op">=</span> <span class="dv">0</span><span class="op">;</span> i <span class="op">&lt;</span> pairs<span class="op">.</span><span class="at">length</span><span class="op">;</span> i<span class="op">++</span>) {</span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>        <span class="kw">const</span> { bodyA<span class="op">,</span> bodyB } <span class="op">=</span> pairs[i]<span class="op">;</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> (bodyA <span class="op">===</span> conveyorBelt <span class="op">||</span> bodyB <span class="op">===</span> conveyorBelt) {</span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>            <span class="kw">const</span> movingObject <span class="op">=</span> bodyA <span class="op">===</span> conveyorBelt <span class="op">?</span> bodyB <span class="op">:</span> bodyA<span class="op">;</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>            <span class="cf">if</span> (<span class="op">!</span>movingObject<span class="op">.</span><span class="at">isStatic</span>) {</span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>                <span class="fu">applyConveyorForce</span>(conveyorBelt<span class="op">,</span> movingObject)<span class="op">;</span></span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>            }</span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>        }</span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div>
+<h2 id="calculating-and-applying-tangential-force">Calculating and
+Applying Tangential Force</h2>
+<p>The tangential force must align with the orientation of the conveyor
+belt. Use the conveyor body's <code>angle</code> property to compute the
+unit tangent vector, scale it by your desired force magnitude, and apply
+it to the contacting body using <code>Matter.Body.applyForce</code>.</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">applyConveyorForce</span>(belt<span class="op">,</span> targetBody) {</span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> beltSpeed <span class="op">=</span> <span class="fl">0.005</span><span class="op">;</span> <span class="co">// Force magnitude scaled to object mass</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Calculate the tangent vector parallel to the belt surface</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> tangentX <span class="op">=</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">cos</span>(belt<span class="op">.</span><span class="at">angle</span>)<span class="op">;</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> tangentY <span class="op">=</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">sin</span>(belt<span class="op">.</span><span class="at">angle</span>)<span class="op">;</span></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Apply the tangential force directly at the center of mass</span></span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a>    Matter<span class="op">.</span><span class="at">Body</span><span class="op">.</span><span class="fu">applyForce</span>(targetBody<span class="op">,</span> targetBody<span class="op">.</span><span class="at">position</span><span class="op">,</span> {</span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a>        <span class="dt">x</span><span class="op">:</span> tangentX <span class="op">*</span> beltSpeed <span class="op">*</span> targetBody<span class="op">.</span><span class="at">mass</span><span class="op">,</span></span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a>        <span class="dt">y</span><span class="op">:</span> tangentY <span class="op">*</span> beltSpeed <span class="op">*</span> targetBody<span class="op">.</span><span class="at">mass</span></span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a>    })<span class="op">;</span></span>
+<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<p>Multiplying the force by <code>targetBody.mass</code> ensures that
+objects of differing masses accelerate along the conveyor belt at a
+consistent rate.</p>
+<h2
+id="alternative-velocity-clamping-for-consistent-belt-speed">Alternative:
+Velocity Clamping for Consistent Belt Speed</h2>
+<p>If using <code>Body.applyForce</code> results in objects constantly
+accelerating beyond the intended belt speed, you can instead adjust the
+body's velocity directly or clamp it along the tangent axis:</p>
+<div class="sourceCode" id="cb4"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">applyConveyorVelocity</span>(belt<span class="op">,</span> targetBody) {</span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> targetSpeed <span class="op">=</span> <span class="dv">3</span><span class="op">;</span> <span class="co">// Desired belt speed in pixels/step</span></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> tangentX <span class="op">=</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">cos</span>(belt<span class="op">.</span><span class="at">angle</span>)<span class="op">;</span></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> tangentY <span class="op">=</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">sin</span>(belt<span class="op">.</span><span class="at">angle</span>)<span class="op">;</span></span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Project current velocity onto the tangent vector</span></span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> currentTangentSpeed <span class="op">=</span> (targetBody<span class="op">.</span><span class="at">velocity</span><span class="op">.</span><span class="at">x</span> <span class="op">*</span> tangentX) <span class="op">+</span> (targetBody<span class="op">.</span><span class="at">velocity</span><span class="op">.</span><span class="at">y</span> <span class="op">*</span> tangentY)<span class="op">;</span></span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (currentTangentSpeed <span class="op">&lt;</span> targetSpeed) {</span>
+<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a>        <span class="co">// Accelerate object toward target speed along the surface</span></span>
+<span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a>        <span class="kw">const</span> speedDifference <span class="op">=</span> targetSpeed <span class="op">-</span> currentTangentSpeed<span class="op">;</span></span>
+<span id="cb4-12"><a href="#cb4-12" aria-hidden="true" tabindex="-1"></a>        <span class="kw">const</span> forceMagnitude <span class="op">=</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">min</span>(speedDifference <span class="op">*</span> <span class="fl">0.01</span><span class="op">,</span> <span class="fl">0.05</span>)<span class="op">;</span></span>
+<span id="cb4-13"><a href="#cb4-13" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-14"><a href="#cb4-14" aria-hidden="true" tabindex="-1"></a>        Matter<span class="op">.</span><span class="at">Body</span><span class="op">.</span><span class="fu">applyForce</span>(targetBody<span class="op">,</span> targetBody<span class="op">.</span><span class="at">position</span><span class="op">,</span> {</span>
+<span id="cb4-15"><a href="#cb4-15" aria-hidden="true" tabindex="-1"></a>            <span class="dt">x</span><span class="op">:</span> tangentX <span class="op">*</span> forceMagnitude <span class="op">*</span> targetBody<span class="op">.</span><span class="at">mass</span><span class="op">,</span></span>
+<span id="cb4-16"><a href="#cb4-16" aria-hidden="true" tabindex="-1"></a>            <span class="dt">y</span><span class="op">:</span> tangentY <span class="op">*</span> forceMagnitude <span class="op">*</span> targetBody<span class="op">.</span><span class="at">mass</span></span>
+<span id="cb4-17"><a href="#cb4-17" aria-hidden="true" tabindex="-1"></a>        })<span class="op">;</span></span>
+<span id="cb4-18"><a href="#cb4-18" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb4-19"><a href="#cb4-19" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<p>This velocity-aware approach mimics real-world conveyor systems by
+accelerating bodies until they match the linear speed of the belt,
+preventing runaway acceleration while maintaining stable friction-based
+physics interactions.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/matter.js'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/matter.js/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/matter.js/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

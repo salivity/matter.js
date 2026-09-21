@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How to Sync PixiJS Sprites with Matter.js - matter.js</title>
+    <meta name="description" content="Synchronizing PixiJS sprites with Matter.js rigid bodies allows you to leverage Matter.js for accurate 2D physics simulation while using PixiJS for high-performance WebGL rendering. Because Matter.js calculates motion and collision data headlessly withou">
+    <link rel="canonical" href="https://salivity.github.io/matter.js/article/how-to-sync-pixi-js-sprites-with-matter-js">
+    <link rel="search" type="application/opensearchdescription+xml" title="matter.js" href="/matter.js/opensearch.xml">
+    <link rel="icon" href="/matter.js/favicon.ico">
+    <link rel="stylesheet" href="/matter.js/css/style.css">
+    <link media="print" rel="stylesheet" href="/matter.js/css/print.css">
+    <script src="/matter.js/js/fuse.min.js"></script>
+    <script src="/matter.js/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How to Sync PixiJS Sprites with Matter.js - matter.js" />
+    <meta property="og:url" content="https://salivity.github.io/matter.js/article/how-to-sync-pixi-js-sprites-with-matter-js" />
+    <meta property="og:image" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Synchronizing PixiJS sprites with Matter.js rigid bodies allows you to leverage Matter.js for accurate 2D physics simulation while using PixiJS for high-performance WebGL rendering. Because Matter.js calculates motion and collision data headlessly withou" />
+    <link rel="manifest" href="/matter.js/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/matter.js/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>matter.js</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/matter.js/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="how-to-sync-pixijs-sprites-with-matterjs">How to Sync PixiJS
+Sprites with Matter.js</h1>
+<p>Synchronizing PixiJS sprites with Matter.js rigid bodies allows you
+to leverage Matter.js for accurate 2D physics simulation while using
+PixiJS for high-performance WebGL rendering. Because Matter.js
+calculates motion and collision data headlessly without drawing
+graphics, you must manually bind each visual sprite's position and
+rotation properties to its corresponding physics body inside an active
+rendering loop.</p>
+<h3 id="1-align-the-sprite-anchor-point">1. Align the Sprite Anchor
+Point</h3>
+<p>By default, PixiJS positions and rotates sprites relative to their
+top-left corner <code>(0, 0)</code>. In contrast, Matter.js defines a
+body's position and rotation around its center of mass. To ensure the
+sprite visually aligns with the physics body during movement and
+rotation, set the sprite's anchor to its center:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a>sprite<span class="op">.</span><span class="at">anchor</span><span class="op">.</span><span class="fu">set</span>(<span class="fl">0.5</span>)<span class="op">;</span></span></code></pre></div>
+<h3 id="2-associate-the-sprite-with-the-body">2. Associate the Sprite
+with the Body</h3>
+<p>To update pairs efficiently, establish a direct reference between
+each Matter.js body and its corresponding PixiJS sprite. The simplest
+method is attaching the sprite directly to the body object:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> body <span class="op">=</span> Matter<span class="op">.</span><span class="at">Bodies</span><span class="op">.</span><span class="fu">rectangle</span>(x<span class="op">,</span> y<span class="op">,</span> width<span class="op">,</span> height)<span class="op">;</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> sprite <span class="op">=</span> PIXI<span class="op">.</span><span class="at">Sprite</span><span class="op">.</span><span class="fu">from</span>(<span class="st">&#39;texture.png&#39;</span>)<span class="op">;</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>sprite<span class="op">.</span><span class="at">anchor</span><span class="op">.</span><span class="fu">set</span>(<span class="fl">0.5</span>)<span class="op">;</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a><span class="co">// Link the sprite to the body</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>body<span class="op">.</span><span class="at">plugin</span> <span class="op">=</span> { <span class="dt">sprite</span><span class="op">:</span> sprite }<span class="op">;</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>Matter<span class="op">.</span><span class="at">Composite</span><span class="op">.</span><span class="fu">add</span>(engine<span class="op">.</span><span class="at">world</span><span class="op">,</span> body)<span class="op">;</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>app<span class="op">.</span><span class="at">stage</span><span class="op">.</span><span class="fu">addChild</span>(sprite)<span class="op">;</span></span></code></pre></div>
+<p>Alternatively, you can maintain an array of paired references:</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> physicsPairs <span class="op">=</span> []<span class="op">;</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>physicsPairs<span class="op">.</span><span class="fu">push</span>({ body<span class="op">,</span> sprite })<span class="op">;</span></span></code></pre></div>
+<h3 id="3-update-position-and-rotation-in-the-render-loop">3. Update
+Position and Rotation in the Render Loop</h3>
+<p>Inside the PixiJS ticker or your main
+<code>requestAnimationFrame</code> loop, update the physics engine
+first, then transfer the calculated coordinates and rotation angles from
+the Matter.js body to the PixiJS sprite.</p>
+<div class="sourceCode" id="cb4"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a>app<span class="op">.</span><span class="at">ticker</span><span class="op">.</span><span class="fu">add</span>(() <span class="kw">=&gt;</span> {</span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>    <span class="co">// 1. Advance the physics engine</span></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>    Matter<span class="op">.</span><span class="at">Engine</span><span class="op">.</span><span class="fu">update</span>(engine<span class="op">,</span> app<span class="op">.</span><span class="at">ticker</span><span class="op">.</span><span class="at">deltaMS</span>)<span class="op">;</span></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>    <span class="co">// 2. Sync properties for each paired object</span></span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> (<span class="kw">const</span> pair <span class="kw">of</span> physicsPairs) {</span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a>        pair<span class="op">.</span><span class="at">sprite</span><span class="op">.</span><span class="at">position</span><span class="op">.</span><span class="at">x</span> <span class="op">=</span> pair<span class="op">.</span><span class="at">body</span><span class="op">.</span><span class="at">position</span><span class="op">.</span><span class="at">x</span><span class="op">;</span></span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a>        pair<span class="op">.</span><span class="at">sprite</span><span class="op">.</span><span class="at">position</span><span class="op">.</span><span class="at">y</span> <span class="op">=</span> pair<span class="op">.</span><span class="at">body</span><span class="op">.</span><span class="at">position</span><span class="op">.</span><span class="at">y</span><span class="op">;</span></span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a>        pair<span class="op">.</span><span class="at">sprite</span><span class="op">.</span><span class="at">rotation</span> <span class="op">=</span> pair<span class="op">.</span><span class="at">body</span><span class="op">.</span><span class="at">angle</span><span class="op">;</span></span>
+<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div>
+<h3 id="complete-implementation-example">Complete Implementation
+Example</h3>
+<div class="sourceCode" id="cb5"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> <span class="op">*</span> <span class="im">as</span> PIXI <span class="im">from</span> <span class="st">&#39;pixi.js&#39;</span><span class="op">;</span></span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> Matter <span class="im">from</span> <span class="st">&#39;matter-js&#39;</span><span class="op">;</span></span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a><span class="co">// Setup PixiJS Application</span></span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> app <span class="op">=</span> <span class="kw">new</span> PIXI<span class="op">.</span><span class="fu">Application</span>({ <span class="dt">width</span><span class="op">:</span> <span class="dv">800</span><span class="op">,</span> <span class="dt">height</span><span class="op">:</span> <span class="dv">600</span> })<span class="op">;</span></span>
+<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a><span class="bu">document</span><span class="op">.</span><span class="at">body</span><span class="op">.</span><span class="fu">appendChild</span>(app<span class="op">.</span><span class="at">view</span>)<span class="op">;</span></span>
+<span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-8"><a href="#cb5-8" aria-hidden="true" tabindex="-1"></a><span class="co">// Setup Matter.js Engine</span></span>
+<span id="cb5-9"><a href="#cb5-9" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> engine <span class="op">=</span> Matter<span class="op">.</span><span class="at">Engine</span><span class="op">.</span><span class="fu">create</span>()<span class="op">;</span></span>
+<span id="cb5-10"><a href="#cb5-10" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> world <span class="op">=</span> engine<span class="op">.</span><span class="at">world</span><span class="op">;</span></span>
+<span id="cb5-11"><a href="#cb5-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-12"><a href="#cb5-12" aria-hidden="true" tabindex="-1"></a><span class="co">// Create a Matter.js Box Body</span></span>
+<span id="cb5-13"><a href="#cb5-13" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> boxBody <span class="op">=</span> Matter<span class="op">.</span><span class="at">Bodies</span><span class="op">.</span><span class="fu">rectangle</span>(<span class="dv">400</span><span class="op">,</span> <span class="dv">100</span><span class="op">,</span> <span class="dv">60</span><span class="op">,</span> <span class="dv">60</span><span class="op">,</span> { <span class="dt">restitution</span><span class="op">:</span> <span class="fl">0.8</span> })<span class="op">;</span></span>
+<span id="cb5-14"><a href="#cb5-14" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> groundBody <span class="op">=</span> Matter<span class="op">.</span><span class="at">Bodies</span><span class="op">.</span><span class="fu">rectangle</span>(<span class="dv">400</span><span class="op">,</span> <span class="dv">580</span><span class="op">,</span> <span class="dv">810</span><span class="op">,</span> <span class="dv">40</span><span class="op">,</span> { <span class="dt">isStatic</span><span class="op">:</span> <span class="kw">true</span> })<span class="op">;</span></span>
+<span id="cb5-15"><a href="#cb5-15" aria-hidden="true" tabindex="-1"></a>Matter<span class="op">.</span><span class="at">Composite</span><span class="op">.</span><span class="fu">add</span>(world<span class="op">,</span> [boxBody<span class="op">,</span> groundBody])<span class="op">;</span></span>
+<span id="cb5-16"><a href="#cb5-16" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-17"><a href="#cb5-17" aria-hidden="true" tabindex="-1"></a><span class="co">// Create PixiJS Sprites</span></span>
+<span id="cb5-18"><a href="#cb5-18" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> boxSprite <span class="op">=</span> PIXI<span class="op">.</span><span class="at">Sprite</span><span class="op">.</span><span class="fu">from</span>(PIXI<span class="op">.</span><span class="at">Texture</span><span class="op">.</span><span class="at">WHITE</span>)<span class="op">;</span></span>
+<span id="cb5-19"><a href="#cb5-19" aria-hidden="true" tabindex="-1"></a>boxSprite<span class="op">.</span><span class="at">width</span> <span class="op">=</span> <span class="dv">60</span><span class="op">;</span></span>
+<span id="cb5-20"><a href="#cb5-20" aria-hidden="true" tabindex="-1"></a>boxSprite<span class="op">.</span><span class="at">height</span> <span class="op">=</span> <span class="dv">60</span><span class="op">;</span></span>
+<span id="cb5-21"><a href="#cb5-21" aria-hidden="true" tabindex="-1"></a>boxSprite<span class="op">.</span><span class="at">tint</span> <span class="op">=</span> <span class="bn">0xff0000</span><span class="op">;</span></span>
+<span id="cb5-22"><a href="#cb5-22" aria-hidden="true" tabindex="-1"></a>boxSprite<span class="op">.</span><span class="at">anchor</span><span class="op">.</span><span class="fu">set</span>(<span class="fl">0.5</span>)<span class="op">;</span></span>
+<span id="cb5-23"><a href="#cb5-23" aria-hidden="true" tabindex="-1"></a>app<span class="op">.</span><span class="at">stage</span><span class="op">.</span><span class="fu">addChild</span>(boxSprite)<span class="op">;</span></span>
+<span id="cb5-24"><a href="#cb5-24" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-25"><a href="#cb5-25" aria-hidden="true" tabindex="-1"></a><span class="co">// Animation Loop</span></span>
+<span id="cb5-26"><a href="#cb5-26" aria-hidden="true" tabindex="-1"></a>app<span class="op">.</span><span class="at">ticker</span><span class="op">.</span><span class="fu">add</span>(() <span class="kw">=&gt;</span> {</span>
+<span id="cb5-27"><a href="#cb5-27" aria-hidden="true" tabindex="-1"></a>    Matter<span class="op">.</span><span class="at">Engine</span><span class="op">.</span><span class="fu">update</span>(engine<span class="op">,</span> app<span class="op">.</span><span class="at">ticker</span><span class="op">.</span><span class="at">deltaMS</span>)<span class="op">;</span></span>
+<span id="cb5-28"><a href="#cb5-28" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-29"><a href="#cb5-29" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Synchronize coordinates and rotation</span></span>
+<span id="cb5-30"><a href="#cb5-30" aria-hidden="true" tabindex="-1"></a>    boxSprite<span class="op">.</span><span class="at">position</span><span class="op">.</span><span class="fu">set</span>(boxBody<span class="op">.</span><span class="at">position</span><span class="op">.</span><span class="at">x</span><span class="op">,</span> boxBody<span class="op">.</span><span class="at">position</span><span class="op">.</span><span class="at">y</span>)<span class="op">;</span></span>
+<span id="cb5-31"><a href="#cb5-31" aria-hidden="true" tabindex="-1"></a>    boxSprite<span class="op">.</span><span class="at">rotation</span> <span class="op">=</span> boxBody<span class="op">.</span><span class="at">angle</span><span class="op">;</span></span>
+<span id="cb5-32"><a href="#cb5-32" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/matter.js'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/matter.js/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/matter.js/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

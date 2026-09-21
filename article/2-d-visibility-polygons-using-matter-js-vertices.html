@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>2D Visibility Polygons Using Matter.js Vertices - matter.js</title>
+    <meta name="description" content="Calculating a 2D line-of-sight visibility polygon around Matter.js obstacles involves extracting absolute world vertices from physics bodies, casting angular rays toward those vertices, finding the closest ray-edge intersections, and sorting the intersec">
+    <link rel="canonical" href="https://salivity.github.io/matter.js/article/2-d-visibility-polygons-using-matter-js-vertices">
+    <link rel="search" type="application/opensearchdescription+xml" title="matter.js" href="/matter.js/opensearch.xml">
+    <link rel="icon" href="/matter.js/favicon.ico">
+    <link rel="stylesheet" href="/matter.js/css/style.css">
+    <link media="print" rel="stylesheet" href="/matter.js/css/print.css">
+    <script src="/matter.js/js/fuse.min.js"></script>
+    <script src="/matter.js/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="2D Visibility Polygons Using Matter.js Vertices - matter.js" />
+    <meta property="og:url" content="https://salivity.github.io/matter.js/article/2-d-visibility-polygons-using-matter-js-vertices" />
+    <meta property="og:image" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Calculating a 2D line-of-sight visibility polygon around Matter.js obstacles involves extracting absolute world vertices from physics bodies, casting angular rays toward those vertices, finding the closest ray-edge intersections, and sorting the intersec" />
+    <link rel="manifest" href="/matter.js/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/matter.js/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>matter.js</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/matter.js/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="2d-visibility-polygons-using-matterjs-vertices">2D Visibility
+Polygons Using Matter.js Vertices</h1>
+<p>Calculating a 2D line-of-sight visibility polygon around Matter.js
+obstacles involves extracting absolute world vertices from physics
+bodies, casting angular rays toward those vertices, finding the closest
+ray-edge intersections, and sorting the intersection points radially to
+construct a closed polygon. This technique allows developers to create
+dynamic field-of-view (FOV), lighting, and stealth mechanics directly
+synchronized with the Matter.js physics simulation.</p>
+<h2 id="1-extracting-line-segments-from-matterjs-bodies">1. Extracting
+Line Segments from Matter.js Bodies</h2>
+<p>Matter.js stores the world-space coordinates of a rigid body inside
+its <code>vertices</code> array. If your simulation contains compound
+bodies, you should iterate through <code>body.parts</code> (skipping the
+parent body at index <code>0</code> if parts exist) to collect accurate
+geometric boundaries.</p>
+<p>To build the visibility obstacle set, extract every edge as a line
+segment defined by two endpoints <span class="math inline">\((A,
+B)\)</span>:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">getObstacleSegments</span>(bodies<span class="op">,</span> mapBounds) {</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> segments <span class="op">=</span> []<span class="op">;</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>  <span class="co">// Add bounding box boundaries of the map/screen</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>  segments<span class="op">.</span><span class="fu">push</span>(</span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>    { <span class="dt">a</span><span class="op">:</span> { <span class="dt">x</span><span class="op">:</span> mapBounds<span class="op">.</span><span class="at">minX</span><span class="op">,</span> <span class="dt">y</span><span class="op">:</span> mapBounds<span class="op">.</span><span class="at">minY</span> }<span class="op">,</span> <span class="dt">b</span><span class="op">:</span> { <span class="dt">x</span><span class="op">:</span> mapBounds<span class="op">.</span><span class="at">maxX</span><span class="op">,</span> <span class="dt">y</span><span class="op">:</span> mapBounds<span class="op">.</span><span class="at">minY</span> } }<span class="op">,</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>    { <span class="dt">a</span><span class="op">:</span> { <span class="dt">x</span><span class="op">:</span> mapBounds<span class="op">.</span><span class="at">maxX</span><span class="op">,</span> <span class="dt">y</span><span class="op">:</span> mapBounds<span class="op">.</span><span class="at">minY</span> }<span class="op">,</span> <span class="dt">b</span><span class="op">:</span> { <span class="dt">x</span><span class="op">:</span> mapBounds<span class="op">.</span><span class="at">maxX</span><span class="op">,</span> <span class="dt">y</span><span class="op">:</span> mapBounds<span class="op">.</span><span class="at">maxY</span> } }<span class="op">,</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>    { <span class="dt">a</span><span class="op">:</span> { <span class="dt">x</span><span class="op">:</span> mapBounds<span class="op">.</span><span class="at">maxX</span><span class="op">,</span> <span class="dt">y</span><span class="op">:</span> mapBounds<span class="op">.</span><span class="at">maxY</span> }<span class="op">,</span> <span class="dt">b</span><span class="op">:</span> { <span class="dt">x</span><span class="op">:</span> mapBounds<span class="op">.</span><span class="at">minX</span><span class="op">,</span> <span class="dt">y</span><span class="op">:</span> mapBounds<span class="op">.</span><span class="at">maxY</span> } }<span class="op">,</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>    { <span class="dt">a</span><span class="op">:</span> { <span class="dt">x</span><span class="op">:</span> mapBounds<span class="op">.</span><span class="at">minX</span><span class="op">,</span> <span class="dt">y</span><span class="op">:</span> mapBounds<span class="op">.</span><span class="at">maxY</span> }<span class="op">,</span> <span class="dt">b</span><span class="op">:</span> { <span class="dt">x</span><span class="op">:</span> mapBounds<span class="op">.</span><span class="at">minX</span><span class="op">,</span> <span class="dt">y</span><span class="op">:</span> mapBounds<span class="op">.</span><span class="at">minY</span> } }</span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>  )<span class="op">;</span></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>  <span class="cf">for</span> (<span class="kw">const</span> body <span class="kw">of</span> bodies) {</span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Skip sensors or non-colliding visual bodies if desired</span></span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (body<span class="op">.</span><span class="at">isSensor</span>) <span class="cf">continue</span><span class="op">;</span></span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> parts <span class="op">=</span> body<span class="op">.</span><span class="at">parts</span><span class="op">.</span><span class="at">length</span> <span class="op">&gt;</span> <span class="dv">1</span> <span class="op">?</span> body<span class="op">.</span><span class="at">parts</span><span class="op">.</span><span class="fu">slice</span>(<span class="dv">1</span>) <span class="op">:</span> [body]<span class="op">;</span></span>
+<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> (<span class="kw">const</span> part <span class="kw">of</span> parts) {</span>
+<span id="cb1-19"><a href="#cb1-19" aria-hidden="true" tabindex="-1"></a>      <span class="kw">const</span> vertices <span class="op">=</span> part<span class="op">.</span><span class="at">vertices</span><span class="op">;</span></span>
+<span id="cb1-20"><a href="#cb1-20" aria-hidden="true" tabindex="-1"></a>      <span class="cf">for</span> (<span class="kw">let</span> i <span class="op">=</span> <span class="dv">0</span><span class="op">;</span> i <span class="op">&lt;</span> vertices<span class="op">.</span><span class="at">length</span><span class="op">;</span> i<span class="op">++</span>) {</span>
+<span id="cb1-21"><a href="#cb1-21" aria-hidden="true" tabindex="-1"></a>        <span class="kw">const</span> nextIndex <span class="op">=</span> (i <span class="op">+</span> <span class="dv">1</span>) <span class="op">%</span> vertices<span class="op">.</span><span class="at">length</span><span class="op">;</span></span>
+<span id="cb1-22"><a href="#cb1-22" aria-hidden="true" tabindex="-1"></a>        segments<span class="op">.</span><span class="fu">push</span>({</span>
+<span id="cb1-23"><a href="#cb1-23" aria-hidden="true" tabindex="-1"></a>          <span class="dt">a</span><span class="op">:</span> { <span class="dt">x</span><span class="op">:</span> vertices[i]<span class="op">.</span><span class="at">x</span><span class="op">,</span> <span class="dt">y</span><span class="op">:</span> vertices[i]<span class="op">.</span><span class="at">y</span> }<span class="op">,</span></span>
+<span id="cb1-24"><a href="#cb1-24" aria-hidden="true" tabindex="-1"></a>          <span class="dt">b</span><span class="op">:</span> { <span class="dt">x</span><span class="op">:</span> vertices[nextIndex]<span class="op">.</span><span class="at">x</span><span class="op">,</span> <span class="dt">y</span><span class="op">:</span> vertices[nextIndex]<span class="op">.</span><span class="at">y</span> }</span>
+<span id="cb1-25"><a href="#cb1-25" aria-hidden="true" tabindex="-1"></a>        })<span class="op">;</span></span>
+<span id="cb1-26"><a href="#cb1-26" aria-hidden="true" tabindex="-1"></a>      }</span>
+<span id="cb1-27"><a href="#cb1-27" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb1-28"><a href="#cb1-28" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb1-29"><a href="#cb1-29" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-30"><a href="#cb1-30" aria-hidden="true" tabindex="-1"></a>  <span class="cf">return</span> segments<span class="op">;</span></span>
+<span id="cb1-31"><a href="#cb1-31" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<h2 id="2-generating-ray-angles-toward-vertices">2. Generating Ray
+Angles Toward Vertices</h2>
+<p>Visibility changes state primarily at the silhouette corners of
+obstacles. To capture light passing past corners without artifacts,
+collect every unique vertex coordinate, determine its angle relative to
+the source, and cast three rays: one directly at the vertex, and two
+offset by a minute angle (<span class="math inline">\(\pm
+0.0001\)</span> radians).</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">getRayAngles</span>(source<span class="op">,</span> segments) {</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> angles <span class="op">=</span> []<span class="op">;</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>  <span class="cf">for</span> (<span class="kw">const</span> seg <span class="kw">of</span> segments) {</span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> (<span class="kw">const</span> point <span class="kw">of</span> [seg<span class="op">.</span><span class="at">a</span><span class="op">,</span> seg<span class="op">.</span><span class="at">b</span>]) {</span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>      <span class="kw">const</span> angle <span class="op">=</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">atan2</span>(point<span class="op">.</span><span class="at">y</span> <span class="op">-</span> source<span class="op">.</span><span class="at">y</span><span class="op">,</span> point<span class="op">.</span><span class="at">x</span> <span class="op">-</span> source<span class="op">.</span><span class="at">x</span>)<span class="op">;</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>      <span class="co">// Cast rays directly at the corner and slightly around it</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>      angles<span class="op">.</span><span class="fu">push</span>(angle <span class="op">-</span> <span class="fl">0.0001</span><span class="op">,</span> angle<span class="op">,</span> angle <span class="op">+</span> <span class="fl">0.0001</span>)<span class="op">;</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>  <span class="cf">return</span> angles<span class="op">;</span></span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<h2 id="3-calculating-ray-segment-intersections">3. Calculating
+Ray-Segment Intersections</h2>
+<p>For each angle, project a ray from the light source and find the
+nearest intersection among all segments. Use the 2D parametric
+intersection between a ray starting at point <span
+class="math inline">\(P\)</span> along direction <span
+class="math inline">\(D = (\cos\theta, \sin\theta)\)</span> and a
+segment between <span class="math inline">\(A\)</span> and <span
+class="math inline">\(B\)</span>:</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">getRayIntersection</span>(rayOrigin<span class="op">,</span> rayDir<span class="op">,</span> segment) {</span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> r_px <span class="op">=</span> rayOrigin<span class="op">.</span><span class="at">x</span><span class="op">;</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> r_py <span class="op">=</span> rayOrigin<span class="op">.</span><span class="at">y</span><span class="op">;</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> r_dx <span class="op">=</span> rayDir<span class="op">.</span><span class="at">x</span><span class="op">;</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> r_dy <span class="op">=</span> rayDir<span class="op">.</span><span class="at">y</span><span class="op">;</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> s_px <span class="op">=</span> segment<span class="op">.</span><span class="at">a</span><span class="op">.</span><span class="at">x</span><span class="op">;</span></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> s_py <span class="op">=</span> segment<span class="op">.</span><span class="at">a</span><span class="op">.</span><span class="at">y</span><span class="op">;</span></span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> s_dx <span class="op">=</span> segment<span class="op">.</span><span class="at">b</span><span class="op">.</span><span class="at">x</span> <span class="op">-</span> segment<span class="op">.</span><span class="at">a</span><span class="op">.</span><span class="at">x</span><span class="op">;</span></span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> s_dy <span class="op">=</span> segment<span class="op">.</span><span class="at">b</span><span class="op">.</span><span class="at">y</span> <span class="op">-</span> segment<span class="op">.</span><span class="at">a</span><span class="op">.</span><span class="at">y</span><span class="op">;</span></span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> r_mag <span class="op">=</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">sqrt</span>(r_dx <span class="op">*</span> r_dx <span class="op">+</span> r_dy <span class="op">*</span> r_dy)<span class="op">;</span></span>
+<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> s_mag <span class="op">=</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">sqrt</span>(s_dx <span class="op">*</span> s_dx <span class="op">+</span> s_dy <span class="op">*</span> s_dy)<span class="op">;</span></span>
+<span id="cb3-14"><a href="#cb3-14" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-15"><a href="#cb3-15" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (r_dx <span class="op">/</span> r_mag <span class="op">===</span> s_dx <span class="op">/</span> s_mag <span class="op">&amp;&amp;</span> r_dy <span class="op">/</span> r_mag <span class="op">===</span> s_dy <span class="op">/</span> s_mag) {</span>
+<span id="cb3-16"><a href="#cb3-16" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="kw">null</span><span class="op">;</span> <span class="co">// Parallel</span></span>
+<span id="cb3-17"><a href="#cb3-17" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb3-18"><a href="#cb3-18" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-19"><a href="#cb3-19" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> denominator <span class="op">=</span> s_dx <span class="op">*</span> r_dy <span class="op">-</span> s_dy <span class="op">*</span> r_dx<span class="op">;</span></span>
+<span id="cb3-20"><a href="#cb3-20" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (denominator <span class="op">===</span> <span class="dv">0</span>) <span class="cf">return</span> <span class="kw">null</span><span class="op">;</span></span>
+<span id="cb3-21"><a href="#cb3-21" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-22"><a href="#cb3-22" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> T2 <span class="op">=</span> (r_dx <span class="op">*</span> (s_py <span class="op">-</span> r_py) <span class="op">+</span> r_dy <span class="op">*</span> (r_px <span class="op">-</span> s_px)) <span class="op">/</span> denominator<span class="op">;</span></span>
+<span id="cb3-23"><a href="#cb3-23" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> T1 <span class="op">=</span> (s_px <span class="op">+</span> s_dx <span class="op">*</span> T2 <span class="op">-</span> r_px) <span class="op">/</span> r_dx<span class="op">;</span></span>
+<span id="cb3-24"><a href="#cb3-24" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-25"><a href="#cb3-25" aria-hidden="true" tabindex="-1"></a>  <span class="co">// T1 is the ray distance, T2 is the segment fraction</span></span>
+<span id="cb3-26"><a href="#cb3-26" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (T1 <span class="op">&gt;</span> <span class="dv">0</span> <span class="op">&amp;&amp;</span> T2 <span class="op">&gt;=</span> <span class="dv">0</span> <span class="op">&amp;&amp;</span> T2 <span class="op">&lt;=</span> <span class="dv">1</span>) {</span>
+<span id="cb3-27"><a href="#cb3-27" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> {</span>
+<span id="cb3-28"><a href="#cb3-28" aria-hidden="true" tabindex="-1"></a>      <span class="dt">x</span><span class="op">:</span> r_px <span class="op">+</span> r_dx <span class="op">*</span> T1<span class="op">,</span></span>
+<span id="cb3-29"><a href="#cb3-29" aria-hidden="true" tabindex="-1"></a>      <span class="dt">y</span><span class="op">:</span> r_py <span class="op">+</span> r_dy <span class="op">*</span> T1<span class="op">,</span></span>
+<span id="cb3-30"><a href="#cb3-30" aria-hidden="true" tabindex="-1"></a>      <span class="dt">distance</span><span class="op">:</span> T1</span>
+<span id="cb3-31"><a href="#cb3-31" aria-hidden="true" tabindex="-1"></a>    }<span class="op">;</span></span>
+<span id="cb3-32"><a href="#cb3-32" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb3-33"><a href="#cb3-33" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-34"><a href="#cb3-34" aria-hidden="true" tabindex="-1"></a>  <span class="cf">return</span> <span class="kw">null</span><span class="op">;</span></span>
+<span id="cb3-35"><a href="#cb3-35" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<h2 id="4-constructing-the-visibility-polygon">4. Constructing the
+Visibility Polygon</h2>
+<p>To build the final shape:</p>
+<ol type="1">
+<li>Iterate through all generated angles.</li>
+<li>Intersect the ray with every obstacle segment to locate the closest
+collision point.</li>
+<li>Store the closest hit points with their corresponding angles.</li>
+<li>Sort the hit points in ascending order based on their angle (<span
+class="math inline">\(-\pi\)</span> to <span
+class="math inline">\(\pi\)</span>).</li>
+<li>Connect the sorted points sequentially into a closed polygon.</li>
+</ol>
+<div class="sourceCode" id="cb4"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">computeVisibilityPolygon</span>(source<span class="op">,</span> bodies<span class="op">,</span> mapBounds) {</span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> segments <span class="op">=</span> <span class="fu">getObstacleSegments</span>(bodies<span class="op">,</span> mapBounds)<span class="op">;</span></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> angles <span class="op">=</span> <span class="fu">getRayAngles</span>(source<span class="op">,</span> segments)<span class="op">;</span></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> visibilityPoints <span class="op">=</span> []<span class="op">;</span></span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a>  <span class="cf">for</span> (<span class="kw">const</span> angle <span class="kw">of</span> angles) {</span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> rayDir <span class="op">=</span> { <span class="dt">x</span><span class="op">:</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">cos</span>(angle)<span class="op">,</span> <span class="dt">y</span><span class="op">:</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">sin</span>(angle) }<span class="op">;</span></span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a>    <span class="kw">let</span> closestIntersection <span class="op">=</span> <span class="kw">null</span><span class="op">;</span></span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> (<span class="kw">const</span> segment <span class="kw">of</span> segments) {</span>
+<span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a>      <span class="kw">const</span> hit <span class="op">=</span> <span class="fu">getRayIntersection</span>(source<span class="op">,</span> rayDir<span class="op">,</span> segment)<span class="op">;</span></span>
+<span id="cb4-12"><a href="#cb4-12" aria-hidden="true" tabindex="-1"></a>      <span class="cf">if</span> (hit) {</span>
+<span id="cb4-13"><a href="#cb4-13" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> (<span class="op">!</span>closestIntersection <span class="op">||</span> hit<span class="op">.</span><span class="at">distance</span> <span class="op">&lt;</span> closestIntersection<span class="op">.</span><span class="at">distance</span>) {</span>
+<span id="cb4-14"><a href="#cb4-14" aria-hidden="true" tabindex="-1"></a>          closestIntersection <span class="op">=</span> { <span class="dt">x</span><span class="op">:</span> hit<span class="op">.</span><span class="at">x</span><span class="op">,</span> <span class="dt">y</span><span class="op">:</span> hit<span class="op">.</span><span class="at">y</span><span class="op">,</span> <span class="dt">angle</span><span class="op">:</span> angle<span class="op">,</span> <span class="dt">distance</span><span class="op">:</span> hit<span class="op">.</span><span class="at">distance</span> }<span class="op">;</span></span>
+<span id="cb4-15"><a href="#cb4-15" aria-hidden="true" tabindex="-1"></a>        }</span>
+<span id="cb4-16"><a href="#cb4-16" aria-hidden="true" tabindex="-1"></a>      }</span>
+<span id="cb4-17"><a href="#cb4-17" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb4-18"><a href="#cb4-18" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-19"><a href="#cb4-19" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (closestIntersection) {</span>
+<span id="cb4-20"><a href="#cb4-20" aria-hidden="true" tabindex="-1"></a>      visibilityPoints<span class="op">.</span><span class="fu">push</span>(closestIntersection)<span class="op">;</span></span>
+<span id="cb4-21"><a href="#cb4-21" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb4-22"><a href="#cb4-22" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb4-23"><a href="#cb4-23" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-24"><a href="#cb4-24" aria-hidden="true" tabindex="-1"></a>  <span class="co">// Sort counter-clockwise to form a valid polygon</span></span>
+<span id="cb4-25"><a href="#cb4-25" aria-hidden="true" tabindex="-1"></a>  visibilityPoints<span class="op">.</span><span class="fu">sort</span>((a<span class="op">,</span> b) <span class="kw">=&gt;</span> a<span class="op">.</span><span class="at">angle</span> <span class="op">-</span> b<span class="op">.</span><span class="at">angle</span>)<span class="op">;</span></span>
+<span id="cb4-26"><a href="#cb4-26" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-27"><a href="#cb4-27" aria-hidden="true" tabindex="-1"></a>  <span class="cf">return</span> visibilityPoints<span class="op">;</span></span>
+<span id="cb4-28"><a href="#cb4-28" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<h2 id="5-rendering-the-result">5. Rendering the Result</h2>
+<p>The output array of points can be drawn using standard HTML5 Canvas
+2D methods:</p>
+<div class="sourceCode" id="cb5"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">renderVisibilityPolygon</span>(ctx<span class="op">,</span> points) {</span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (points<span class="op">.</span><span class="at">length</span> <span class="op">===</span> <span class="dv">0</span>) <span class="cf">return</span><span class="op">;</span></span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a>  ctx<span class="op">.</span><span class="fu">beginPath</span>()<span class="op">;</span></span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a>  ctx<span class="op">.</span><span class="fu">moveTo</span>(points[<span class="dv">0</span>]<span class="op">.</span><span class="at">x</span><span class="op">,</span> points[<span class="dv">0</span>]<span class="op">.</span><span class="at">y</span>)<span class="op">;</span></span>
+<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a>  <span class="cf">for</span> (<span class="kw">let</span> i <span class="op">=</span> <span class="dv">1</span><span class="op">;</span> i <span class="op">&lt;</span> points<span class="op">.</span><span class="at">length</span><span class="op">;</span> i<span class="op">++</span>) {</span>
+<span id="cb5-8"><a href="#cb5-8" aria-hidden="true" tabindex="-1"></a>    ctx<span class="op">.</span><span class="fu">lineTo</span>(points[i]<span class="op">.</span><span class="at">x</span><span class="op">,</span> points[i]<span class="op">.</span><span class="at">y</span>)<span class="op">;</span></span>
+<span id="cb5-9"><a href="#cb5-9" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb5-10"><a href="#cb5-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-11"><a href="#cb5-11" aria-hidden="true" tabindex="-1"></a>  ctx<span class="op">.</span><span class="fu">closePath</span>()<span class="op">;</span></span>
+<span id="cb5-12"><a href="#cb5-12" aria-hidden="true" tabindex="-1"></a>  ctx<span class="op">.</span><span class="at">fillStyle</span> <span class="op">=</span> <span class="st">&quot;rgba(255, 255, 200, 0.4)&quot;</span><span class="op">;</span></span>
+<span id="cb5-13"><a href="#cb5-13" aria-hidden="true" tabindex="-1"></a>  ctx<span class="op">.</span><span class="fu">fill</span>()<span class="op">;</span></span>
+<span id="cb5-14"><a href="#cb5-14" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<h2 id="performance-optimization">Performance Optimization</h2>
+<p>The basic approach operates at <span
+class="math inline">\(\mathcal{O}(N^2)\)</span> complexity, where <span
+class="math inline">\(N\)</span> is the total vertex count. When scaling
+up:</p>
+<ul>
+<li><strong>Radial Sweep Line:</strong> Sort angles first and maintain
+an active segment list using a balanced search tree to reduce time
+complexity to <span class="math inline">\(\mathcal{O}(N \log
+N)\)</span>.</li>
+<li><strong>Spatial Filtering:</strong> Use
+<code>Matter.Query.ray</code> or an axis-aligned bounding box (AABB)
+broadphase query to discard bodies outside the maximum light or view
+radius before generating segments.</li>
+<li><strong>Vertex Deduplication:</strong> Merge overlapping vertices
+between adjacent bodies to reduce the total number of cast rays.</li>
+</ul></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/matter.js'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/matter.js/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/matter.js/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

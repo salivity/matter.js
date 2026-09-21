@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Broad-Phase Collision Detection in Matter.js - matter.js</title>
+    <meta name="description" content="Matter.js fully supports broad-phase collision detection to optimize performance in 2D physics simulations. This article explains how Matter.js utilizes broad-phase algorithms to filter out distant objects, the specific data structures and bounding metho">
+    <link rel="canonical" href="https://salivity.github.io/matter.js/article/broad-phase-collision-detection-in-matter-js">
+    <link rel="search" type="application/opensearchdescription+xml" title="matter.js" href="/matter.js/opensearch.xml">
+    <link rel="icon" href="/matter.js/favicon.ico">
+    <link rel="stylesheet" href="/matter.js/css/style.css">
+    <link media="print" rel="stylesheet" href="/matter.js/css/print.css">
+    <script src="/matter.js/js/fuse.min.js"></script>
+    <script src="/matter.js/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Broad-Phase Collision Detection in Matter.js - matter.js" />
+    <meta property="og:url" content="https://salivity.github.io/matter.js/article/broad-phase-collision-detection-in-matter-js" />
+    <meta property="og:image" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Matter.js fully supports broad-phase collision detection to optimize performance in 2D physics simulations. This article explains how Matter.js utilizes broad-phase algorithms to filter out distant objects, the specific data structures and bounding metho" />
+    <link rel="manifest" href="/matter.js/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/matter.js/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>matter.js</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/matter.js/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="broad-phase-collision-detection-in-matterjs">Broad-Phase
+Collision Detection in Matter.js</h1>
+<p>Matter.js fully supports broad-phase collision detection to optimize
+performance in 2D physics simulations. This article explains how
+Matter.js utilizes broad-phase algorithms to filter out distant objects,
+the specific data structures and bounding methods it employs, and how
+this initial phase integrates with narrow-phase collision resolution to
+maintain high frame rates even with numerous active bodies.</p>
+<h3 id="how-broad-phase-detection-works-in-matterjs">How Broad-Phase
+Detection Works in Matter.js</h3>
+<p>In any physics simulation involving multiple objects, checking every
+body against every other body creates an <span
+class="math inline">\(O(n^2)\)</span> computational bottleneck.
+Broad-phase collision detection solves this problem by rapidly
+identifying which pairs of bodies are potentially overlapping,
+eliminating impossible collisions before expensive mathematical checks
+take place.</p>
+<p>Matter.js implements broad-phase collision detection by default
+through its internal collision detection pipeline, primarily driven by
+the <code>Matter.Detector</code> module.</p>
+<h3 id="axis-aligned-bounding-boxes-aabb">Axis-Aligned Bounding Boxes
+(AABB)</h3>
+<p>The primary mechanism Matter.js uses in the broad phase is
+Axis-Aligned Bounding Box (AABB) overlap testing.</p>
+<ol type="1">
+<li><strong>Bounds Calculation:</strong> Every rigid body in Matter.js
+updates its <code>bounds</code> property whenever it moves, rotates, or
+scales. The bounds represent the smallest non-rotated rectangle that
+completely encloses the body.</li>
+<li><strong>Overlap Testing:</strong> The broad-phase algorithm checks
+for intersections between these rectangular bounds. Because checking
+whether two axis-aligned rectangles overlap requires only simple
+numerical comparisons along the X and Y axes, this check is
+computationally lightweight.</li>
+<li><strong>Pair Generation:</strong> Only pairs of bodies whose
+bounding boxes overlap are flagged as candidate pairs and added to the
+collision list.</li>
+</ol>
+<h3 id="spatial-partitioning-and-grid-structures">Spatial Partitioning
+and Grid Structures</h3>
+<p>To avoid testing every bounding box against every other bounding box,
+Matter.js can utilize spatial partitioning techniques. In earlier
+versions, <code>Matter.Grid</code> divided the simulation space into
+discrete cells, mapping bodies to specific regions of the canvas.</p>
+<p>In modern versions, Matter.js optimizes broad-phase detection
+directly inside the <code>Detector</code> and <code>Pairs</code>
+modules. These modules track active pairs across frames, caching
+persistent contacts and rapidly sorting bodies along axes to minimize
+redundant overlap checks.</p>
+<h3 id="collision-filtering">Collision Filtering</h3>
+<p>Matter.js also optimizes the broad phase through built-in collision
+filtering. Each body possesses a <code>collisionFilter</code> property
+that defines its <code>category</code>, <code>mask</code>, and
+<code>group</code>.</p>
+<p>Before any spatial or geometric overlap calculations occur, the
+broad-phase detector evaluates these bitmasks. If two bodies belong to
+non-colliding categories or groups, the engine discards the pair
+immediately, saving CPU cycles.</p>
+<h3 id="transition-to-the-narrow-phase">Transition to the Narrow
+Phase</h3>
+<p>Once the broad-phase algorithm isolates the candidate pairs whose
+bounding boxes overlap and whose collision filters allow contact, it
+forwards these pairs to the narrow phase.</p>
+<p>Matter.js uses the Separating Axis Theorem (SAT) during the narrow
+phase to test the actual vertex geometry of the shapes. SAT determines
+the exact points of contact, penetration depth, and normal vectors
+necessary for realistic collision resolution. By filtering out
+non-colliding bodies during the broad phase, Matter.js ensures that
+heavy SAT calculations run only when collisions are genuinely
+imminent.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/matter.js'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/matter.js/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/matter.js/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

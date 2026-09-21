@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Matter.js Default Coordinate System Explained - matter.js</title>
+    <meta name="description" content="Matter.js uses a 2D screen-space coordinate system where the origin (0, 0) is situated at the top-left corner of the viewport or canvas. In this system, the horizontal X-axis increases from left to right, while the vertical Y-axis increases from top to b">
+    <link rel="canonical" href="https://salivity.github.io/matter.js/article/matter-js-default-coordinate-system-explained">
+    <link rel="search" type="application/opensearchdescription+xml" title="matter.js" href="/matter.js/opensearch.xml">
+    <link rel="icon" href="/matter.js/favicon.ico">
+    <link rel="stylesheet" href="/matter.js/css/style.css">
+    <link media="print" rel="stylesheet" href="/matter.js/css/print.css">
+    <script src="/matter.js/js/fuse.min.js"></script>
+    <script src="/matter.js/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Matter.js Default Coordinate System Explained - matter.js" />
+    <meta property="og:url" content="https://salivity.github.io/matter.js/article/matter-js-default-coordinate-system-explained" />
+    <meta property="og:image" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Matter.js uses a 2D screen-space coordinate system where the origin (0, 0) is situated at the top-left corner of the viewport or canvas. In this system, the horizontal X-axis increases from left to right, while the vertical Y-axis increases from top to b" />
+    <link rel="manifest" href="/matter.js/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/matter.js/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>matter.js</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/matter.js/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="matterjs-default-coordinate-system-explained">Matter.js Default
+Coordinate System Explained</h1>
+<p>Matter.js uses a 2D screen-space coordinate system where the origin
+(0, 0) is situated at the top-left corner of the viewport or canvas. In
+this system, the horizontal X-axis increases from left to right, while
+the vertical Y-axis increases from top to bottom. This guide explains
+how this coordinate model functions, how body positions and rotations
+are calculated, and how it influences forces and gravity in your physics
+simulation.</p>
+<h3 id="the-origin-and-axes">The Origin and Axes</h3>
+<p>Unlike standard mathematical Cartesian coordinate systems where the
+Y-axis points upward, Matter.js follows the standard convention used by
+HTML5 Canvas and CSS screen coordinates:</p>
+<ul>
+<li><strong>Origin (0, 0):</strong> Located at the top-left corner of
+the render context.</li>
+<li><strong>X-Axis:</strong> Positive values move to the
+<strong>right</strong>, and negative values move to the
+<strong>left</strong>.</li>
+<li><strong>Y-Axis:</strong> Positive values move
+<strong>downward</strong>, and negative values move
+<strong>upward</strong>.</li>
+</ul>
+<p>Because positive Y increases downward, applying a positive vertical
+velocity or force moves a body toward the bottom of the screen.</p>
+<h3 id="body-positioning-and-center-of-mass">Body Positioning and Center
+of Mass</h3>
+<p>When creating a rigid body in Matter.js (such as with
+<code>Bodies.rectangle(x, y, width, height)</code>), the coordinates
+<code>(x, y)</code> represent the body's <strong>center of
+mass</strong>, not its top-left corner.</p>
+<p>For example, creating a rectangle at <code>x = 100</code>,
+<code>y = 100</code> with a <code>width = 50</code> and
+<code>height = 50</code> places the center point of the box at
+<code>(100, 100)</code>. Consequently:</p>
+<ul>
+<li>The left edge is at <code>x = 75</code></li>
+<li>The right edge is at <code>x = 125</code></li>
+<li>The top edge is at <code>y = 75</code></li>
+<li>The bottom edge is at <code>y = 125</code></li>
+</ul>
+<p>If bounding box coordinates are needed, Matter.js calculates them
+automatically under the <code>body.bounds</code> property
+(<code>min</code> and <code>max</code> vertices).</p>
+<h3 id="rotation-and-angles">Rotation and Angles</h3>
+<p>Matter.js measures angles in <strong>radians</strong>. Because the
+Y-axis is inverted relative to standard Cartesian coordinates, angular
+direction is oriented as follows:</p>
+<ul>
+<li><strong>Positive angles:</strong> Rotate
+<strong>clockwise</strong>.</li>
+<li><strong>Negative angles:</strong> Rotate
+<strong>counter-clockwise</strong>.</li>
+</ul>
+<p>An angle of <code>0</code> radians points horizontally along the
+positive X-axis (to the right). A rotation of <code>Math.PI / 2</code>
+radians (90 degrees) turns the object toward the positive Y-axis
+(pointing straight down).</p>
+<h3 id="gravity-and-directional-forces">Gravity and Directional
+Forces</h3>
+<p>Matter.js defines gravity along these same directional axes. By
+default, the engine's gravity is configured as:</p>
+<ul>
+<li><code>engine.gravity.x = 0</code></li>
+<li><code>engine.gravity.y = 1</code></li>
+<li><code>engine.gravity.scale = 0.001</code></li>
+</ul>
+<p>Because <code>gravity.y</code> is positive, objects naturally fall
+toward the bottom of the screen. Inverting gravity to pull objects
+upward requires setting <code>engine.gravity.y</code> to a negative
+value.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/matter.js'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/matter.js/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/matter.js/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

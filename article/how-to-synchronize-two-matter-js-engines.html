@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How to Synchronize Two Matter.js Engines - matter.js</title>
+    <meta name="description" content="Synchronizing the state between two independent Matter.js physics engines running side by side—such as in a client-server simulation, a Web Worker architecture, or a dual-view setup—requires an authoritative state pipeline, structured data serializat">
+    <link rel="canonical" href="https://salivity.github.io/matter.js/article/how-to-synchronize-two-matter-js-engines">
+    <link rel="search" type="application/opensearchdescription+xml" title="matter.js" href="/matter.js/opensearch.xml">
+    <link rel="icon" href="/matter.js/favicon.ico">
+    <link rel="stylesheet" href="/matter.js/css/style.css">
+    <link media="print" rel="stylesheet" href="/matter.js/css/print.css">
+    <script src="/matter.js/js/fuse.min.js"></script>
+    <script src="/matter.js/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How to Synchronize Two Matter.js Engines - matter.js" />
+    <meta property="og:url" content="https://salivity.github.io/matter.js/article/how-to-synchronize-two-matter-js-engines" />
+    <meta property="og:image" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Synchronizing the state between two independent Matter.js physics engines running side by side—such as in a client-server simulation, a Web Worker architecture, or a dual-view setup—requires an authoritative state pipeline, structured data serializat" />
+    <link rel="manifest" href="/matter.js/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/matter.js/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>matter.js</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/matter.js/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="how-to-synchronize-two-matterjs-engines">How to Synchronize Two
+Matter.js Engines</h1>
+<p>Synchronizing the state between two independent Matter.js physics
+engines running side by side—such as in a client-server simulation, a
+Web Worker architecture, or a dual-view setup—requires an authoritative
+state pipeline, structured data serialization, and accurate state
+reconciliation. This article details how to extract physics parameters
+from a primary simulation, transfer the minimal necessary payload to a
+secondary engine, and apply state corrections without causing visual
+jitter or simulation instability.</p>
+<h2 id="1-establish-the-authority-model">1. Establish the Authority
+Model</h2>
+<p>Before sharing data, designate one Matter.js engine as the
+<strong>authoritative source</strong> (Master) and the other as the
+<strong>replica</strong> (Slave).</p>
+<ul>
+<li><strong>Master Engine:</strong> Computes collisions, forces, and
+canonical body states.</li>
+<li><strong>Slave Engine:</strong> Mirrors the master engine, either for
+rendering purposes or as a client-side prediction sandbox.</li>
+</ul>
+<p>Never allow both engines to update each other bidirectionally without
+conflict-resolution logic; doing so introduces feedback loops and
+compounding floating-point drift.</p>
+<h2 id="2-extract-the-essential-state-payload">2. Extract the Essential
+State Payload</h2>
+<p>Matter.js composite trees contain deep object graphs with circular
+references. Do not attempt to serialize the entire <code>Engine</code>
+or <code>Composite</code> instance. Instead, map each rigid body to a
+unique identifier (<code>id</code>) and extract only the dynamic
+properties required to reconstruct motion:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">extractEngineState</span>(engine) {</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> bodies <span class="op">=</span> Matter<span class="op">.</span><span class="at">Composite</span><span class="op">.</span><span class="fu">allBodies</span>(engine<span class="op">.</span><span class="at">world</span>)<span class="op">;</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>  <span class="cf">return</span> bodies</span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>    <span class="op">.</span><span class="fu">filter</span>(body <span class="kw">=&gt;</span> <span class="op">!</span>body<span class="op">.</span><span class="at">isStatic</span>)</span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>    <span class="op">.</span><span class="fu">map</span>(body <span class="kw">=&gt;</span> ({</span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>      <span class="dt">id</span><span class="op">:</span> body<span class="op">.</span><span class="at">id</span><span class="op">,</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>      <span class="dt">position</span><span class="op">:</span> { <span class="dt">x</span><span class="op">:</span> body<span class="op">.</span><span class="at">position</span><span class="op">.</span><span class="at">x</span><span class="op">,</span> <span class="dt">y</span><span class="op">:</span> body<span class="op">.</span><span class="at">position</span><span class="op">.</span><span class="at">y</span> }<span class="op">,</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>      <span class="dt">angle</span><span class="op">:</span> body<span class="op">.</span><span class="at">angle</span><span class="op">,</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>      <span class="dt">velocity</span><span class="op">:</span> { <span class="dt">x</span><span class="op">:</span> body<span class="op">.</span><span class="at">velocity</span><span class="op">.</span><span class="at">x</span><span class="op">,</span> <span class="dt">y</span><span class="op">:</span> body<span class="op">.</span><span class="at">velocity</span><span class="op">.</span><span class="at">y</span> }<span class="op">,</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>      <span class="dt">angularVelocity</span><span class="op">:</span> body<span class="op">.</span><span class="at">angularVelocity</span></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>    }))<span class="op">;</span></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<p>If bodies are frequently created or destroyed, also synchronize
+dynamic body creation and removal events rather than querying full
+hierarchies every tick.</p>
+<h2 id="3-apply-the-state-to-the-target-engine">3. Apply the State to
+the Target Engine</h2>
+<p>To synchronize the secondary engine, match incoming state records by
+<code>id</code> and apply the values using built-in
+<code>Matter.Body</code> manipulation functions rather than direct
+object mutations. Direct mutations bypass internal cache recalculations
+(such as axes, bounds, and inertia).</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">applyEngineState</span>(targetEngine<span class="op">,</span> statePayload) {</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> bodies <span class="op">=</span> Matter<span class="op">.</span><span class="at">Composite</span><span class="op">.</span><span class="fu">allBodies</span>(targetEngine<span class="op">.</span><span class="at">world</span>)<span class="op">;</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> bodyMap <span class="op">=</span> <span class="kw">new</span> <span class="bu">Map</span>(bodies<span class="op">.</span><span class="fu">map</span>(b <span class="kw">=&gt;</span> [b<span class="op">.</span><span class="at">id</span><span class="op">,</span> b]))<span class="op">;</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>  <span class="cf">for</span> (<span class="kw">const</span> state <span class="kw">of</span> statePayload) {</span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> targetBody <span class="op">=</span> bodyMap<span class="op">.</span><span class="fu">get</span>(state<span class="op">.</span><span class="at">id</span>)<span class="op">;</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (<span class="op">!</span>targetBody) <span class="cf">continue</span><span class="op">;</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>    Matter<span class="op">.</span><span class="at">Body</span><span class="op">.</span><span class="fu">setPosition</span>(targetBody<span class="op">,</span> state<span class="op">.</span><span class="at">position</span>)<span class="op">;</span></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>    Matter<span class="op">.</span><span class="at">Body</span><span class="op">.</span><span class="fu">setAngle</span>(targetBody<span class="op">,</span> state<span class="op">.</span><span class="at">angle</span>)<span class="op">;</span></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>    Matter<span class="op">.</span><span class="at">Body</span><span class="op">.</span><span class="fu">setVelocity</span>(targetBody<span class="op">,</span> state<span class="op">.</span><span class="at">velocity</span>)<span class="op">;</span></span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>    Matter<span class="op">.</span><span class="at">Body</span><span class="op">.</span><span class="fu">setAngularVelocity</span>(targetBody<span class="op">,</span> state<span class="op">.</span><span class="at">angularVelocity</span>)<span class="op">;</span></span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<h2 id="4-prevent-simulation-drift-and-jitter">4. Prevent Simulation
+Drift and Jitter</h2>
+<p>Directly snapping properties each tick can lead to jarring visual
+artifacts and physics explosions if the secondary engine has active
+collision constraints. Use the following techniques to maintain
+stability:</p>
+<h3 id="step-timing-alignment">Step Timing Alignment</h3>
+<p>Both engines must run on the exact same delta time. Avoid passing
+variable frame deltas (<code>Engine.update(engine, delta)</code>) where
+frame drops can cause divergent integrations. Run both engines using
+fixed time steps:</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> FIXED_DELTA <span class="op">=</span> <span class="dv">1000</span> <span class="op">/</span> <span class="dv">60</span><span class="op">;</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>Matter<span class="op">.</span><span class="at">Engine</span><span class="op">.</span><span class="fu">update</span>(masterEngine<span class="op">,</span> FIXED_DELTA)<span class="op">;</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>Matter<span class="op">.</span><span class="at">Engine</span><span class="op">.</span><span class="fu">update</span>(slaveEngine<span class="op">,</span> FIXED_DELTA)<span class="op">;</span></span></code></pre></div>
+<h3 id="interpolation-over-hard-snapping">Interpolation Over Hard
+Snapping</h3>
+<p>If updates between engines occur over a network or an asynchronous
+thread boundary (such as Web Workers), the secondary engine should
+interpolate between the current transform and the target transform:</p>
+<div class="sourceCode" id="cb4"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> LERP_FACTOR <span class="op">=</span> <span class="fl">0.2</span><span class="op">;</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">smoothSyncBody</span>(targetBody<span class="op">,</span> targetState) {</span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> newX <span class="op">=</span> targetBody<span class="op">.</span><span class="at">position</span><span class="op">.</span><span class="at">x</span> <span class="op">+</span> (targetState<span class="op">.</span><span class="at">position</span><span class="op">.</span><span class="at">x</span> <span class="op">-</span> targetBody<span class="op">.</span><span class="at">position</span><span class="op">.</span><span class="at">x</span>) <span class="op">*</span> LERP_FACTOR<span class="op">;</span></span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> newY <span class="op">=</span> targetBody<span class="op">.</span><span class="at">position</span><span class="op">.</span><span class="at">y</span> <span class="op">+</span> (targetState<span class="op">.</span><span class="at">position</span><span class="op">.</span><span class="at">y</span> <span class="op">-</span> targetBody<span class="op">.</span><span class="at">position</span><span class="op">.</span><span class="at">y</span>) <span class="op">*</span> LERP_FACTOR<span class="op">;</span></span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> newAngle <span class="op">=</span> targetBody<span class="op">.</span><span class="at">angle</span> <span class="op">+</span> (targetState<span class="op">.</span><span class="at">angle</span> <span class="op">-</span> targetBody<span class="op">.</span><span class="at">angle</span>) <span class="op">*</span> LERP_FACTOR<span class="op">;</span></span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a>  Matter<span class="op">.</span><span class="at">Body</span><span class="op">.</span><span class="fu">setPosition</span>(targetBody<span class="op">,</span> { <span class="dt">x</span><span class="op">:</span> newX<span class="op">,</span> <span class="dt">y</span><span class="op">:</span> newY })<span class="op">;</span></span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a>  Matter<span class="op">.</span><span class="at">Body</span><span class="op">.</span><span class="fu">setAngle</span>(targetBody<span class="op">,</span> newAngle)<span class="op">;</span></span>
+<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a>  Matter<span class="op">.</span><span class="at">Body</span><span class="op">.</span><span class="fu">setVelocity</span>(targetBody<span class="op">,</span> targetState<span class="op">.</span><span class="at">velocity</span>)<span class="op">;</span></span>
+<span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a>  Matter<span class="op">.</span><span class="at">Body</span><span class="op">.</span><span class="fu">setAngularVelocity</span>(targetBody<span class="op">,</span> targetState<span class="op">.</span><span class="at">angularVelocity</span>)<span class="op">;</span></span>
+<span id="cb4-12"><a href="#cb4-12" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<h2 id="5-synchronize-constraints-and-sleeping-bodies">5. Synchronize
+Constraints and Sleeping Bodies</h2>
+<ul>
+<li><strong>Sleeping Bodies:</strong> If
+<code>engine.enableSleeping</code> is set to <code>true</code>, ensure
+that bodies woken up in the master engine explicitly wake up in the
+target engine via
+<code>Matter.Sleeping.set(targetBody, false)</code>.</li>
+<li><strong>Composite Constraints:</strong> If your physics simulation
+uses springs, pins, or joints (<code>Matter.Constraint</code>), create
+them with identical IDs on both sides during initialization.
+Synchronizing body positions and velocities will naturally align
+constraints without needing to transmit constraint data
+continuously.</li>
+</ul></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/matter.js'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/matter.js/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/matter.js/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

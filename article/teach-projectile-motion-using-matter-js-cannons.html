@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Teach Projectile Motion Using Matter.js Cannons - matter.js</title>
+    <meta name="description" content="This article explores how educators and developers can use Matter.js, a 2D physics engine for the web, to teach foundational projectile motion concepts through an interactive, adjustable-angle cannon. By manipulating variables such as launch angle, initi">
+    <link rel="canonical" href="https://salivity.github.io/matter.js/article/teach-projectile-motion-using-matter-js-cannons">
+    <link rel="search" type="application/opensearchdescription+xml" title="matter.js" href="/matter.js/opensearch.xml">
+    <link rel="icon" href="/matter.js/favicon.ico">
+    <link rel="stylesheet" href="/matter.js/css/style.css">
+    <link media="print" rel="stylesheet" href="/matter.js/css/print.css">
+    <script src="/matter.js/js/fuse.min.js"></script>
+    <script src="/matter.js/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Teach Projectile Motion Using Matter.js Cannons - matter.js" />
+    <meta property="og:url" content="https://salivity.github.io/matter.js/article/teach-projectile-motion-using-matter-js-cannons" />
+    <meta property="og:image" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article explores how educators and developers can use Matter.js, a 2D physics engine for the web, to teach foundational projectile motion concepts through an interactive, adjustable-angle cannon. By manipulating variables such as launch angle, initi" />
+    <link rel="manifest" href="/matter.js/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/matter.js/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>matter.js</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/matter.js/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="teach-projectile-motion-using-matterjs-cannons">Teach Projectile
+Motion Using Matter.js Cannons</h1>
+<p>This article explores how educators and developers can use Matter.js,
+a 2D physics engine for the web, to teach foundational projectile motion
+concepts through an interactive, adjustable-angle cannon. By
+manipulating variables such as launch angle, initial velocity, and
+gravity in real time, learners can visually connect mathematical
+formulas to simulated physical outcomes. The following sections outline
+the key physics concepts to showcase, how to construct the simulation,
+and how to design interactive elements that deepen student
+understanding.</p>
+<h2 id="core-physics-concepts-to-demonstrate">Core Physics Concepts to
+Demonstrate</h2>
+<p>A Matter.js cannon simulation directly bridges theoretical mechanics
+and visual observation. The primary concepts to highlight include:</p>
+<ul>
+<li><strong>Vector Decomposition:</strong> Breaking initial launch speed
+(<span class="math inline">\(v_0\)</span>) into orthogonal components:
+horizontal velocity (<span class="math inline">\(v_x = v_0
+\cos\theta\)</span>) and vertical velocity (<span
+class="math inline">\(v_y = v_0 \sin\theta\)</span>).</li>
+<li><strong>Independence of Motion:</strong> Showing that horizontal
+velocity remains constant (in the absence of air resistance) while
+vertical velocity changes constantly due to gravitational acceleration
+(<span class="math inline">\(g\)</span>).</li>
+<li><strong>Trajectory and Parabolic Paths:</strong> Demonstrating that
+projectile paths form parabolas defined by <span
+class="math inline">\(y(x) = x \tan\theta - \frac{g x^2}{2 v_0^2
+\cos^2\theta}\)</span>.</li>
+<li><strong>Optimal Launch Angle:</strong> Allowing students to verify
+experimentally that a <span class="math inline">\(45^\circ\)</span>
+angle produces the maximum horizontal range on flat ground.</li>
+<li><strong>Flight Time and Peak Height:</strong> Correlating the
+vertical velocity component with how long the projectile stays airborne
+and the maximum altitude it achieves.</li>
+</ul>
+<h2 id="setting-up-the-matterjs-environment">Setting Up the Matter.js
+Environment</h2>
+<p>To begin, initialize the fundamental Matter.js modules:
+<code>Engine</code>, <code>Render</code>, <code>Runner</code>,
+<code>Bodies</code>, <code>Composite</code>, and <code>Body</code>.
+Configure the simulation canvas and define standard gravitational
+behavior.</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> { Engine<span class="op">,</span> Render<span class="op">,</span> Runner<span class="op">,</span> Bodies<span class="op">,</span> Composite<span class="op">,</span> Body<span class="op">,</span> Vector } <span class="op">=</span> Matter<span class="op">;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> engine <span class="op">=</span> Engine<span class="op">.</span><span class="fu">create</span>()<span class="op">;</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> world <span class="op">=</span> engine<span class="op">.</span><span class="at">world</span><span class="op">;</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a><span class="co">// Set standard downward gravity</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>engine<span class="op">.</span><span class="at">gravity</span><span class="op">.</span><span class="at">y</span> <span class="op">=</span> <span class="dv">1</span><span class="op">;</span> </span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> render <span class="op">=</span> Render<span class="op">.</span><span class="fu">create</span>({</span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>  <span class="dt">element</span><span class="op">:</span> <span class="bu">document</span><span class="op">.</span><span class="at">body</span><span class="op">,</span></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>  <span class="dt">engine</span><span class="op">:</span> engine<span class="op">,</span></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>  <span class="dt">options</span><span class="op">:</span> {</span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>    <span class="dt">width</span><span class="op">:</span> <span class="dv">800</span><span class="op">,</span></span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>    <span class="dt">height</span><span class="op">:</span> <span class="dv">400</span><span class="op">,</span></span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a>    <span class="dt">wireframes</span><span class="op">:</span> <span class="kw">false</span></span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span>
+<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-19"><a href="#cb1-19" aria-hidden="true" tabindex="-1"></a>Render<span class="op">.</span><span class="fu">run</span>(render)<span class="op">;</span></span>
+<span id="cb1-20"><a href="#cb1-20" aria-hidden="true" tabindex="-1"></a>Runner<span class="op">.</span><span class="fu">run</span>(Runner<span class="op">.</span><span class="fu">create</span>()<span class="op">,</span> engine)<span class="op">;</span></span></code></pre></div>
+<p>Add a static ground body at the bottom of the canvas to establish a
+baseline for measuring flight distance and impact.</p>
+<h2 id="building-the-adjustable-cannon">Building the Adjustable
+Cannon</h2>
+<p>The cannon can be modeled using a rectangular body that rotates
+around a fixed pivot point.</p>
+<ol type="1">
+<li><strong>Create the Barrel:</strong> Instantiate a rectangle centered
+at a designated launch position (e.g., <span class="math inline">\(x =
+80, y = 320\)</span>).</li>
+<li><strong>Handle Angle Adjustments:</strong> Use an HTML range input
+slider representing angles from <span
+class="math inline">\(0^\circ\)</span> to <span
+class="math inline">\(90^\circ\)</span>. Convert the slider's degree
+value to radians (<span class="math inline">\(\text{rad} = \text{deg}
+\times \frac{\pi}{180}\)</span>).</li>
+<li><strong>Rotate the Barrel:</strong> Apply the rotation directly
+using <code>Body.setAngle(barrel, -angleInRadians)</code> to account for
+the canvas coordinate system, where the y-axis increases downward.</li>
+</ol>
+<h2 id="launching-the-projectile">Launching the Projectile</h2>
+<p>When the user triggers a launch, instantiate a circular body at the
+tip of the barrel and apply an initial velocity vector.</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">launchProjectile</span>(angleInDegrees<span class="op">,</span> muzzleVelocity) {</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> angleInRadians <span class="op">=</span> (angleInDegrees <span class="op">*</span> <span class="bu">Math</span><span class="op">.</span><span class="cn">PI</span>) <span class="op">/</span> <span class="dv">180</span><span class="op">;</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>  <span class="co">// Calculate muzzle exit coordinates</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> barrelLength <span class="op">=</span> <span class="dv">50</span><span class="op">;</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> startX <span class="op">=</span> <span class="dv">80</span> <span class="op">+</span> barrelLength <span class="op">*</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">cos</span>(angleInRadians)<span class="op">;</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> startY <span class="op">=</span> <span class="dv">320</span> <span class="op">-</span> barrelLength <span class="op">*</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">sin</span>(angleInRadians)<span class="op">;</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> projectile <span class="op">=</span> Bodies<span class="op">.</span><span class="fu">circle</span>(startX<span class="op">,</span> startY<span class="op">,</span> <span class="dv">8</span><span class="op">,</span> {</span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>    <span class="dt">density</span><span class="op">:</span> <span class="fl">0.004</span><span class="op">,</span></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>    <span class="dt">frictionAir</span><span class="op">:</span> <span class="dv">0</span> <span class="co">// Set to 0 for ideal Newtonian motion</span></span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>  })<span class="op">;</span></span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a>  <span class="co">// Calculate velocity components (invert Y for canvas coordinates)</span></span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> vx <span class="op">=</span> muzzleVelocity <span class="op">*</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">cos</span>(angleInRadians)<span class="op">;</span></span>
+<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> vy <span class="op">=</span> <span class="op">-</span>muzzleVelocity <span class="op">*</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">sin</span>(angleInRadians)<span class="op">;</span></span>
+<span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-18"><a href="#cb2-18" aria-hidden="true" tabindex="-1"></a>  Body<span class="op">.</span><span class="fu">setVelocity</span>(projectile<span class="op">,</span> { <span class="dt">x</span><span class="op">:</span> vx<span class="op">,</span> <span class="dt">y</span><span class="op">:</span> vy })<span class="op">;</span></span>
+<span id="cb2-19"><a href="#cb2-19" aria-hidden="true" tabindex="-1"></a>  Composite<span class="op">.</span><span class="fu">add</span>(world<span class="op">,</span> projectile)<span class="op">;</span></span>
+<span id="cb2-20"><a href="#cb2-20" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<p>Setting <code>frictionAir: 0</code> ensures the projectile strictly
+obeys standard kinematic equations, making it easier for students to
+verify theoretical calculations against the simulation.</p>
+<h2 id="interactive-learning-features">Interactive Learning
+Features</h2>
+<p>To transform the simulation into an effective teaching tool,
+incorporate visual feedback mechanisms:</p>
+<ul>
+<li><strong>Trajectory Tracing:</strong> Track the projectile's <span
+class="math inline">\((x, y)\)</span> coordinates on every engine update
+(<code>Events.on(engine, 'afterUpdate', ...)</code>). Render these
+points as a dotted path to clearly display the parabolic
+trajectory.</li>
+<li><strong>Live Vector Displays:</strong> Draw dynamic arrows
+originating from the projectile showing instantaneous velocity vectors
+(<span class="math inline">\(v_x\)</span> and <span
+class="math inline">\(v_y\)</span>). Students will clearly see <span
+class="math inline">\(v_x\)</span> remain constant while <span
+class="math inline">\(v_y\)</span> shrinks, reaches zero at the apex,
+and reverses direction.</li>
+<li><strong>Target Challenges:</strong> Place static targets at
+calculated distances (<span class="math inline">\(R = \frac{v_0^2
+\sin(2\theta)}{g}\)</span>). Instruct students to calculate the required
+angle or launch speed on paper before attempting to hit the target in
+the simulation.</li>
+<li><strong>Parameter Sliders:</strong> Provide real-time UI controls
+for gravity, launch speed, and angle. Reducing gravity allows students
+to simulate projectile behavior on the Moon or Mars.</li>
+</ul>
+<h2 id="pedagogical-impact">Pedagogical Impact</h2>
+<p>Replacing static textbook diagrams with an interactive Matter.js
+simulation lets students form hypotheses, run tests, and immediately
+observe physical consequences. By shifting the launch angle slider and
+observing changes in range, height, and time of flight, learners develop
+an intuitive and mathematically grounded grasp of classical projectile
+motion.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/matter.js'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/matter.js/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/matter.js/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

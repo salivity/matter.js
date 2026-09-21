@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How to Use Matter.SAT.collides in Matter.js - matter.js</title>
+    <meta name="description" content="This guide explains how to use the Matter.SAT.collides method directly in Matter.js to perform collision detection between two standalone rigid bodies. By tapping into Matter.js's underlying Separating Axis Theorem (SAT) module, you can determine whether">
+    <link rel="canonical" href="https://salivity.github.io/matter.js/article/how-to-use-matter-sat-collides-in-matter-js">
+    <link rel="search" type="application/opensearchdescription+xml" title="matter.js" href="/matter.js/opensearch.xml">
+    <link rel="icon" href="/matter.js/favicon.ico">
+    <link rel="stylesheet" href="/matter.js/css/style.css">
+    <link media="print" rel="stylesheet" href="/matter.js/css/print.css">
+    <script src="/matter.js/js/fuse.min.js"></script>
+    <script src="/matter.js/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How to Use Matter.SAT.collides in Matter.js - matter.js" />
+    <meta property="og:url" content="https://salivity.github.io/matter.js/article/how-to-use-matter-sat-collides-in-matter-js" />
+    <meta property="og:image" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This guide explains how to use the Matter.SAT.collides method directly in Matter.js to perform collision detection between two standalone rigid bodies. By tapping into Matter.js's underlying Separating Axis Theorem (SAT) module, you can determine whether" />
+    <link rel="manifest" href="/matter.js/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/matter.js/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>matter.js</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/matter.js/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="how-to-use-mattersatcollides-in-matterjs">How to Use
+Matter.SAT.collides in Matter.js</h1>
+<p>This guide explains how to use the <code>Matter.SAT.collides</code>
+method directly in Matter.js to perform collision detection between two
+standalone rigid bodies. By tapping into Matter.js's underlying
+Separating Axis Theorem (SAT) module, you can determine whether two
+shapes intersect, calculate overlap depth, and retrieve collision
+normals without needing an active <code>Matter.Engine</code>,
+<code>Matter.World</code>, or physics loop.</p>
+<h3 id="understanding-mattersatcollides">Understanding
+Matter.SAT.collides</h3>
+<p>The <code>Matter.SAT</code> module implements the Separating Axis
+Theorem to detect convex polygon and circle intersections. When you run
+a full physics simulation, Matter.js invokes this module under the hood.
+Calling <code>Matter.SAT.collides(bodyA, bodyB)</code> directly allows
+you to check for instantaneous collisions between two isolated bodies at
+their current positions and orientations.</p>
+<h3 id="basic-implementation">Basic Implementation</h3>
+<p>To perform a direct collision test, instantiate two bodies using the
+<code>Matter.Bodies</code> module and pass them to
+<code>Matter.SAT.collides</code>.</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Import modules if using a module bundler, or access via the global Matter object</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> { Bodies<span class="op">,</span> Body<span class="op">,</span> SAT } <span class="op">=</span> Matter<span class="op">;</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="co">// 1. Create two standalone bodies</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> boxA <span class="op">=</span> Bodies<span class="op">.</span><span class="fu">rectangle</span>(<span class="dv">100</span><span class="op">,</span> <span class="dv">100</span><span class="op">,</span> <span class="dv">50</span><span class="op">,</span> <span class="dv">50</span>)<span class="op">;</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> boxB <span class="op">=</span> Bodies<span class="op">.</span><span class="fu">rectangle</span>(<span class="dv">120</span><span class="op">,</span> <span class="dv">100</span><span class="op">,</span> <span class="dv">50</span><span class="op">,</span> <span class="dv">50</span>)<span class="op">;</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a><span class="co">// 2. Perform the collision check</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> collision <span class="op">=</span> SAT<span class="op">.</span><span class="fu">collides</span>(boxA<span class="op">,</span> boxB)<span class="op">;</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a><span class="co">// 3. Inspect the result</span></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> (collision <span class="op">&amp;&amp;</span> collision<span class="op">.</span><span class="at">collided</span>) {</span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>    <span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(<span class="st">&quot;Collision detected!&quot;</span>)<span class="op">;</span></span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>    <span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(<span class="st">&quot;Penetration depth:&quot;</span><span class="op">,</span> collision<span class="op">.</span><span class="at">depth</span>)<span class="op">;</span></span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a>    <span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(<span class="st">&quot;Collision normal:&quot;</span><span class="op">,</span> collision<span class="op">.</span><span class="at">normal</span>)<span class="op">;</span></span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a>} <span class="cf">else</span> {</span>
+<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a>    <span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(<span class="st">&quot;No collision detected.&quot;</span>)<span class="op">;</span></span>
+<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<h3 id="inspecting-the-collision-result">Inspecting the Collision
+Result</h3>
+<p>The function returns a collision object containing detailed data
+about the intersection:</p>
+<ul>
+<li><strong><code>collided</code></strong>: A boolean indicating whether
+the two bodies overlap (<code>true</code>) or not
+(<code>false</code>).</li>
+<li><strong><code>depth</code></strong>: A number representing the
+minimum distance required to separate the two bodies along the collision
+normal.</li>
+<li><strong><code>normal</code></strong>: A vector <code>{ x, y }</code>
+pointing in the direction of the minimum translation vector to resolve
+the overlap.</li>
+<li><strong><code>bodyA</code> / <code>bodyB</code></strong>: References
+to the two bodies involved in the test.</li>
+<li><strong><code>supports</code></strong>: An array of vertex vectors
+representing the points of contact between the bodies.</li>
+</ul>
+<p>If there is no overlap, <code>collision.collided</code> will be
+<code>false</code>, and <code>depth</code> will be <code>0</code>.</p>
+<h3 id="important-considerations-for-standalone-bodies">Important
+Considerations for Standalone Bodies</h3>
+<p>When moving or rotating standalone bodies outside of an engine loop,
+do not modify <code>body.position.x</code> or
+<code>body.position.y</code> directly. Doing so will not update the
+underlying geometry that the SAT algorithm relies on.</p>
+<p>Always use the official <code>Matter.Body</code> manipulation
+functions:</p>
+<ul>
+<li>Use <code>Body.setPosition(body, { x, y })</code> to move a
+body.</li>
+<li>Use <code>Body.setAngle(body, angleInRadians)</code> to rotate a
+body.</li>
+<li>Use <code>Body.scale(body, scaleX, scaleY)</code> to resize a
+body.</li>
+</ul>
+<p>These methods recalculate the body's vertex positions and axis
+normals, ensuring <code>Matter.SAT.collides</code> receives accurate
+geometric data for its calculations.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/matter.js'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/matter.js/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/matter.js/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

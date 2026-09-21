@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How MouseConstraint Works in Matter.js - matter.js</title>
+    <meta name="description" content="This article provides a comprehensive overview of how the MouseConstraint module in Matter.js enables interactive physics simulations. Readers will learn how the module captures user inputs, connects the pointer to rigid bodies via elastic constraints, a">
+    <link rel="canonical" href="https://salivity.github.io/matter.js/article/how-mouse-constraint-works-in-matter-js">
+    <link rel="search" type="application/opensearchdescription+xml" title="matter.js" href="/matter.js/opensearch.xml">
+    <link rel="icon" href="/matter.js/favicon.ico">
+    <link rel="stylesheet" href="/matter.js/css/style.css">
+    <link media="print" rel="stylesheet" href="/matter.js/css/print.css">
+    <script src="/matter.js/js/fuse.min.js"></script>
+    <script src="/matter.js/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How MouseConstraint Works in Matter.js - matter.js" />
+    <meta property="og:url" content="https://salivity.github.io/matter.js/article/how-mouse-constraint-works-in-matter-js" />
+    <meta property="og:image" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article provides a comprehensive overview of how the MouseConstraint module in Matter.js enables interactive physics simulations. Readers will learn how the module captures user inputs, connects the pointer to rigid bodies via elastic constraints, a" />
+    <link rel="manifest" href="/matter.js/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/matter.js/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>matter.js</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/matter.js/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="how-mouseconstraint-works-in-matterjs">How MouseConstraint Works
+in Matter.js</h1>
+<p>This article provides a comprehensive overview of how the
+<code>MouseConstraint</code> module in Matter.js enables interactive
+physics simulations. Readers will learn how the module captures user
+inputs, connects the pointer to rigid bodies via elastic constraints,
+and translates cursor movement into physical forces like dragging and
+throwing, along with common configuration options for fine-tuning the
+interaction.</p>
+<h2 id="what-is-a-mouseconstraint">What is a MouseConstraint?</h2>
+<p>In Matter.js, physics calculations happen independently of DOM
+events. To allow a user to click, touch, and drag simulated objects, the
+library provides the <code>MouseConstraint</code> module. It acts as an
+intermediary between user input and the physics engine. Rather than
+directly teleporting an object's position to match the cursor,
+<code>MouseConstraint</code> dynamically creates a physical spring
+joint—known as a constraint—between the pointer and the selected
+body.</p>
+<h2 id="the-interaction-mechanism">The Interaction Mechanism</h2>
+<p>The interaction lifecycle follows a distinct series of steps during
+simulation updates:</p>
+<h3 id="1-input-capture-and-coordinate-mapping">1. Input Capture and
+Coordinate Mapping</h3>
+<p>A <code>MouseConstraint</code> requires an underlying
+<code>Mouse</code> instance tied to an HTML element, typically the
+simulation's <code>&lt;canvas&gt;</code>. The mouse instance listens for
+standard pointer events, including <code>mousedown</code>,
+<code>mousemove</code>, <code>mouseup</code>, and their touch
+equivalents. It converts the screen coordinates of these events into the
+world coordinates of the Matter.js engine, accounting for canvas scaling
+or pixel ratio adjustments.</p>
+<h3 id="2-raycasting-and-hit-detection">2. Raycasting and Hit
+Detection</h3>
+<p>When a user presses down on the canvas, the
+<code>MouseConstraint</code> performs a spatial query across all active
+rigid bodies in the composite world. It uses Matter.js's internal
+collision detection algorithms (specifically point-in-polygon queries)
+to determine whether the pointer coordinates lie inside any body's
+bounds.</p>
+<h3 id="3-dynamic-constraint-attachment">3. Dynamic Constraint
+Attachment</h3>
+<p>If the pointer intersects a body, the module anchors a virtual
+constraint to the exact point on the body where the interaction
+started.</p>
+<ul>
+<li><strong>Point A:</strong> Bound to the user's cursor position.</li>
+<li><strong>Point B:</strong> Bound to the body's local coordinate
+system at the point of contact.</li>
+</ul>
+<p>Because the anchor is attached locally, picking up an object away
+from its center of mass naturally causes the body to rotate as it hangs
+from the pointer, mimicking real-world behavior.</p>
+<h3 id="4-force-application-and-momentum">4. Force Application and
+Momentum</h3>
+<p>As the user moves their cursor, the constraint continuously pulls the
+body toward the pointer using spring physics. The motion respects the
+object's mass, inertia, air resistance, and interactions with other
+objects. If an obstacle blocks the body, the constraint will stretch,
+applying higher pulling force until the body slips past or the user
+releases the input.</p>
+<p>When the input is released (<code>mouseup</code> or
+<code>touchend</code>), the constraint is immediately destroyed. The
+body retains its angular and linear velocities at the moment of release,
+allowing users to fling or toss objects across the screen naturally.</p>
+<h2 id="customization-and-tuning">Customization and Tuning</h2>
+<p>The behavior of <code>MouseConstraint</code> can be adjusted via its
+configuration object:</p>
+<ul>
+<li><strong>Stiffness:</strong> Controls the elasticity of the drag. A
+stiffness of <code>1.0</code> makes the connection rigid and instantly
+responsive, while lower values (e.g., <code>0.1</code> to
+<code>0.2</code>) produce a soft, rubber-band effect.</li>
+<li><strong>Damping:</strong> Determines how quickly oscillations settle
+as the body follows the cursor.</li>
+<li><strong>Collision Filters:</strong> By configuring collision filters
+on the <code>MouseConstraint</code>, developers can specify which
+categories of bodies can be dragged, leaving non-interactive objects or
+static walls unaffected by user clicks.</li>
+</ul>
+<h2 id="event-handling">Event Handling</h2>
+<p><code>MouseConstraint</code> emits several events that allow
+developers to trigger application logic based on user interaction:</p>
+<ul>
+<li><code>startdrag</code>: Fires immediately when a body is clicked and
+attached.</li>
+<li><code>enddrag</code>: Fires when the body is released.</li>
+<li><code>mousemove</code> / <code>mousedown</code> /
+<code>mouseup</code>: Propagates mouse activity mapped to the physics
+simulation.</li>
+</ul>
+<p>By combining input detection, raycasting, and spring-based constraint
+dynamics, <code>MouseConstraint</code> delivers seamless, physically
+plausible user interactions inside Matter.js scenes.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/matter.js'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/matter.js/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/matter.js/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

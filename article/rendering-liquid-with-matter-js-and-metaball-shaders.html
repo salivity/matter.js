@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rendering Liquid with Matter.js and Metaball Shaders - matter.js</title>
+    <meta name="description" content="Rendering realistic 2D liquid surfaces from rigid-body physics requires bridging discrete particle simulations with field-based graphics. By simulating water droplets as circular rigid bodies in Matter.js and passing their positions to a WebGL fragment s">
+    <link rel="canonical" href="https://salivity.github.io/matter.js/article/rendering-liquid-with-matter-js-and-metaball-shaders">
+    <link rel="search" type="application/opensearchdescription+xml" title="matter.js" href="/matter.js/opensearch.xml">
+    <link rel="icon" href="/matter.js/favicon.ico">
+    <link rel="stylesheet" href="/matter.js/css/style.css">
+    <link media="print" rel="stylesheet" href="/matter.js/css/print.css">
+    <script src="/matter.js/js/fuse.min.js"></script>
+    <script src="/matter.js/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Rendering Liquid with Matter.js and Metaball Shaders - matter.js" />
+    <meta property="og:url" content="https://salivity.github.io/matter.js/article/rendering-liquid-with-matter-js-and-metaball-shaders" />
+    <meta property="og:image" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Rendering realistic 2D liquid surfaces from rigid-body physics requires bridging discrete particle simulations with field-based graphics. By simulating water droplets as circular rigid bodies in Matter.js and passing their positions to a WebGL fragment s" />
+    <link rel="manifest" href="/matter.js/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/matter.js/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>matter.js</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/matter.js/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="rendering-liquid-with-matterjs-and-metaball-shaders">Rendering
+Liquid with Matter.js and Metaball Shaders</h1>
+<p>Rendering realistic 2D liquid surfaces from rigid-body physics
+requires bridging discrete particle simulations with field-based
+graphics. By simulating water droplets as circular rigid bodies in
+Matter.js and passing their positions to a WebGL fragment shader, you
+can evaluate an implicit surface field—known as metaballs—to blend
+individual discs into a cohesive, viscous fluid surface with crisp
+boundaries.</p>
+<h3 id="1-setting-up-the-matterjs-particle-system">1. Setting Up the
+Matter.js Particle System</h3>
+<p>Begin by configuring the Matter.js engine with a high volume of small
+circular bodies. To make the particles behave like fluid, remove
+friction and set low restitution:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> { Engine<span class="op">,</span> World<span class="op">,</span> Bodies } <span class="op">=</span> Matter<span class="op">;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> engine <span class="op">=</span> Engine<span class="op">.</span><span class="fu">create</span>()<span class="op">;</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> particles <span class="op">=</span> []<span class="op">;</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> particleRadius <span class="op">=</span> <span class="dv">12</span><span class="op">;</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> (<span class="kw">let</span> i <span class="op">=</span> <span class="dv">0</span><span class="op">;</span> i <span class="op">&lt;</span> <span class="dv">150</span><span class="op">;</span> i<span class="op">++</span>) {</span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> particle <span class="op">=</span> Bodies<span class="op">.</span><span class="fu">circle</span>(<span class="dv">100</span> <span class="op">+</span> (i <span class="op">%</span> <span class="dv">10</span>) <span class="op">*</span> <span class="dv">20</span><span class="op">,</span> <span class="dv">50</span><span class="op">,</span> particleRadius<span class="op">,</span> {</span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>    <span class="dt">friction</span><span class="op">:</span> <span class="fl">0.01</span><span class="op">,</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>    <span class="dt">frictionAir</span><span class="op">:</span> <span class="fl">0.001</span><span class="op">,</span></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>    <span class="dt">restitution</span><span class="op">:</span> <span class="fl">0.1</span><span class="op">,</span></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>    <span class="dt">density</span><span class="op">:</span> <span class="fl">0.002</span></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>  })<span class="op">;</span></span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>  particles<span class="op">.</span><span class="fu">push</span>(particle)<span class="op">;</span></span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a>  World<span class="op">.</span><span class="fu">add</span>(engine<span class="op">.</span><span class="at">world</span><span class="op">,</span> particle)<span class="op">;</span></span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<p>Keep the particle radius relatively small so they can pack closely
+and slide past one another naturally under gravity.</p>
+<h3 id="2-passing-particle-positions-to-webgl">2. Passing Particle
+Positions to WebGL</h3>
+<p>Set up a full-screen quad in WebGL. On each animation frame, update
+Matter.js and extract the screen-space coordinates of every particle.
+Pass these positions into a uniform array or a data texture if handling
+hundreds of particles.</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">getParticlePositions</span>() {</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> positions <span class="op">=</span> <span class="kw">new</span> <span class="bu">Float32Array</span>(particles<span class="op">.</span><span class="at">length</span> <span class="op">*</span> <span class="dv">2</span>)<span class="op">;</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>  <span class="cf">for</span> (<span class="kw">let</span> i <span class="op">=</span> <span class="dv">0</span><span class="op">;</span> i <span class="op">&lt;</span> particles<span class="op">.</span><span class="at">length</span><span class="op">;</span> i<span class="op">++</span>) {</span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>    positions[i <span class="op">*</span> <span class="dv">2</span>] <span class="op">=</span> particles[i]<span class="op">.</span><span class="at">position</span><span class="op">.</span><span class="at">x</span><span class="op">;</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>    positions[i <span class="op">*</span> <span class="dv">2</span> <span class="op">+</span> <span class="dv">1</span>] <span class="op">=</span> particles[i]<span class="op">.</span><span class="at">position</span><span class="op">.</span><span class="at">y</span><span class="op">;</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>  <span class="cf">return</span> positions<span class="op">;</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<p>Send this array to the fragment shader via
+<code>gl.uniform2fv</code>.</p>
+<h3 id="3-calculating-the-metaball-influence-field">3. Calculating the
+Metaball Influence Field</h3>
+<p>In the fragment shader, compute the scalar field value for each pixel
+by summing the radial influence of all particle centers. The influence
+function must decay smoothly over distance:</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode glsl"><code class="sourceCode glsl"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="dt">precision</span> <span class="dt">mediump</span> <span class="dt">float</span><span class="op">;</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a><span class="kw">uniform</span> <span class="dt">vec2</span> u_resolution<span class="op">;</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a><span class="kw">uniform</span> <span class="dt">vec2</span> u_particles<span class="op">[</span><span class="dv">150</span><span class="op">];</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a><span class="kw">uniform</span> <span class="dt">float</span> u_radius<span class="op">;</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> <span class="fu">main</span><span class="op">()</span> <span class="op">{</span></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>    <span class="dt">vec2</span> st <span class="op">=</span> <span class="bu">gl_FragCoord</span><span class="op">.</span><span class="fu">xy</span><span class="op">;</span></span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a>    st<span class="op">.</span><span class="fu">y</span> <span class="op">=</span> u_resolution<span class="op">.</span><span class="fu">y</span> <span class="op">-</span> st<span class="op">.</span><span class="fu">y</span><span class="op">;</span> <span class="co">// Match 2D canvas coordinates</span></span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a>    <span class="dt">float</span> energy <span class="op">=</span> <span class="fl">0.0</span><span class="op">;</span></span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a>    <span class="kw">for</span> <span class="op">(</span><span class="dt">int</span> i <span class="op">=</span> <span class="dv">0</span><span class="op">;</span> i <span class="op">&lt;</span> <span class="dv">150</span><span class="op">;</span> i<span class="op">++)</span> <span class="op">{</span></span>
+<span id="cb3-14"><a href="#cb3-14" aria-hidden="true" tabindex="-1"></a>        <span class="dt">vec2</span> diff <span class="op">=</span> u_particles<span class="op">[</span>i<span class="op">]</span> <span class="op">-</span> st<span class="op">;</span></span>
+<span id="cb3-15"><a href="#cb3-15" aria-hidden="true" tabindex="-1"></a>        <span class="dt">float</span> distSq <span class="op">=</span> <span class="bu">dot</span><span class="op">(</span>diff<span class="op">,</span> diff<span class="op">);</span></span>
+<span id="cb3-16"><a href="#cb3-16" aria-hidden="true" tabindex="-1"></a>        </span>
+<span id="cb3-17"><a href="#cb3-17" aria-hidden="true" tabindex="-1"></a>        <span class="co">// Inverse square falloff with an influence radius</span></span>
+<span id="cb3-18"><a href="#cb3-18" aria-hidden="true" tabindex="-1"></a>        <span class="kw">if</span> <span class="op">(</span>distSq <span class="op">&lt;</span> u_radius <span class="op">*</span> u_radius <span class="op">*</span> <span class="fl">4.0</span><span class="op">)</span> <span class="op">{</span></span>
+<span id="cb3-19"><a href="#cb3-19" aria-hidden="true" tabindex="-1"></a>            energy <span class="op">+=</span> <span class="op">(</span>u_radius <span class="op">*</span> u_radius<span class="op">)</span> <span class="op">/</span> <span class="op">(</span>distSq <span class="op">+</span> <span class="fl">0.0001</span><span class="op">);</span></span>
+<span id="cb3-20"><a href="#cb3-20" aria-hidden="true" tabindex="-1"></a>        <span class="op">}</span></span>
+<span id="cb3-21"><a href="#cb3-21" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb3-22"><a href="#cb3-22" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-23"><a href="#cb3-23" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Thresholding and rendering</span></span>
+<span id="cb3-24"><a href="#cb3-24" aria-hidden="true" tabindex="-1"></a>    <span class="dt">float</span> edge <span class="op">=</span> <span class="bu">smoothstep</span><span class="op">(</span><span class="fl">1.0</span><span class="op">,</span> <span class="fl">1.05</span><span class="op">,</span> energy<span class="op">);</span></span>
+<span id="cb3-25"><a href="#cb3-25" aria-hidden="true" tabindex="-1"></a>    <span class="dt">vec4</span> liquidColor <span class="op">=</span> <span class="dt">vec4</span><span class="op">(</span><span class="fl">0.1</span><span class="op">,</span> <span class="fl">0.5</span><span class="op">,</span> <span class="fl">0.9</span><span class="op">,</span> <span class="fl">1.0</span><span class="op">);</span></span>
+<span id="cb3-26"><a href="#cb3-26" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb3-27"><a href="#cb3-27" aria-hidden="true" tabindex="-1"></a>    <span class="va">gl_FragColor</span> <span class="op">=</span> liquidColor <span class="op">*</span> edge<span class="op">;</span></span>
+<span id="cb3-28"><a href="#cb3-28" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<p>The <code>energy</code> accumulator rises in areas where multiple
+particles overlap or sit adjacent to one another.</p>
+<h3 id="4-thresholding-and-edge-smoothing">4. Thresholding and Edge
+Smoothing</h3>
+<p>A sharp threshold using <code>step()</code> produces harsh aliasing
+along the liquid edge. To achieve a smooth anti-aliased surface, use
+<code>smoothstep()</code>. Defining a narrow transition band (e.g.,
+between <code>1.0</code> and <code>1.05</code>) creates a soft,
+sub-pixel border that remains visually crisp without pixelated stepping
+artifacts.</p>
+<p>You can also introduce an outline or meniscus effect by sampling two
+separate threshold bands:</p>
+<div class="sourceCode" id="cb4"><pre
+class="sourceCode glsl"><code class="sourceCode glsl"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="dt">float</span> fill <span class="op">=</span> <span class="bu">smoothstep</span><span class="op">(</span><span class="fl">1.0</span><span class="op">,</span> <span class="fl">1.02</span><span class="op">,</span> energy<span class="op">);</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a><span class="dt">float</span> border <span class="op">=</span> <span class="bu">smoothstep</span><span class="op">(</span><span class="fl">0.9</span><span class="op">,</span> <span class="fl">0.95</span><span class="op">,</span> energy<span class="op">)</span> <span class="op">-</span> fill<span class="op">;</span></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a><span class="dt">vec4</span> fillColor <span class="op">=</span> <span class="dt">vec4</span><span class="op">(</span><span class="fl">0.15</span><span class="op">,</span> <span class="fl">0.6</span><span class="op">,</span> <span class="fl">0.95</span><span class="op">,</span> <span class="fl">1.0</span><span class="op">);</span></span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a><span class="dt">vec4</span> borderColor <span class="op">=</span> <span class="dt">vec4</span><span class="op">(</span><span class="fl">0.8</span><span class="op">,</span> <span class="fl">0.95</span><span class="op">,</span> <span class="fl">1.0</span><span class="op">,</span> <span class="fl">1.0</span><span class="op">);</span></span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a><span class="va">gl_FragColor</span> <span class="op">=</span> <span class="op">(</span>fillColor <span class="op">*</span> fill<span class="op">)</span> <span class="op">+</span> <span class="op">(</span>borderColor <span class="op">*</span> border<span class="op">);</span></span></code></pre></div>
+<h3 id="5-alternative-high-performance-pipeline-the-two-pass-method">5.
+Alternative High-Performance Pipeline: The Two-Pass Method</h3>
+<p>Evaluating hundreds of distance checks per pixel inside a fragment
+shader can degrade performance at high resolutions. An optimized
+alternative involves a two-pass render target (Frame Buffer Object):</p>
+<ol type="1">
+<li><strong>Pass 1 (Draw Discs):</strong> Render each Matter.js particle
+as a billboard sprite with a blurred radial alpha gradient to an
+offscreen texture. Particle overlaps will naturally add up alpha values
+if additive blending is enabled.</li>
+<li><strong>Pass 2 (Threshold Pass):</strong> Render the resulting
+texture as a full-screen quad through a fragment shader that applies
+<code>smoothstep</code> to the combined alpha channel. Pixels below a
+defined alpha cutoff are discarded, while pixels above the cutoff are
+shaded with the liquid color.</li>
+</ol>
+<p>This two-pass method shifts the load from per-pixel coordinate
+looping to GPU rasterization hardware, allowing thousands of Matter.js
+particle discs to be rendered smoothly at 60 FPS.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/matter.js'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/matter.js/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/matter.js/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simulating Tank Tracks with Matter.js - matter.js</title>
+    <meta name="description" content="Simulating an articulated tank track in Matter.js requires creating a closed-loop chain of rigid bodies connected by revolute constraints that wrap around a series of circular wheel bodies. By combining high-friction physical interactions, collision filt">
+    <link rel="canonical" href="https://salivity.github.io/matter.js/article/simulating-tank-tracks-with-matter-js">
+    <link rel="search" type="application/opensearchdescription+xml" title="matter.js" href="/matter.js/opensearch.xml">
+    <link rel="icon" href="/matter.js/favicon.ico">
+    <link rel="stylesheet" href="/matter.js/css/style.css">
+    <link media="print" rel="stylesheet" href="/matter.js/css/print.css">
+    <script src="/matter.js/js/fuse.min.js"></script>
+    <script src="/matter.js/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Simulating Tank Tracks with Matter.js - matter.js" />
+    <meta property="og:url" content="https://salivity.github.io/matter.js/article/simulating-tank-tracks-with-matter-js" />
+    <meta property="og:image" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Simulating an articulated tank track in Matter.js requires creating a closed-loop chain of rigid bodies connected by revolute constraints that wrap around a series of circular wheel bodies. By combining high-friction physical interactions, collision filt" />
+    <link rel="manifest" href="/matter.js/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/matter.js/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>matter.js</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/matter.js/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="simulating-tank-tracks-with-matterjs">Simulating Tank Tracks
+with Matter.js</h1>
+<p>Simulating an articulated tank track in Matter.js requires creating a
+closed-loop chain of rigid bodies connected by revolute constraints that
+wrap around a series of circular wheel bodies. By combining
+high-friction physical interactions, collision filtering, and motorized
+drive sprockets, you can achieve realistic continuous tread movement and
+vehicle propulsion. This guide breaks down the structural setup,
+constraint configurations, drive mechanics, and physics engine tuning
+necessary for a stable tank track simulation.</p>
+<h3 id="1-creating-the-articulated-track-links">1. Creating the
+Articulated Track Links</h3>
+<p>A continuous track consists of dozens of small, rigid rectangular
+bodies arranged in a loop. To construct this:</p>
+<ul>
+<li><strong>Link Geometry:</strong> Instantiate small rectangles
+(<code>Bodies.rectangle</code>) representing individual track pads. Keep
+them thin and relatively wide to prevent them from wedging between
+wheels.</li>
+<li><strong>Layout Path:</strong> Position the links along a rounded
+rectangular or capsule-shaped path surrounding the intended wheel
+positions.</li>
+<li><strong>Chaining with Constraints:</strong> Connect each link to its
+neighbor using pin constraints (<code>Constraint.create</code>). Set the
+constraint anchor points at the opposing edges of adjacent links with a
+<code>length</code> of zero and <code>stiffness</code> close to
+<code>1.0</code>.</li>
+<li><strong>Closing the Loop:</strong> Ensure the final link connects
+back to the first link to form an unbroken continuous belt.</li>
+</ul>
+<h3 id="2-setting-up-the-wheel-assembly">2. Setting Up the Wheel
+Assembly</h3>
+<p>The track must wrap securely around a set of wheels:</p>
+<ul>
+<li><strong>Wheel Roles:</strong> Create a drive sprocket at one end, an
+idler wheel at the opposite end, and several road wheels along the
+bottom to distribute the chassis weight.</li>
+<li><strong>Wheel Bodies:</strong> Use <code>Bodies.circle</code> for
+all wheels.</li>
+<li><strong>Suspension:</strong> Pin the wheels to a central chassis
+body using distance constraints or spring-damper configurations to allow
+the road wheels to absorb terrain irregularities without throwing the
+track.</li>
+</ul>
+<h3 id="3-collision-filtering">3. Collision Filtering</h3>
+<p>Without correct collision filters, track links will snag on each
+other or pass through the drive wheels:</p>
+<ul>
+<li><strong>Link-to-Link Filtering:</strong> Configure link collision
+groups or category masks so adjacent links do not generate internal
+collision contacts with one another, relying solely on constraints for
+positioning.</li>
+<li><strong>Link-to-Wheel Interaction:</strong> Ensure track links
+collide actively with wheels and ground terrain.</li>
+<li><strong>Chassis Filtering:</strong> Prevent the chassis body from
+colliding directly with the track links to avoid internal physics
+friction that stalls the vehicle.</li>
+</ul>
+<h3 id="4-propulsion-mechanics">4. Propulsion Mechanics</h3>
+<p>Matter.js relies on friction to transfer rotational energy from the
+wheels into the linear motion of the track links:</p>
+<ul>
+<li><strong>Friction Settings:</strong> Set high friction values
+(<code>friction: 0.8</code> to <code>1.0</code>) on both the outer
+perimeter of the drive wheel and the inner surface of the track
+links.</li>
+<li><strong>Motorizing the Drive Wheel:</strong> Apply a continuous
+torque or angular velocity
+(<code>Body.setAngularVelocity(driveWheel, speed)</code>) to the drive
+sprocket.</li>
+<li><strong>Ground Contact:</strong> Set high static and dynamic
+friction on the outer faces of the track links so they grip the ground
+plane and propel the tank forward as the track circulates.</li>
+</ul>
+<h3 id="5-engine-tuning-and-stability">5. Engine Tuning and
+Stability</h3>
+<p>Articulated chains subjected to high tension frequently suffer from
+constraint stretching, tunneling, or track derailing. Apply the
+following engine optimizations:</p>
+<ul>
+<li><strong>Sub-stepping and Iterations:</strong> Increase
+<code>engine.positionIterations</code> and
+<code>engine.velocityIterations</code> (e.g., between 8 and 16) to
+prevent constraint drift and keep links aligned around circular
+wheels.</li>
+<li><strong>Track Tension:</strong> Calibrate the total perimeter length
+of the link loop to closely match the circumference of the wheel layout.
+Excess slack will cause the track to slip off the wheels, while
+excessive tension creates instability and physics explosions.</li>
+<li><strong>Link Thickness:</strong> Avoid paper-thin links. Giving the
+link bodies sufficient depth prevents fast-moving wheels from tunneling
+through the track under heavy loads.</li>
+</ul></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/matter.js'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/matter.js/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/matter.js/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How to Model Anisotropic Friction in Matter.js - matter.js</title>
+    <meta name="description" content="This article explains how to simulate anisotropic friction—resisting lateral sliding while allowing smooth forward motion—within the Matter.js 2D physics engine. Because Matter.js relies on standard, isotropic Coulomb friction by default, achieving d">
+    <link rel="canonical" href="https://salivity.github.io/matter.js/article/how-to-model-anisotropic-friction-in-matter-js">
+    <link rel="search" type="application/opensearchdescription+xml" title="matter.js" href="/matter.js/opensearch.xml">
+    <link rel="icon" href="/matter.js/favicon.ico">
+    <link rel="stylesheet" href="/matter.js/css/style.css">
+    <link media="print" rel="stylesheet" href="/matter.js/css/print.css">
+    <script src="/matter.js/js/fuse.min.js"></script>
+    <script src="/matter.js/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How to Model Anisotropic Friction in Matter.js - matter.js" />
+    <meta property="og:url" content="https://salivity.github.io/matter.js/article/how-to-model-anisotropic-friction-in-matter-js" />
+    <meta property="og:image" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article explains how to simulate anisotropic friction—resisting lateral sliding while allowing smooth forward motion—within the Matter.js 2D physics engine. Because Matter.js relies on standard, isotropic Coulomb friction by default, achieving d" />
+    <link rel="manifest" href="/matter.js/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/matter.js/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>matter.js</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/matter.js/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="how-to-model-anisotropic-friction-in-matterjs">How to Model
+Anisotropic Friction in Matter.js</h1>
+<p>This article explains how to simulate anisotropic friction—resisting
+lateral sliding while allowing smooth forward motion—within the
+Matter.js 2D physics engine. Because Matter.js relies on standard,
+isotropic Coulomb friction by default, achieving directional friction
+requires intercepting the physics update loop. By decomposing a body's
+velocity into local longitudinal and lateral vectors, you can apply
+custom corrective impulses or forces to damp sideways drift, making it
+ideal for modeling vehicles, ice skates, or skis.</p>
+<h2 id="the-limitation-of-native-friction">The Limitation of Native
+Friction</h2>
+<p>Matter.js bodies use scalar properties for friction:
+<code>friction</code>, <code>frictionAir</code>, and
+<code>frictionStatic</code>. These values apply resistance uniformly in
+all directions. To model objects like wheels or skate blades, the
+physics engine needs to treat the object's forward axis differently from
+its perpendicular (sideways) axis.</p>
+<h2 id="the-vector-decomposition-approach">The Vector Decomposition
+Approach</h2>
+<p>To simulate anisotropic friction, hook into the
+<code>beforeUpdate</code> event of the Matter.js engine. The process
+involves three steps:</p>
+<ol type="1">
+<li>Determine the body’s forward and perpendicular (lateral) unit
+vectors using its current rotation angle.</li>
+<li>Project the body's current linear velocity onto both vectors to
+separate forward speed from lateral drift.</li>
+<li>Apply an opposing force or directly scale down the lateral velocity
+component before the collision and position updates take place.</li>
+</ol>
+<h2 id="implementation">Implementation</h2>
+<p>Below is a complete implementation demonstrating how to damp lateral
+velocity on a rigid body:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> { Engine<span class="op">,</span> Render<span class="op">,</span> Runner<span class="op">,</span> Bodies<span class="op">,</span> Composite<span class="op">,</span> Events<span class="op">,</span> Vector } <span class="op">=</span> Matter<span class="op">;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="co">// Initialize engine and world</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> engine <span class="op">=</span> Engine<span class="op">.</span><span class="fu">create</span>()<span class="op">;</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> world <span class="op">=</span> engine<span class="op">.</span><span class="at">world</span><span class="op">;</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a><span class="co">// Disable gravity for a top-down perspective</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>engine<span class="op">.</span><span class="at">gravity</span><span class="op">.</span><span class="at">y</span> <span class="op">=</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a><span class="co">// Create a body (e.g., a car or skate blade)</span></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> vehicle <span class="op">=</span> Bodies<span class="op">.</span><span class="fu">rectangle</span>(<span class="dv">400</span><span class="op">,</span> <span class="dv">300</span><span class="op">,</span> <span class="dv">40</span><span class="op">,</span> <span class="dv">80</span><span class="op">,</span> {</span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>    <span class="dt">angle</span><span class="op">:</span> <span class="dv">0</span><span class="op">,</span></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>    <span class="dt">frictionAir</span><span class="op">:</span> <span class="fl">0.01</span> <span class="co">// Low default air resistance</span></span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a>Composite<span class="op">.</span><span class="fu">add</span>(world<span class="op">,</span> vehicle)<span class="op">;</span></span>
+<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a><span class="co">// Define friction coefficients</span></span>
+<span id="cb1-19"><a href="#cb1-19" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> lateralFriction <span class="op">=</span> <span class="fl">0.90</span><span class="op">;</span> <span class="co">// Higher value = less sideways sliding (0 to 1)</span></span>
+<span id="cb1-20"><a href="#cb1-20" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> forwardFriction <span class="op">=</span> <span class="fl">0.01</span><span class="op">;</span> <span class="co">// Longitudinal resistance</span></span>
+<span id="cb1-21"><a href="#cb1-21" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-22"><a href="#cb1-22" aria-hidden="true" tabindex="-1"></a>Events<span class="op">.</span><span class="fu">on</span>(engine<span class="op">,</span> <span class="st">&#39;beforeUpdate&#39;</span><span class="op">,</span> () <span class="kw">=&gt;</span> {</span>
+<span id="cb1-23"><a href="#cb1-23" aria-hidden="true" tabindex="-1"></a>    <span class="co">// 1. Calculate local directional unit vectors</span></span>
+<span id="cb1-24"><a href="#cb1-24" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> angle <span class="op">=</span> vehicle<span class="op">.</span><span class="at">angle</span><span class="op">;</span></span>
+<span id="cb1-25"><a href="#cb1-25" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb1-26"><a href="#cb1-26" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Forward vector (assuming the body&#39;s local forward points along its length)</span></span>
+<span id="cb1-27"><a href="#cb1-27" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> forwardVector <span class="op">=</span> {</span>
+<span id="cb1-28"><a href="#cb1-28" aria-hidden="true" tabindex="-1"></a>        <span class="dt">x</span><span class="op">:</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">sin</span>(angle)<span class="op">,</span></span>
+<span id="cb1-29"><a href="#cb1-29" aria-hidden="true" tabindex="-1"></a>        <span class="dt">y</span><span class="op">:</span> <span class="op">-</span><span class="bu">Math</span><span class="op">.</span><span class="fu">cos</span>(angle)</span>
+<span id="cb1-30"><a href="#cb1-30" aria-hidden="true" tabindex="-1"></a>    }<span class="op">;</span></span>
+<span id="cb1-31"><a href="#cb1-31" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-32"><a href="#cb1-32" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Right (lateral) vector perpendicular to the forward vector</span></span>
+<span id="cb1-33"><a href="#cb1-33" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> rightVector <span class="op">=</span> {</span>
+<span id="cb1-34"><a href="#cb1-34" aria-hidden="true" tabindex="-1"></a>        <span class="dt">x</span><span class="op">:</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">cos</span>(angle)<span class="op">,</span></span>
+<span id="cb1-35"><a href="#cb1-35" aria-hidden="true" tabindex="-1"></a>        <span class="dt">y</span><span class="op">:</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">sin</span>(angle)</span>
+<span id="cb1-36"><a href="#cb1-36" aria-hidden="true" tabindex="-1"></a>    }<span class="op">;</span></span>
+<span id="cb1-37"><a href="#cb1-37" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-38"><a href="#cb1-38" aria-hidden="true" tabindex="-1"></a>    <span class="co">// 2. Project current velocity onto both axes (dot product)</span></span>
+<span id="cb1-39"><a href="#cb1-39" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> currentVelocity <span class="op">=</span> vehicle<span class="op">.</span><span class="at">velocity</span><span class="op">;</span></span>
+<span id="cb1-40"><a href="#cb1-40" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> forwardSpeed <span class="op">=</span> Vector<span class="op">.</span><span class="fu">dot</span>(currentVelocity<span class="op">,</span> forwardVector)<span class="op">;</span></span>
+<span id="cb1-41"><a href="#cb1-41" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> lateralSpeed <span class="op">=</span> Vector<span class="op">.</span><span class="fu">dot</span>(currentVelocity<span class="op">,</span> rightVector)<span class="op">;</span></span>
+<span id="cb1-42"><a href="#cb1-42" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-43"><a href="#cb1-43" aria-hidden="true" tabindex="-1"></a>    <span class="co">// 3. Apply damping factors</span></span>
+<span id="cb1-44"><a href="#cb1-44" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> newForwardSpeed <span class="op">=</span> forwardSpeed <span class="op">*</span> (<span class="dv">1</span> <span class="op">-</span> forwardFriction)<span class="op">;</span></span>
+<span id="cb1-45"><a href="#cb1-45" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> newLateralSpeed <span class="op">=</span> lateralSpeed <span class="op">*</span> (<span class="dv">1</span> <span class="op">-</span> lateralFriction)<span class="op">;</span></span>
+<span id="cb1-46"><a href="#cb1-46" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-47"><a href="#cb1-47" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Reconstruct the modified velocity vector</span></span>
+<span id="cb1-48"><a href="#cb1-48" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> newVelocity <span class="op">=</span> {</span>
+<span id="cb1-49"><a href="#cb1-49" aria-hidden="true" tabindex="-1"></a>        <span class="dt">x</span><span class="op">:</span> (forwardVector<span class="op">.</span><span class="at">x</span> <span class="op">*</span> newForwardSpeed) <span class="op">+</span> (rightVector<span class="op">.</span><span class="at">x</span> <span class="op">*</span> newLateralSpeed)<span class="op">,</span></span>
+<span id="cb1-50"><a href="#cb1-50" aria-hidden="true" tabindex="-1"></a>        <span class="dt">y</span><span class="op">:</span> (forwardVector<span class="op">.</span><span class="at">y</span> <span class="op">*</span> newForwardSpeed) <span class="op">+</span> (rightVector<span class="op">.</span><span class="at">y</span> <span class="op">*</span> newLateralSpeed)</span>
+<span id="cb1-51"><a href="#cb1-51" aria-hidden="true" tabindex="-1"></a>    }<span class="op">;</span></span>
+<span id="cb1-52"><a href="#cb1-52" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-53"><a href="#cb1-53" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Update the body&#39;s velocity directly</span></span>
+<span id="cb1-54"><a href="#cb1-54" aria-hidden="true" tabindex="-1"></a>    Matter<span class="op">.</span><span class="at">Body</span><span class="op">.</span><span class="fu">setVelocity</span>(vehicle<span class="op">,</span> newVelocity)<span class="op">;</span></span>
+<span id="cb1-55"><a href="#cb1-55" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div>
+<h2 id="tuning-drift-and-grip">Tuning Drift and Grip</h2>
+<ul>
+<li><strong>Lateral Grip (<code>lateralFriction</code>):</strong>
+Setting this close to <code>1.0</code> eliminates sideways drift almost
+completely, acting like an ice skate in a groove or a wheel with high
+lateral grip. Values between <code>0.80</code> and <code>0.95</code>
+provide a realistic car-drifting effect.</li>
+<li><strong>Rolling Resistance (<code>forwardFriction</code>):</strong>
+Keep this value low (e.g., <code>0.005</code> to <code>0.02</code>) to
+allow the body to glide forward freely while still eventually coming to
+a stop.</li>
+<li><strong>Rotational Friction:</strong> If the body spins too easily
+while sliding, apply proportional rotational damping using
+<code>Matter.Body.setAngularVelocity(vehicle, vehicle.angularVelocity * dampingFactor)</code>
+inside the same update loop.</li>
+</ul></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/matter.js'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/matter.js/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/matter.js/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Matter.js Velocity Iterations and Projectile Accuracy - matter.js</title>
+    <meta name="description" content="In Matter.js, the physics engine relies on iterative solver loops to calculate how forces, impulses, and constraints interact during collisions. Reducing the engine's velocity iterations lowers CPU load, but it significantly degrades the simulation accur">
+    <link rel="canonical" href="https://salivity.github.io/matter.js/article/matter-js-velocity-iterations-and-projectile-accuracy">
+    <link rel="search" type="application/opensearchdescription+xml" title="matter.js" href="/matter.js/opensearch.xml">
+    <link rel="icon" href="/matter.js/favicon.ico">
+    <link rel="stylesheet" href="/matter.js/css/style.css">
+    <link media="print" rel="stylesheet" href="/matter.js/css/print.css">
+    <script src="/matter.js/js/fuse.min.js"></script>
+    <script src="/matter.js/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Matter.js Velocity Iterations and Projectile Accuracy - matter.js" />
+    <meta property="og:url" content="https://salivity.github.io/matter.js/article/matter-js-velocity-iterations-and-projectile-accuracy" />
+    <meta property="og:image" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="In Matter.js, the physics engine relies on iterative solver loops to calculate how forces, impulses, and constraints interact during collisions. Reducing the engine's velocity iterations lowers CPU load, but it significantly degrades the simulation accur" />
+    <link rel="manifest" href="/matter.js/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/matter.js/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>matter.js</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/matter.js/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="matterjs-velocity-iterations-and-projectile-accuracy">Matter.js
+Velocity Iterations and Projectile Accuracy</h1>
+<p>In Matter.js, the physics engine relies on iterative solver loops to
+calculate how forces, impulses, and constraints interact during
+collisions. Reducing the engine's velocity iterations lowers CPU load,
+but it significantly degrades the simulation accuracy of high-speed
+projectiles. This article examines how lowering this parameter leads to
+unrealistic rebound angles, erratic momentum conservation, increased
+clipping, and compromised ballistic trajectories.</p>
+<h3 id="the-role-of-velocity-iterations">The Role of Velocity
+Iterations</h3>
+<p>Matter.js uses a rigid-body physics pipeline where collision
+resolution occurs over two main phases: position iterations and velocity
+iterations. While position iterations correct body overlaps and
+penetration, velocity iterations resolve the impulses necessary to
+reflect restitution (bounciness) and friction.</p>
+<p>By default, Matter.js sets <code>engine.velocityIterations</code> to
+4. Each iteration refines the velocity vectors of colliding bodies until
+an equilibrium is reached. Lowering this value means the impulse solver
+halts its calculations early, accepting an approximation of linear and
+angular velocity rather than a physically correct solution.</p>
+<h3 id="inaccurate-momentum-transfer-and-rebound-angles">Inaccurate
+Momentum Transfer and Rebound Angles</h3>
+<p>High-speed projectiles deliver large amounts of kinetic energy over a
+fraction of a millisecond. When a fast projectile strikes a surface, the
+impulse required to push it back or halt it is extremely high.</p>
+<p>With reduced velocity iterations:</p>
+<ul>
+<li><strong>Energy Loss or Gain:</strong> The impulse solver cannot
+adequately resolve high-energy impacts, leading to scenarios where
+projectiles lose excessive kinetic energy (feeling "sluggish" or dead
+upon impact) or gain non-physical phantom velocity.</li>
+<li><strong>Skewed Reflection Vectors:</strong> Projectiles hitting
+angled surfaces or corners will deflect at incorrect trajectories. The
+tangential forces (friction) and normal forces (restitution) fail to
+balance, corrupting the law of reflection.</li>
+</ul>
+<h3 id="exacerbated-tunneling-and-penetration">Exacerbated Tunneling and
+Penetration</h3>
+<p>Matter.js uses discrete collision detection rather than continuous
+collision detection (CCD). Bodies jump from one discrete point to
+another based on their velocity vector and the delta time step.</p>
+<p>When velocity iterations are reduced:</p>
+<ul>
+<li><strong>Delayed Velocity Arrest:</strong> If a high-speed body
+collides with a thin wall, the solver needs strong impulse corrections
+to halt the forward velocity instantly. With fewer iterations, the
+remaining forward velocity persists into the next frame.</li>
+<li><strong>Tunneling Compounding:</strong> While position iterations
+attempt to push the overlapping bodies apart, an under-resolved velocity
+will push the projectile deeper into or straight through the obstacle on
+the subsequent frame, causing total collision failure (tunneling).</li>
+</ul>
+<h3 id="trajectory-drift-and-multi-body-inconsistencies">Trajectory
+Drift and Multi-Body Inconsistencies</h3>
+<p>Reducing velocity iterations causes cumulative numerical errors when
+a projectile interacts with complex environments:</p>
+<ul>
+<li><strong>Glancing Impacts:</strong> If a bullet or ball grazes a
+surface at high speed, reduced iterations often fail to register the
+minor tangential impulse correctly, causing the projectile to either
+stick to the surface or pass through undisturbed.</li>
+<li><strong>Chained Collisions:</strong> If a projectile strikes
+multiple stacked or connected objects, resolving the velocity throughout
+the chain requires sufficient solver passes. Low iterations will cause
+only the first contact point to receive impulse, leaving secondary
+bodies static and causing the projectile to compress unnaturally against
+the target.</li>
+</ul>
+<h3 id="balancing-performance-and-accuracy">Balancing Performance and
+Accuracy</h3>
+<p>Reducing velocity iterations is a standard optimization technique for
+low-end hardware or scenes with hundreds of slow-moving entities.
+However, applying this reduction in scenes involving high-speed
+projectiles creates noticeable physics anomalies. To preserve ballistic
+accuracy without overburdening the CPU, developers should keep velocity
+iterations at or above default levels and instead optimize high-speed
+interactions by reducing the engine time step
+(<code>engine.timing.delta</code>), using sub-stepping, or implementing
+raycast-based collision checks for projectile paths.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/matter.js'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/matter.js/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/matter.js/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How to Show Velocity Vectors in Matter.js - matter.js</title>
+    <meta name="description" content="Visualizing velocity vectors in Matter.js is an essential debugging technique for physics simulations. While Matter.js provides a built-in debug flag for quick checks, the most reliable and customizable method is using the afterRender event to draw vecto">
+    <link rel="canonical" href="https://salivity.github.io/matter.js/article/how-to-show-velocity-vectors-in-matter-js">
+    <link rel="search" type="application/opensearchdescription+xml" title="matter.js" href="/matter.js/opensearch.xml">
+    <link rel="icon" href="/matter.js/favicon.ico">
+    <link rel="stylesheet" href="/matter.js/css/style.css">
+    <link media="print" rel="stylesheet" href="/matter.js/css/print.css">
+    <script src="/matter.js/js/fuse.min.js"></script>
+    <script src="/matter.js/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How to Show Velocity Vectors in Matter.js - matter.js" />
+    <meta property="og:url" content="https://salivity.github.io/matter.js/article/how-to-show-velocity-vectors-in-matter-js" />
+    <meta property="og:image" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Visualizing velocity vectors in Matter.js is an essential debugging technique for physics simulations. While Matter.js provides a built-in debug flag for quick checks, the most reliable and customizable method is using the afterRender event to draw vecto" />
+    <link rel="manifest" href="/matter.js/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/matter.js/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>matter.js</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/matter.js/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="how-to-show-velocity-vectors-in-matterjs">How to Show Velocity
+Vectors in Matter.js</h1>
+<p>Visualizing velocity vectors in Matter.js is an essential debugging
+technique for physics simulations. While Matter.js provides a built-in
+debug flag for quick checks, the most reliable and customizable method
+is using the <code>afterRender</code> event to draw vectors directly
+onto the canvas using native HTML5 2D Canvas context methods. This guide
+covers both the built-in renderer option and the custom canvas drawing
+implementation to visualize the speed and direction of moving
+bodies.</p>
+<h3 id="method-1-using-the-built-in-debug-option">Method 1: Using the
+Built-In Debug Option</h3>
+<p>Matter.js has a built-in flag within its default renderer
+specifically for displaying velocity vectors. You can enable it when
+initializing the <code>Render</code> module or modify it dynamically on
+an existing instance.</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> render <span class="op">=</span> Matter<span class="op">.</span><span class="at">Render</span><span class="op">.</span><span class="fu">create</span>({</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>    <span class="dt">element</span><span class="op">:</span> <span class="bu">document</span><span class="op">.</span><span class="at">body</span><span class="op">,</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>    <span class="dt">engine</span><span class="op">:</span> engine<span class="op">,</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>    <span class="dt">options</span><span class="op">:</span> {</span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>        <span class="dt">width</span><span class="op">:</span> <span class="dv">800</span><span class="op">,</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>        <span class="dt">height</span><span class="op">:</span> <span class="dv">600</span><span class="op">,</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>        <span class="dt">wireframes</span><span class="op">:</span> <span class="kw">false</span><span class="op">,</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>        <span class="dt">showVelocity</span><span class="op">:</span> <span class="kw">true</span> <span class="co">// Enables built-in velocity vectors</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div>
+<p>When <code>showVelocity</code> is set to <code>true</code>, Matter.js
+renders lines from the center of each moving body indicating its current
+trajectory. However, this feature is restricted to wireframe mode in
+some Matter.js builds and offers limited control over vector scaling,
+color, and line thickness.</p>
+<hr />
+<h3 id="method-2-custom-drawing-with-afterrender">Method 2: Custom
+Drawing with <code>afterRender</code></h3>
+<p>For complete control over vector length, styling, and arrowheads,
+hook into the <code>afterRender</code> event. This fires immediately
+after Matter.js clears and draws the scene, allowing you to draw custom
+graphics on top of the physics bodies.</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a>Matter<span class="op">.</span><span class="at">Events</span><span class="op">.</span><span class="fu">on</span>(render<span class="op">,</span> <span class="st">&#39;afterRender&#39;</span><span class="op">,</span> () <span class="kw">=&gt;</span> {</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> context <span class="op">=</span> render<span class="op">.</span><span class="at">context</span><span class="op">;</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> bodies <span class="op">=</span> Matter<span class="op">.</span><span class="at">Composite</span><span class="op">.</span><span class="fu">allBodies</span>(engine<span class="op">.</span><span class="at">world</span>)<span class="op">;</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> vectorScale <span class="op">=</span> <span class="dv">5</span><span class="op">;</span> <span class="co">// Multiplier to make vectors clearly visible</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>    context<span class="op">.</span><span class="fu">beginPath</span>()<span class="op">;</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>    bodies<span class="op">.</span><span class="fu">forEach</span>(body <span class="kw">=&gt;</span> {</span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>        <span class="co">// Skip static bodies since they have zero velocity</span></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> (body<span class="op">.</span><span class="at">isStatic</span>) <span class="cf">return</span><span class="op">;</span></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>        <span class="kw">const</span> startX <span class="op">=</span> body<span class="op">.</span><span class="at">position</span><span class="op">.</span><span class="at">x</span><span class="op">;</span></span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>        <span class="kw">const</span> startY <span class="op">=</span> body<span class="op">.</span><span class="at">position</span><span class="op">.</span><span class="at">y</span><span class="op">;</span></span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a>        <span class="kw">const</span> endX <span class="op">=</span> startX <span class="op">+</span> body<span class="op">.</span><span class="at">velocity</span><span class="op">.</span><span class="at">x</span> <span class="op">*</span> vectorScale<span class="op">;</span></span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a>        <span class="kw">const</span> endY <span class="op">=</span> startY <span class="op">+</span> body<span class="op">.</span><span class="at">velocity</span><span class="op">.</span><span class="at">y</span> <span class="op">*</span> vectorScale<span class="op">;</span></span>
+<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a>        <span class="co">// Draw the velocity line</span></span>
+<span id="cb2-18"><a href="#cb2-18" aria-hidden="true" tabindex="-1"></a>        context<span class="op">.</span><span class="fu">moveTo</span>(startX<span class="op">,</span> startY)<span class="op">;</span></span>
+<span id="cb2-19"><a href="#cb2-19" aria-hidden="true" tabindex="-1"></a>        context<span class="op">.</span><span class="fu">lineTo</span>(endX<span class="op">,</span> endY)<span class="op">;</span></span>
+<span id="cb2-20"><a href="#cb2-20" aria-hidden="true" tabindex="-1"></a>    })<span class="op">;</span></span>
+<span id="cb2-21"><a href="#cb2-21" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-22"><a href="#cb2-22" aria-hidden="true" tabindex="-1"></a>    context<span class="op">.</span><span class="at">lineWidth</span> <span class="op">=</span> <span class="dv">2</span><span class="op">;</span></span>
+<span id="cb2-23"><a href="#cb2-23" aria-hidden="true" tabindex="-1"></a>    context<span class="op">.</span><span class="at">strokeStyle</span> <span class="op">=</span> <span class="st">&#39;#ff3333&#39;</span><span class="op">;</span> <span class="co">// High-contrast color (red)</span></span>
+<span id="cb2-24"><a href="#cb2-24" aria-hidden="true" tabindex="-1"></a>    context<span class="op">.</span><span class="fu">stroke</span>()<span class="op">;</span></span>
+<span id="cb2-25"><a href="#cb2-25" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div>
+<hr />
+<h3 id="adding-arrowheads-to-vectors">Adding Arrowheads to Vectors</h3>
+<p>To indicate direction clearly, you can extend the
+<code>afterRender</code> logic by drawing an arrowhead at the tip of
+each vector line.</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">drawArrow</span>(ctx<span class="op">,</span> fromX<span class="op">,</span> fromY<span class="op">,</span> toX<span class="op">,</span> toY<span class="op">,</span> headLength <span class="op">=</span> <span class="dv">8</span>) {</span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> dx <span class="op">=</span> toX <span class="op">-</span> fromX<span class="op">;</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> dy <span class="op">=</span> toY <span class="op">-</span> fromY<span class="op">;</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> angle <span class="op">=</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">atan2</span>(dy<span class="op">,</span> dx)<span class="op">;</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Only draw arrowheads if the body is actually moving</span></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (<span class="bu">Math</span><span class="op">.</span><span class="fu">hypot</span>(dx<span class="op">,</span> dy) <span class="op">&lt;</span> <span class="dv">1</span>) <span class="cf">return</span><span class="op">;</span></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a>    ctx<span class="op">.</span><span class="fu">moveTo</span>(fromX<span class="op">,</span> fromY)<span class="op">;</span></span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a>    ctx<span class="op">.</span><span class="fu">lineTo</span>(toX<span class="op">,</span> toY)<span class="op">;</span></span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Draw arrowhead branches</span></span>
+<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a>    ctx<span class="op">.</span><span class="fu">lineTo</span>(</span>
+<span id="cb3-14"><a href="#cb3-14" aria-hidden="true" tabindex="-1"></a>        toX <span class="op">-</span> headLength <span class="op">*</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">cos</span>(angle <span class="op">-</span> <span class="bu">Math</span><span class="op">.</span><span class="cn">PI</span> <span class="op">/</span> <span class="dv">6</span>)<span class="op">,</span></span>
+<span id="cb3-15"><a href="#cb3-15" aria-hidden="true" tabindex="-1"></a>        toY <span class="op">-</span> headLength <span class="op">*</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">sin</span>(angle <span class="op">-</span> <span class="bu">Math</span><span class="op">.</span><span class="cn">PI</span> <span class="op">/</span> <span class="dv">6</span>)</span>
+<span id="cb3-16"><a href="#cb3-16" aria-hidden="true" tabindex="-1"></a>    )<span class="op">;</span></span>
+<span id="cb3-17"><a href="#cb3-17" aria-hidden="true" tabindex="-1"></a>    ctx<span class="op">.</span><span class="fu">moveTo</span>(toX<span class="op">,</span> toY)<span class="op">;</span></span>
+<span id="cb3-18"><a href="#cb3-18" aria-hidden="true" tabindex="-1"></a>    ctx<span class="op">.</span><span class="fu">lineTo</span>(</span>
+<span id="cb3-19"><a href="#cb3-19" aria-hidden="true" tabindex="-1"></a>        toX <span class="op">-</span> headLength <span class="op">*</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">cos</span>(angle <span class="op">+</span> <span class="bu">Math</span><span class="op">.</span><span class="cn">PI</span> <span class="op">/</span> <span class="dv">6</span>)<span class="op">,</span></span>
+<span id="cb3-20"><a href="#cb3-20" aria-hidden="true" tabindex="-1"></a>        toY <span class="op">-</span> headLength <span class="op">*</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">sin</span>(angle <span class="op">+</span> <span class="bu">Math</span><span class="op">.</span><span class="cn">PI</span> <span class="op">/</span> <span class="dv">6</span>)</span>
+<span id="cb3-21"><a href="#cb3-21" aria-hidden="true" tabindex="-1"></a>    )<span class="op">;</span></span>
+<span id="cb3-22"><a href="#cb3-22" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb3-23"><a href="#cb3-23" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-24"><a href="#cb3-24" aria-hidden="true" tabindex="-1"></a>Matter<span class="op">.</span><span class="at">Events</span><span class="op">.</span><span class="fu">on</span>(render<span class="op">,</span> <span class="st">&#39;afterRender&#39;</span><span class="op">,</span> () <span class="kw">=&gt;</span> {</span>
+<span id="cb3-25"><a href="#cb3-25" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> ctx <span class="op">=</span> render<span class="op">.</span><span class="at">context</span><span class="op">;</span></span>
+<span id="cb3-26"><a href="#cb3-26" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> bodies <span class="op">=</span> Matter<span class="op">.</span><span class="at">Composite</span><span class="op">.</span><span class="fu">allBodies</span>(engine<span class="op">.</span><span class="at">world</span>)<span class="op">;</span></span>
+<span id="cb3-27"><a href="#cb3-27" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> vectorScale <span class="op">=</span> <span class="dv">4</span><span class="op">;</span></span>
+<span id="cb3-28"><a href="#cb3-28" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-29"><a href="#cb3-29" aria-hidden="true" tabindex="-1"></a>    ctx<span class="op">.</span><span class="fu">beginPath</span>()<span class="op">;</span></span>
+<span id="cb3-30"><a href="#cb3-30" aria-hidden="true" tabindex="-1"></a>    ctx<span class="op">.</span><span class="at">strokeStyle</span> <span class="op">=</span> <span class="st">&#39;#00ffcc&#39;</span><span class="op">;</span></span>
+<span id="cb3-31"><a href="#cb3-31" aria-hidden="true" tabindex="-1"></a>    ctx<span class="op">.</span><span class="at">lineWidth</span> <span class="op">=</span> <span class="dv">2</span><span class="op">;</span></span>
+<span id="cb3-32"><a href="#cb3-32" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-33"><a href="#cb3-33" aria-hidden="true" tabindex="-1"></a>    bodies<span class="op">.</span><span class="fu">forEach</span>(body <span class="kw">=&gt;</span> {</span>
+<span id="cb3-34"><a href="#cb3-34" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> (body<span class="op">.</span><span class="at">isStatic</span>) <span class="cf">return</span><span class="op">;</span></span>
+<span id="cb3-35"><a href="#cb3-35" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-36"><a href="#cb3-36" aria-hidden="true" tabindex="-1"></a>        <span class="kw">const</span> startX <span class="op">=</span> body<span class="op">.</span><span class="at">position</span><span class="op">.</span><span class="at">x</span><span class="op">;</span></span>
+<span id="cb3-37"><a href="#cb3-37" aria-hidden="true" tabindex="-1"></a>        <span class="kw">const</span> startY <span class="op">=</span> body<span class="op">.</span><span class="at">position</span><span class="op">.</span><span class="at">y</span><span class="op">;</span></span>
+<span id="cb3-38"><a href="#cb3-38" aria-hidden="true" tabindex="-1"></a>        <span class="kw">const</span> endX <span class="op">=</span> startX <span class="op">+</span> body<span class="op">.</span><span class="at">velocity</span><span class="op">.</span><span class="at">x</span> <span class="op">*</span> vectorScale<span class="op">;</span></span>
+<span id="cb3-39"><a href="#cb3-39" aria-hidden="true" tabindex="-1"></a>        <span class="kw">const</span> endY <span class="op">=</span> startY <span class="op">+</span> body<span class="op">.</span><span class="at">velocity</span><span class="op">.</span><span class="at">y</span> <span class="op">*</span> vectorScale<span class="op">;</span></span>
+<span id="cb3-40"><a href="#cb3-40" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-41"><a href="#cb3-41" aria-hidden="true" tabindex="-1"></a>        <span class="fu">drawArrow</span>(ctx<span class="op">,</span> startX<span class="op">,</span> startY<span class="op">,</span> endX<span class="op">,</span> endY)<span class="op">;</span></span>
+<span id="cb3-42"><a href="#cb3-42" aria-hidden="true" tabindex="-1"></a>    })<span class="op">;</span></span>
+<span id="cb3-43"><a href="#cb3-43" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-44"><a href="#cb3-44" aria-hidden="true" tabindex="-1"></a>    ctx<span class="op">.</span><span class="fu">stroke</span>()<span class="op">;</span></span>
+<span id="cb3-45"><a href="#cb3-45" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div>
+<h3 id="key-considerations">Key Considerations</h3>
+<ul>
+<li><strong>Scale Factor:</strong> Raw velocity values in Matter.js are
+usually small (pixels per update step). Always multiply
+<code>body.velocity.x</code> and <code>body.velocity.y</code> by a
+constant scale factor (such as <code>3</code> to <code>10</code>) to
+make the lines readable.</li>
+<li><strong>Sleeping Bodies:</strong> If you enable sleep states via
+<code>engine.enableSleeping</code>, check <code>body.isSleeping</code>
+alongside <code>body.isStatic</code> to avoid running drawing
+calculations for stationary objects.</li>
+</ul></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/matter.js'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/matter.js/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/matter.js/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

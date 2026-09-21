@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Custom Broad-Phase Detector in Matter.js - matter.js</title>
+    <meta name="description" content="This guide explains how to build and integrate a custom broad-phase collision detector in Matter.js to replace the engine's default broad-phase logic. You will learn the mechanics of collision detection in Matter.js, how to implement a spatial partitioni">
+    <link rel="canonical" href="https://salivity.github.io/matter.js/article/custom-broad-phase-detector-in-matter-js">
+    <link rel="search" type="application/opensearchdescription+xml" title="matter.js" href="/matter.js/opensearch.xml">
+    <link rel="icon" href="/matter.js/favicon.ico">
+    <link rel="stylesheet" href="/matter.js/css/style.css">
+    <link media="print" rel="stylesheet" href="/matter.js/css/print.css">
+    <script src="/matter.js/js/fuse.min.js"></script>
+    <script src="/matter.js/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Custom Broad-Phase Detector in Matter.js - matter.js" />
+    <meta property="og:url" content="https://salivity.github.io/matter.js/article/custom-broad-phase-detector-in-matter-js" />
+    <meta property="og:image" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This guide explains how to build and integrate a custom broad-phase collision detector in Matter.js to replace the engine's default broad-phase logic. You will learn the mechanics of collision detection in Matter.js, how to implement a spatial partitioni" />
+    <link rel="manifest" href="/matter.js/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/matter.js/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>matter.js</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/matter.js/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="custom-broad-phase-detector-in-matterjs">Custom Broad-Phase
+Detector in Matter.js</h1>
+<p>This guide explains how to build and integrate a custom broad-phase
+collision detector in Matter.js to replace the engine's default
+broad-phase logic. You will learn the mechanics of collision detection
+in Matter.js, how to implement a spatial partitioning strategy such as a
+spatial hash grid, and how to hook your custom detector into the engine
+update loop to optimize collision detection for scenes with high body
+counts.</p>
+<h3 id="understanding-matterjs-collision-detection">Understanding
+Matter.js Collision Detection</h3>
+<p>Matter.js splits collision detection into two primary phases:</p>
+<ol type="1">
+<li><strong>Broad-phase:</strong> Quickly eliminates pairs of bodies
+that are too far apart to collide using axis-aligned bounding boxes
+(AABB).</li>
+<li><strong>Narrow-phase:</strong> Performs exact geometric tests (using
+the Separating Axis Theorem, or SAT) on the remaining pairs to determine
+actual contacts, penetration depth, and collision normals.</li>
+</ol>
+<p>In Matter.js, the <code>Matter.Detector</code> module coordinates
+this process. By default, <code>Detector.collisions()</code> checks
+pairs and tests them using <code>SAT.collides()</code>. Replacing the
+broad-phase involves intercepting pair generation so only viable
+candidates reach the computationally expensive narrow-phase step.</p>
+<h3 id="step-1-implement-a-spatial-data-structure">Step 1: Implement a
+Spatial Data Structure</h3>
+<p>A custom broad-phase relies on an efficient spatial data structure,
+such as a Spatial Hash Grid, Quadtree, or R-Tree. Below is a lightweight
+Spatial Hash Grid implementation designed for fast broad-phase
+lookups:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> SpatialHashGrid {</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">constructor</span>(cellSize) {</span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>    <span class="kw">this</span><span class="op">.</span><span class="at">cellSize</span> <span class="op">=</span> cellSize<span class="op">;</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>    <span class="kw">this</span><span class="op">.</span><span class="at">grid</span> <span class="op">=</span> <span class="kw">new</span> <span class="bu">Map</span>()<span class="op">;</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>  <span class="fu">_getKey</span>(x<span class="op">,</span> y) {</span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> gx <span class="op">=</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">floor</span>(x <span class="op">/</span> <span class="kw">this</span><span class="op">.</span><span class="at">cellSize</span>)<span class="op">;</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> gy <span class="op">=</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">floor</span>(y <span class="op">/</span> <span class="kw">this</span><span class="op">.</span><span class="at">cellSize</span>)<span class="op">;</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="vs">`</span><span class="sc">${</span>gx<span class="sc">}</span><span class="vs">:</span><span class="sc">${</span>gy<span class="sc">}</span><span class="vs">`</span><span class="op">;</span></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>  <span class="fu">clear</span>() {</span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>    <span class="kw">this</span><span class="op">.</span><span class="at">grid</span><span class="op">.</span><span class="fu">clear</span>()<span class="op">;</span></span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a>  <span class="fu">insert</span>(body) {</span>
+<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> { min<span class="op">,</span> max } <span class="op">=</span> body<span class="op">.</span><span class="at">bounds</span><span class="op">;</span></span>
+<span id="cb1-19"><a href="#cb1-19" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> startX <span class="op">=</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">floor</span>(min<span class="op">.</span><span class="at">x</span> <span class="op">/</span> <span class="kw">this</span><span class="op">.</span><span class="at">cellSize</span>)<span class="op">;</span></span>
+<span id="cb1-20"><a href="#cb1-20" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> endX <span class="op">=</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">floor</span>(max<span class="op">.</span><span class="at">x</span> <span class="op">/</span> <span class="kw">this</span><span class="op">.</span><span class="at">cellSize</span>)<span class="op">;</span></span>
+<span id="cb1-21"><a href="#cb1-21" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> startY <span class="op">=</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">floor</span>(min<span class="op">.</span><span class="at">y</span> <span class="op">/</span> <span class="kw">this</span><span class="op">.</span><span class="at">cellSize</span>)<span class="op">;</span></span>
+<span id="cb1-22"><a href="#cb1-22" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> endY <span class="op">=</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">floor</span>(max<span class="op">.</span><span class="at">y</span> <span class="op">/</span> <span class="kw">this</span><span class="op">.</span><span class="at">cellSize</span>)<span class="op">;</span></span>
+<span id="cb1-23"><a href="#cb1-23" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-24"><a href="#cb1-24" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> (<span class="kw">let</span> x <span class="op">=</span> startX<span class="op">;</span> x <span class="op">&lt;=</span> endX<span class="op">;</span> x<span class="op">++</span>) {</span>
+<span id="cb1-25"><a href="#cb1-25" aria-hidden="true" tabindex="-1"></a>      <span class="cf">for</span> (<span class="kw">let</span> y <span class="op">=</span> startY<span class="op">;</span> y <span class="op">&lt;=</span> endY<span class="op">;</span> y<span class="op">++</span>) {</span>
+<span id="cb1-26"><a href="#cb1-26" aria-hidden="true" tabindex="-1"></a>        <span class="kw">const</span> key <span class="op">=</span> <span class="vs">`</span><span class="sc">${</span>x<span class="sc">}</span><span class="vs">:</span><span class="sc">${</span>y<span class="sc">}</span><span class="vs">`</span><span class="op">;</span></span>
+<span id="cb1-27"><a href="#cb1-27" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> (<span class="op">!</span><span class="kw">this</span><span class="op">.</span><span class="at">grid</span><span class="op">.</span><span class="fu">has</span>(key)) {</span>
+<span id="cb1-28"><a href="#cb1-28" aria-hidden="true" tabindex="-1"></a>          <span class="kw">this</span><span class="op">.</span><span class="at">grid</span><span class="op">.</span><span class="fu">set</span>(key<span class="op">,</span> [])<span class="op">;</span></span>
+<span id="cb1-29"><a href="#cb1-29" aria-hidden="true" tabindex="-1"></a>        }</span>
+<span id="cb1-30"><a href="#cb1-30" aria-hidden="true" tabindex="-1"></a>        <span class="kw">this</span><span class="op">.</span><span class="at">grid</span><span class="op">.</span><span class="fu">get</span>(key)<span class="op">.</span><span class="fu">push</span>(body)<span class="op">;</span></span>
+<span id="cb1-31"><a href="#cb1-31" aria-hidden="true" tabindex="-1"></a>      }</span>
+<span id="cb1-32"><a href="#cb1-32" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb1-33"><a href="#cb1-33" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb1-34"><a href="#cb1-34" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-35"><a href="#cb1-35" aria-hidden="true" tabindex="-1"></a>  <span class="fu">getCandidates</span>() {</span>
+<span id="cb1-36"><a href="#cb1-36" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> pairs <span class="op">=</span> <span class="kw">new</span> <span class="bu">Set</span>()<span class="op">;</span></span>
+<span id="cb1-37"><a href="#cb1-37" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> candidatePairs <span class="op">=</span> []<span class="op">;</span></span>
+<span id="cb1-38"><a href="#cb1-38" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-39"><a href="#cb1-39" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> (<span class="kw">const</span> cell <span class="kw">of</span> <span class="kw">this</span><span class="op">.</span><span class="at">grid</span><span class="op">.</span><span class="fu">values</span>()) {</span>
+<span id="cb1-40"><a href="#cb1-40" aria-hidden="true" tabindex="-1"></a>      <span class="kw">const</span> len <span class="op">=</span> cell<span class="op">.</span><span class="at">length</span><span class="op">;</span></span>
+<span id="cb1-41"><a href="#cb1-41" aria-hidden="true" tabindex="-1"></a>      <span class="cf">if</span> (len <span class="op">&lt;</span> <span class="dv">2</span>) <span class="cf">continue</span><span class="op">;</span></span>
+<span id="cb1-42"><a href="#cb1-42" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-43"><a href="#cb1-43" aria-hidden="true" tabindex="-1"></a>      <span class="cf">for</span> (<span class="kw">let</span> i <span class="op">=</span> <span class="dv">0</span><span class="op">;</span> i <span class="op">&lt;</span> len<span class="op">;</span> i<span class="op">++</span>) {</span>
+<span id="cb1-44"><a href="#cb1-44" aria-hidden="true" tabindex="-1"></a>        <span class="cf">for</span> (<span class="kw">let</span> j <span class="op">=</span> i <span class="op">+</span> <span class="dv">1</span><span class="op">;</span> j <span class="op">&lt;</span> len<span class="op">;</span> j<span class="op">++</span>) {</span>
+<span id="cb1-45"><a href="#cb1-45" aria-hidden="true" tabindex="-1"></a>          <span class="kw">const</span> bodyA <span class="op">=</span> cell[i]<span class="op">;</span></span>
+<span id="cb1-46"><a href="#cb1-46" aria-hidden="true" tabindex="-1"></a>          <span class="kw">const</span> bodyB <span class="op">=</span> cell[j]<span class="op">;</span></span>
+<span id="cb1-47"><a href="#cb1-47" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-48"><a href="#cb1-48" aria-hidden="true" tabindex="-1"></a>          <span class="co">// Skip pairs that should not collide</span></span>
+<span id="cb1-49"><a href="#cb1-49" aria-hidden="true" tabindex="-1"></a>          <span class="cf">if</span> (bodyA<span class="op">.</span><span class="at">isStatic</span> <span class="op">&amp;&amp;</span> bodyB<span class="op">.</span><span class="at">isStatic</span>) <span class="cf">continue</span><span class="op">;</span></span>
+<span id="cb1-50"><a href="#cb1-50" aria-hidden="true" tabindex="-1"></a>          <span class="cf">if</span> (<span class="op">!</span>Matter<span class="op">.</span><span class="at">Detector</span><span class="op">.</span><span class="fu">canCollide</span>(bodyA<span class="op">.</span><span class="at">collisionFilter</span><span class="op">,</span> bodyB<span class="op">.</span><span class="at">collisionFilter</span>)) <span class="cf">continue</span><span class="op">;</span></span>
+<span id="cb1-51"><a href="#cb1-51" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-52"><a href="#cb1-52" aria-hidden="true" tabindex="-1"></a>          <span class="co">// Ensure unique pairs regardless of order</span></span>
+<span id="cb1-53"><a href="#cb1-53" aria-hidden="true" tabindex="-1"></a>          <span class="kw">const</span> id <span class="op">=</span> bodyA<span class="op">.</span><span class="at">id</span> <span class="op">&lt;</span> bodyB<span class="op">.</span><span class="at">id</span> <span class="op">?</span> <span class="vs">`</span><span class="sc">${</span>bodyA<span class="op">.</span><span class="at">id</span><span class="sc">}</span><span class="vs">_</span><span class="sc">${</span>bodyB<span class="op">.</span><span class="at">id</span><span class="sc">}</span><span class="vs">`</span> <span class="op">:</span> <span class="vs">`</span><span class="sc">${</span>bodyB<span class="op">.</span><span class="at">id</span><span class="sc">}</span><span class="vs">_</span><span class="sc">${</span>bodyA<span class="op">.</span><span class="at">id</span><span class="sc">}</span><span class="vs">`</span><span class="op">;</span></span>
+<span id="cb1-54"><a href="#cb1-54" aria-hidden="true" tabindex="-1"></a>          <span class="cf">if</span> (<span class="op">!</span>pairs<span class="op">.</span><span class="fu">has</span>(id)) {</span>
+<span id="cb1-55"><a href="#cb1-55" aria-hidden="true" tabindex="-1"></a>            pairs<span class="op">.</span><span class="fu">add</span>(id)<span class="op">;</span></span>
+<span id="cb1-56"><a href="#cb1-56" aria-hidden="true" tabindex="-1"></a>            candidatePairs<span class="op">.</span><span class="fu">push</span>([bodyA<span class="op">,</span> bodyB])<span class="op">;</span></span>
+<span id="cb1-57"><a href="#cb1-57" aria-hidden="true" tabindex="-1"></a>          }</span>
+<span id="cb1-58"><a href="#cb1-58" aria-hidden="true" tabindex="-1"></a>        }</span>
+<span id="cb1-59"><a href="#cb1-59" aria-hidden="true" tabindex="-1"></a>      }</span>
+<span id="cb1-60"><a href="#cb1-60" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb1-61"><a href="#cb1-61" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-62"><a href="#cb1-62" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> candidatePairs<span class="op">;</span></span>
+<span id="cb1-63"><a href="#cb1-63" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb1-64"><a href="#cb1-64" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<h3 id="step-2-create-the-custom-broad-phase-function">Step 2: Create
+the Custom Broad-Phase Function</h3>
+<p>Create a replacement for the default collision detection logic. Your
+detector will populate the spatial structure with the engine's active
+bodies, extract potential collision pairs, and then delegate to
+<code>Matter.SAT.collides</code> to resolve narrow-phase collisions.</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> grid <span class="op">=</span> <span class="kw">new</span> <span class="fu">SpatialHashGrid</span>(<span class="dv">100</span>)<span class="op">;</span> <span class="co">// 100px cell size</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">customBroadphaseDetector</span>(engine) {</span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> bodies <span class="op">=</span> Matter<span class="op">.</span><span class="at">Composite</span><span class="op">.</span><span class="fu">allBodies</span>(engine<span class="op">.</span><span class="at">world</span>)<span class="op">;</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> collisions <span class="op">=</span> []<span class="op">;</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>  grid<span class="op">.</span><span class="fu">clear</span>()<span class="op">;</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>  <span class="co">// Populate spatial structure</span></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>  <span class="cf">for</span> (<span class="kw">let</span> i <span class="op">=</span> <span class="dv">0</span><span class="op">;</span> i <span class="op">&lt;</span> bodies<span class="op">.</span><span class="at">length</span><span class="op">;</span> i<span class="op">++</span>) {</span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> body <span class="op">=</span> bodies[i]<span class="op">;</span></span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (body<span class="op">.</span><span class="at">parts</span><span class="op">.</span><span class="at">length</span> <span class="op">&gt;</span> <span class="dv">1</span>) {</span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>      <span class="co">// For compound bodies, insert sub-parts</span></span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a>      <span class="cf">for</span> (<span class="kw">let</span> p <span class="op">=</span> <span class="dv">1</span><span class="op">;</span> p <span class="op">&lt;</span> body<span class="op">.</span><span class="at">parts</span><span class="op">.</span><span class="at">length</span><span class="op">;</span> p<span class="op">++</span>) {</span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a>        grid<span class="op">.</span><span class="fu">insert</span>(body<span class="op">.</span><span class="at">parts</span>[p])<span class="op">;</span></span>
+<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a>      }</span>
+<span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a>    } <span class="cf">else</span> {</span>
+<span id="cb2-18"><a href="#cb2-18" aria-hidden="true" tabindex="-1"></a>      grid<span class="op">.</span><span class="fu">insert</span>(body)<span class="op">;</span></span>
+<span id="cb2-19"><a href="#cb2-19" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb2-20"><a href="#cb2-20" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb2-21"><a href="#cb2-21" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-22"><a href="#cb2-22" aria-hidden="true" tabindex="-1"></a>  <span class="co">// Get candidate pairs from broad-phase</span></span>
+<span id="cb2-23"><a href="#cb2-23" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> candidatePairs <span class="op">=</span> grid<span class="op">.</span><span class="fu">getCandidates</span>()<span class="op">;</span></span>
+<span id="cb2-24"><a href="#cb2-24" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-25"><a href="#cb2-25" aria-hidden="true" tabindex="-1"></a>  <span class="co">// Execute narrow-phase checks on candidate pairs only</span></span>
+<span id="cb2-26"><a href="#cb2-26" aria-hidden="true" tabindex="-1"></a>  <span class="cf">for</span> (<span class="kw">let</span> i <span class="op">=</span> <span class="dv">0</span><span class="op">;</span> i <span class="op">&lt;</span> candidatePairs<span class="op">.</span><span class="at">length</span><span class="op">;</span> i<span class="op">++</span>) {</span>
+<span id="cb2-27"><a href="#cb2-27" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> [bodyA<span class="op">,</span> bodyB] <span class="op">=</span> candidatePairs[i]<span class="op">;</span></span>
+<span id="cb2-28"><a href="#cb2-28" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-29"><a href="#cb2-29" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Bounding box pre-check</span></span>
+<span id="cb2-30"><a href="#cb2-30" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (Matter<span class="op">.</span><span class="at">Bounds</span><span class="op">.</span><span class="fu">overlaps</span>(bodyA<span class="op">.</span><span class="at">bounds</span><span class="op">,</span> bodyB<span class="op">.</span><span class="at">bounds</span>)) {</span>
+<span id="cb2-31"><a href="#cb2-31" aria-hidden="true" tabindex="-1"></a>      <span class="kw">const</span> collision <span class="op">=</span> Matter<span class="op">.</span><span class="at">SAT</span><span class="op">.</span><span class="fu">collides</span>(bodyA<span class="op">,</span> bodyB)<span class="op">;</span></span>
+<span id="cb2-32"><a href="#cb2-32" aria-hidden="true" tabindex="-1"></a>      <span class="cf">if</span> (collision <span class="op">&amp;&amp;</span> collision<span class="op">.</span><span class="at">collided</span>) {</span>
+<span id="cb2-33"><a href="#cb2-33" aria-hidden="true" tabindex="-1"></a>        collisions<span class="op">.</span><span class="fu">push</span>(collision)<span class="op">;</span></span>
+<span id="cb2-34"><a href="#cb2-34" aria-hidden="true" tabindex="-1"></a>      }</span>
+<span id="cb2-35"><a href="#cb2-35" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb2-36"><a href="#cb2-36" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb2-37"><a href="#cb2-37" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-38"><a href="#cb2-38" aria-hidden="true" tabindex="-1"></a>  <span class="cf">return</span> collisions<span class="op">;</span></span>
+<span id="cb2-39"><a href="#cb2-39" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<h3 id="step-3-override-the-default-matterjs-detector">Step 3: Override
+the Default Matter.js Detector</h3>
+<p>You can attach the custom detector directly by overriding
+<code>Matter.Detector.collisions</code>. This ensures Matter's collision
+pipeline processes your pairs seamlessly:</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Preserve original narrow-phase collision handling while replacing broad-phase</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>Matter<span class="op">.</span><span class="at">Detector</span><span class="op">.</span><span class="at">collisions</span> <span class="op">=</span> <span class="kw">function</span>(detector) {</span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>  <span class="cf">return</span> <span class="fu">customBroadphaseDetector</span>(detector<span class="op">.</span><span class="at">engine</span> <span class="op">||</span> engine)<span class="op">;</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>}<span class="op">;</span></span></code></pre></div>
+<p>Alternatively, if you run a custom game loop using
+<code>Matter.Engine.update()</code>, you can bypass the default detector
+entirely by disabling the detector on the engine and managing collision
+events manually using
+<code>Matter.Events.trigger(engine, 'collisionStart', { pairs: collisions })</code>.</p>
+<h3 id="optimization-considerations">Optimization Considerations</h3>
+<ul>
+<li><strong>Cell Size Tuning:</strong> Set grid cell sizes relative to
+the average size of your dynamic bodies. Setting cells too small
+increases hashing overhead; setting them too large increases
+narrow-phase checks.</li>
+<li><strong>Static Bodies:</strong> If your scene contains static bodies
+that never move, cache their grid assignments rather than reinserting
+them on every tick.</li>
+<li><strong>Compound Bodies:</strong> Ensure parts of compound bodies
+are handled properly so that internal sub-shapes generate correct
+collision normals.</li>
+</ul></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/matter.js'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/matter.js/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/matter.js/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

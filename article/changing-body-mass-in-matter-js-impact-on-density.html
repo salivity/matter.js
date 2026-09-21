@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Changing Body Mass in Matter.js: Impact on Density - matter.js</title>
+    <meta name="description" content="In Matter.js, changing a rigid body's mass directly alters its density, provided you use the official engine methods. Because Matter.js calculates density as mass divided by surface area, altering the mass while the body's geometry remains constant cause">
+    <link rel="canonical" href="https://salivity.github.io/matter.js/article/changing-body-mass-in-matter-js-impact-on-density">
+    <link rel="search" type="application/opensearchdescription+xml" title="matter.js" href="/matter.js/opensearch.xml">
+    <link rel="icon" href="/matter.js/favicon.ico">
+    <link rel="stylesheet" href="/matter.js/css/style.css">
+    <link media="print" rel="stylesheet" href="/matter.js/css/print.css">
+    <script src="/matter.js/js/fuse.min.js"></script>
+    <script src="/matter.js/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Changing Body Mass in Matter.js: Impact on Density - matter.js" />
+    <meta property="og:url" content="https://salivity.github.io/matter.js/article/changing-body-mass-in-matter-js-impact-on-density" />
+    <meta property="og:image" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="In Matter.js, changing a rigid body's mass directly alters its density, provided you use the official engine methods. Because Matter.js calculates density as mass divided by surface area, altering the mass while the body's geometry remains constant cause" />
+    <link rel="manifest" href="/matter.js/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/matter.js/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>matter.js</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/matter.js/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="changing-body-mass-in-matterjs-impact-on-density">Changing Body
+Mass in Matter.js: Impact on Density</h1>
+<p>In Matter.js, changing a rigid body's mass directly alters its
+density, provided you use the official engine methods. Because Matter.js
+calculates density as mass divided by surface area, altering the mass
+while the body's geometry remains constant causes the engine to
+recalculate and update the <code>body.density</code> property
+automatically. However, how this update occurs depends strictly on
+whether you modify the body via the API or through direct property
+assignment.</p>
+<h3 id="the-relationship-between-mass-density-and-area">The Relationship
+Between Mass, Density, and Area</h3>
+<p>Matter.js relies on a simple geometric formula to maintain physical
+consistency:</p>
+<p><span class="math display">\[\text{density} =
+\frac{\text{mass}}{\text{area}}\]</span></p>
+<p>When a body is initially created, Matter.js assigns a default density
+(typically <code>0.001</code>) and calculates the initial mass based on
+the computed area of the shape.</p>
+<h3 id="updating-mass-using-bodysetmass">Updating Mass Using
+<code>Body.setMass</code></h3>
+<p>To safely update a body's mass, you should always use the built-in
+module function:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a>Matter<span class="op">.</span><span class="at">Body</span><span class="op">.</span><span class="fu">setMass</span>(body<span class="op">,</span> newMass)<span class="op">;</span></span></code></pre></div>
+<p>When you call <code>Body.setMass()</code>, Matter.js executes an
+internal routine that updates several dependent properties at once:</p>
+<ol type="1">
+<li><strong>Recalculates Density:</strong> The engine sets
+<code>body.density = body.mass / body.area</code>. Increasing mass
+increases density proportionally; decreasing mass lowers density.</li>
+<li><strong>Updates Inverse Mass:</strong> It recalculates
+<code>body.inverseMass = 1 / body.mass</code>, which the collision
+solver relies on for performance.</li>
+<li><strong>Adjusts Inertia:</strong> It scales the rotational inertia
+(<code>body.inertia</code> and <code>body.inverseInertia</code>) to
+match the new mass, preventing unnatural spinning or resistance during
+collisions.</li>
+</ol>
+<h3 id="direct-mutation-pitfall-bodymass--value">Direct Mutation Pitfall
+(<code>body.mass = value</code>)</h3>
+<p>If you manually overwrite the property directly using
+<code>body.mass = newMass</code>, <strong>density will not
+change</strong>.</p>
+<p>Matter.js does not use active getters and setters for its core
+physics properties. Directly assigning a new value to
+<code>body.mass</code> leaves <code>body.density</code>,
+<code>body.inverseMass</code>, and <code>body.inertia</code> at their
+previous values. This desynchronization can produce erratic physics
+behaviors, such as incorrect impulse responses during collisions and
+unnatural rotational dynamics.</p>
+<h3 id="modifying-density-instead">Modifying Density Instead</h3>
+<p>If your goal is to make an object behave as if it were made of a
+heavier material (like changing wood to metal), the recommended approach
+in Matter.js is to alter the density directly rather than the mass:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a>Matter<span class="op">.</span><span class="at">Body</span><span class="op">.</span><span class="fu">setDensity</span>(body<span class="op">,</span> newDensity)<span class="op">;</span></span></code></pre></div>
+<p>Calling <code>Body.setDensity()</code> performs the inverse
+operation: it recalculates <code>body.mass</code> as
+<code>density * area</code> and updates all related inertia parameters
+accordingly.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/matter.js'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/matter.js/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/matter.js/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

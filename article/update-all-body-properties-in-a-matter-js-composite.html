@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Update All Body Properties in a Matter.js Composite - matter.js</title>
+    <meta name="description" content="This guide explains how to batch-update the physical properties of every physics body contained within a Matter.js Composite. By utilizing the built-in Composite.allBodies method, you can recursively find all top-level and nested bodies and apply new val">
+    <link rel="canonical" href="https://salivity.github.io/matter.js/article/update-all-body-properties-in-a-matter-js-composite">
+    <link rel="search" type="application/opensearchdescription+xml" title="matter.js" href="/matter.js/opensearch.xml">
+    <link rel="icon" href="/matter.js/favicon.ico">
+    <link rel="stylesheet" href="/matter.js/css/style.css">
+    <link media="print" rel="stylesheet" href="/matter.js/css/print.css">
+    <script src="/matter.js/js/fuse.min.js"></script>
+    <script src="/matter.js/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Update All Body Properties in a Matter.js Composite - matter.js" />
+    <meta property="og:url" content="https://salivity.github.io/matter.js/article/update-all-body-properties-in-a-matter-js-composite" />
+    <meta property="og:image" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This guide explains how to batch-update the physical properties of every physics body contained within a Matter.js Composite. By utilizing the built-in Composite.allBodies method, you can recursively find all top-level and nested bodies and apply new val" />
+    <link rel="manifest" href="/matter.js/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/matter.js/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>matter.js</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/matter.js/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="update-all-body-properties-in-a-matterjs-composite">Update All
+Body Properties in a Matter.js Composite</h1>
+<p>This guide explains how to batch-update the physical properties of
+every physics body contained within a Matter.js <code>Composite</code>.
+By utilizing the built-in <code>Composite.allBodies</code> method, you
+can recursively find all top-level and nested bodies and apply new
+values for attributes such as friction, restitution, density, and static
+states.</p>
+<h3 id="retrieving-all-bodies-in-a-composite">Retrieving All Bodies in a
+Composite</h3>
+<p>A <code>Composite</code> in Matter.js can contain individual bodies
+as well as nested composites. Accessing <code>composite.bodies</code>
+directly only returns the top-level bodies, ignoring any sub-composites.
+To retrieve every body regardless of nesting depth, use
+<code>Matter.Composite.allBodies()</code>:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> allBodies <span class="op">=</span> Matter<span class="op">.</span><span class="at">Composite</span><span class="op">.</span><span class="fu">allBodies</span>(myComposite)<span class="op">;</span></span></code></pre></div>
+<h3 id="iterating-and-modifying-properties">Iterating and Modifying
+Properties</h3>
+<p>Once you have the array of bodies, iterate through them using a loop
+or <code>forEach</code> and apply your changes.</p>
+<p>When updating simple scalar values like <code>friction</code> or
+<code>restitution</code> (bounciness), you can update them directly on
+each body instance:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> allBodies <span class="op">=</span> Matter<span class="op">.</span><span class="at">Composite</span><span class="op">.</span><span class="fu">allBodies</span>(myComposite)<span class="op">;</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>allBodies<span class="op">.</span><span class="fu">forEach</span>(body <span class="kw">=&gt;</span> {</span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>    body<span class="op">.</span><span class="at">friction</span> <span class="op">=</span> <span class="fl">0.05</span><span class="op">;</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>    body<span class="op">.</span><span class="at">frictionAir</span> <span class="op">=</span> <span class="fl">0.01</span><span class="op">;</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>    body<span class="op">.</span><span class="at">restitution</span> <span class="op">=</span> <span class="fl">0.8</span><span class="op">;</span> <span class="co">// Bounciness</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div>
+<h3 id="modifying-properties-using-matterbody-helper-methods">Modifying
+Properties Using Matter.Body Helper Methods</h3>
+<p>For properties that require internal calculations—such as mass,
+inertia, density, or static state—use the corresponding
+<code>Matter.Body.set*</code> methods instead of direct assignment. This
+ensures Matter.js automatically recalculates the physics
+constraints.</p>
+<h4 id="setting-static-state">Setting Static State</h4>
+<p>To toggle whether all bodies in a composite are frozen in place:</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a>allBodies<span class="op">.</span><span class="fu">forEach</span>(body <span class="kw">=&gt;</span> {</span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>    Matter<span class="op">.</span><span class="at">Body</span><span class="op">.</span><span class="fu">setStatic</span>(body<span class="op">,</span> <span class="kw">true</span>)<span class="op">;</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div>
+<h4 id="updating-density-and-mass">Updating Density and Mass</h4>
+<p>Modifying density requires recalculating mass and moment of
+inertia:</p>
+<div class="sourceCode" id="cb4"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a>allBodies<span class="op">.</span><span class="fu">forEach</span>(body <span class="kw">=&gt;</span> {</span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>    Matter<span class="op">.</span><span class="at">Body</span><span class="op">.</span><span class="fu">setDensity</span>(body<span class="op">,</span> <span class="fl">0.005</span>)<span class="op">;</span></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div>
+<h4 id="updating-velocities">Updating Velocities</h4>
+<p>To impart forces, reset velocity, or stop all movement:</p>
+<div class="sourceCode" id="cb5"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a>allBodies<span class="op">.</span><span class="fu">forEach</span>(body <span class="kw">=&gt;</span> {</span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a>    Matter<span class="op">.</span><span class="at">Body</span><span class="op">.</span><span class="fu">setVelocity</span>(body<span class="op">,</span> { <span class="dt">x</span><span class="op">:</span> <span class="dv">0</span><span class="op">,</span> <span class="dt">y</span><span class="op">:</span> <span class="dv">0</span> })<span class="op">;</span></span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a>    Matter<span class="op">.</span><span class="at">Body</span><span class="op">.</span><span class="fu">setAngularVelocity</span>(body<span class="op">,</span> <span class="dv">0</span>)<span class="op">;</span></span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div>
+<h3 id="modifying-collision-filters">Modifying Collision Filters</h3>
+<p>If you need to change how all bodies in the composite interact with
+other bodies in the simulation, update the <code>collisionFilter</code>
+property:</p>
+<div class="sourceCode" id="cb6"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a>allBodies<span class="op">.</span><span class="fu">forEach</span>(body <span class="kw">=&gt;</span> {</span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a>    body<span class="op">.</span><span class="at">collisionFilter</span><span class="op">.</span><span class="at">category</span> <span class="op">=</span> <span class="bn">0x0002</span><span class="op">;</span></span>
+<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a>    body<span class="op">.</span><span class="at">collisionFilter</span><span class="op">.</span><span class="at">mask</span> <span class="op">=</span> <span class="bn">0x0001</span><span class="op">;</span></span>
+<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a>    body<span class="op">.</span><span class="at">collisionFilter</span><span class="op">.</span><span class="at">group</span> <span class="op">=</span> <span class="op">-</span><span class="dv">1</span><span class="op">;</span></span>
+<span id="cb6-5"><a href="#cb6-5" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div>
+<h3 id="reusable-utility-function">Reusable Utility Function</h3>
+<p>You can combine these approaches into a generic utility function that
+accepts a composite and a configuration object:</p>
+<div class="sourceCode" id="cb7"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">updateCompositeProperties</span>(composite<span class="op">,</span> properties) {</span>
+<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> bodies <span class="op">=</span> Matter<span class="op">.</span><span class="at">Composite</span><span class="op">.</span><span class="fu">allBodies</span>(composite)<span class="op">;</span></span>
+<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-4"><a href="#cb7-4" aria-hidden="true" tabindex="-1"></a>    bodies<span class="op">.</span><span class="fu">forEach</span>(body <span class="kw">=&gt;</span> {</span>
+<span id="cb7-5"><a href="#cb7-5" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> (properties<span class="op">.</span><span class="at">isStatic</span> <span class="op">!==</span> <span class="kw">undefined</span>) {</span>
+<span id="cb7-6"><a href="#cb7-6" aria-hidden="true" tabindex="-1"></a>            Matter<span class="op">.</span><span class="at">Body</span><span class="op">.</span><span class="fu">setStatic</span>(body<span class="op">,</span> properties<span class="op">.</span><span class="at">isStatic</span>)<span class="op">;</span></span>
+<span id="cb7-7"><a href="#cb7-7" aria-hidden="true" tabindex="-1"></a>        }</span>
+<span id="cb7-8"><a href="#cb7-8" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> (properties<span class="op">.</span><span class="at">density</span> <span class="op">!==</span> <span class="kw">undefined</span>) {</span>
+<span id="cb7-9"><a href="#cb7-9" aria-hidden="true" tabindex="-1"></a>            Matter<span class="op">.</span><span class="at">Body</span><span class="op">.</span><span class="fu">setDensity</span>(body<span class="op">,</span> properties<span class="op">.</span><span class="at">density</span>)<span class="op">;</span></span>
+<span id="cb7-10"><a href="#cb7-10" aria-hidden="true" tabindex="-1"></a>        }</span>
+<span id="cb7-11"><a href="#cb7-11" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> (properties<span class="op">.</span><span class="at">friction</span> <span class="op">!==</span> <span class="kw">undefined</span>) {</span>
+<span id="cb7-12"><a href="#cb7-12" aria-hidden="true" tabindex="-1"></a>            body<span class="op">.</span><span class="at">friction</span> <span class="op">=</span> properties<span class="op">.</span><span class="at">friction</span><span class="op">;</span></span>
+<span id="cb7-13"><a href="#cb7-13" aria-hidden="true" tabindex="-1"></a>        }</span>
+<span id="cb7-14"><a href="#cb7-14" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> (properties<span class="op">.</span><span class="at">restitution</span> <span class="op">!==</span> <span class="kw">undefined</span>) {</span>
+<span id="cb7-15"><a href="#cb7-15" aria-hidden="true" tabindex="-1"></a>            body<span class="op">.</span><span class="at">restitution</span> <span class="op">=</span> properties<span class="op">.</span><span class="at">restitution</span><span class="op">;</span></span>
+<span id="cb7-16"><a href="#cb7-16" aria-hidden="true" tabindex="-1"></a>        }</span>
+<span id="cb7-17"><a href="#cb7-17" aria-hidden="true" tabindex="-1"></a>    })<span class="op">;</span></span>
+<span id="cb7-18"><a href="#cb7-18" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb7-19"><a href="#cb7-19" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-20"><a href="#cb7-20" aria-hidden="true" tabindex="-1"></a><span class="co">// Example usage:</span></span>
+<span id="cb7-21"><a href="#cb7-21" aria-hidden="true" tabindex="-1"></a><span class="fu">updateCompositeProperties</span>(myComposite<span class="op">,</span> {</span>
+<span id="cb7-22"><a href="#cb7-22" aria-hidden="true" tabindex="-1"></a>    <span class="dt">friction</span><span class="op">:</span> <span class="fl">0.1</span><span class="op">,</span></span>
+<span id="cb7-23"><a href="#cb7-23" aria-hidden="true" tabindex="-1"></a>    <span class="dt">restitution</span><span class="op">:</span> <span class="fl">0.9</span><span class="op">,</span></span>
+<span id="cb7-24"><a href="#cb7-24" aria-hidden="true" tabindex="-1"></a>    <span class="dt">isStatic</span><span class="op">:</span> <span class="kw">false</span></span>
+<span id="cb7-25"><a href="#cb7-25" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/matter.js'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/matter.js/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/matter.js/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

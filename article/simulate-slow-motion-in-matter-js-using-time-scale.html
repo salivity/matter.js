@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simulate Slow Motion in Matter.js Using Time Scale - matter.js</title>
+    <meta name="description" content="Simulating slow motion in Matter.js is straightforward using the built-in timeScale property of the physics engine. By adjusting this value, you can control the speed of the physics update loop without manually recalculating velocities or forces. This ar">
+    <link rel="canonical" href="https://salivity.github.io/matter.js/article/simulate-slow-motion-in-matter-js-using-time-scale">
+    <link rel="search" type="application/opensearchdescription+xml" title="matter.js" href="/matter.js/opensearch.xml">
+    <link rel="icon" href="/matter.js/favicon.ico">
+    <link rel="stylesheet" href="/matter.js/css/style.css">
+    <link media="print" rel="stylesheet" href="/matter.js/css/print.css">
+    <script src="/matter.js/js/fuse.min.js"></script>
+    <script src="/matter.js/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Simulate Slow Motion in Matter.js Using Time Scale - matter.js" />
+    <meta property="og:url" content="https://salivity.github.io/matter.js/article/simulate-slow-motion-in-matter-js-using-time-scale" />
+    <meta property="og:image" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Simulating slow motion in Matter.js is straightforward using the built-in timeScale property of the physics engine. By adjusting this value, you can control the speed of the physics update loop without manually recalculating velocities or forces. This ar" />
+    <link rel="manifest" href="/matter.js/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/matter.js/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>matter.js</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/matter.js/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="simulate-slow-motion-in-matterjs-using-time-scale">Simulate Slow
+Motion in Matter.js Using Time Scale</h1>
+<p>Simulating slow motion in Matter.js is straightforward using the
+built-in <code>timeScale</code> property of the physics engine. By
+adjusting this value, you can control the speed of the physics update
+loop without manually recalculating velocities or forces. This article
+covers how <code>timeScale</code> works, how to implement sudden and
+smooth transitions for slow-motion effects, and best practices to ensure
+simulation stability.</p>
+<h2 id="how-timescale-works-in-matterjs">How <code>timeScale</code>
+Works in Matter.js</h2>
+<p>The Matter.js engine includes a timing configuration object at
+<code>engine.timing</code>. Within this object, <code>timeScale</code>
+acts as a global multiplier for the delta time used in each physics
+update step.</p>
+<ul>
+<li><strong>Default Value:</strong> <code>1.0</code> (standard real-time
+physics)</li>
+<li><strong>Slow Motion:</strong> Any value between <code>0.0</code> and
+<code>1.0</code> (for example, <code>0.2</code> represents 20% of normal
+speed)</li>
+<li><strong>Fast Forward:</strong> Any value greater than
+<code>1.0</code></li>
+<li><strong>Pause:</strong> <code>0.0</code> (freezes the
+simulation)</li>
+</ul>
+<h2 id="basic-implementation">Basic Implementation</h2>
+<p>To initiate slow motion instantly, change the
+<code>engine.timing.timeScale</code> property directly on your active
+engine instance:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Create your engine</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> engine <span class="op">=</span> Matter<span class="op">.</span><span class="at">Engine</span><span class="op">.</span><span class="fu">create</span>()<span class="op">;</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="co">// Trigger slow motion (e.g., 25% speed)</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">enableSlowMotion</span>() {</span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>    engine<span class="op">.</span><span class="at">timing</span><span class="op">.</span><span class="at">timeScale</span> <span class="op">=</span> <span class="fl">0.25</span><span class="op">;</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a><span class="co">// Return to normal speed</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">resetNormalSpeed</span>() {</span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>    engine<span class="op">.</span><span class="at">timing</span><span class="op">.</span><span class="at">timeScale</span> <span class="op">=</span> <span class="fl">1.0</span><span class="op">;</span></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<p>When using <code>Matter.Runner</code>, the runner automatically
+honors <code>engine.timing.timeScale</code> and scales the simulation
+steps accordingly.</p>
+<h2 id="creating-smooth-bullet-time-transitions">Creating Smooth "Bullet
+Time" Transitions</h2>
+<p>Instantly snapping to a low <code>timeScale</code> can feel jarring.
+To create a cinematic bullet-time effect, smoothly interpolate the
+<code>timeScale</code> between values over time using a standard update
+loop or a tweening library.</p>
+<h3 id="linear-interpolation-lerp-example">Linear Interpolation (Lerp)
+Example</h3>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">let</span> targetTimeScale <span class="op">=</span> <span class="fl">1.0</span><span class="op">;</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">setSlowMotion</span>(active) {</span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>    targetTimeScale <span class="op">=</span> active <span class="op">?</span> <span class="fl">0.1</span> <span class="op">:</span> <span class="fl">1.0</span><span class="op">;</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a><span class="co">// Inside your main game loop or a Matter.js &#39;beforeUpdate&#39; event</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>Matter<span class="op">.</span><span class="at">Events</span><span class="op">.</span><span class="fu">on</span>(engine<span class="op">,</span> <span class="st">&#39;beforeUpdate&#39;</span><span class="op">,</span> () <span class="kw">=&gt;</span> {</span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Smoothly approach the target scale</span></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>    engine<span class="op">.</span><span class="at">timing</span><span class="op">.</span><span class="at">timeScale</span> <span class="op">+=</span> (targetTimeScale <span class="op">-</span> engine<span class="op">.</span><span class="at">timing</span><span class="op">.</span><span class="at">timeScale</span>) <span class="op">*</span> <span class="fl">0.05</span><span class="op">;</span></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div>
+<h2 id="best-practices-and-considerations">Best Practices and
+Considerations</h2>
+<ol type="1">
+<li><strong>Avoid Tunneling at High Scales:</strong> Reducing
+<code>timeScale</code> (slow motion) generally increases collision
+accuracy because movements per tick become smaller. However, if you
+abruptly increase <code>timeScale</code> well above <code>1.0</code>,
+fast-moving objects may pass through thin barriers (tunneling).</li>
+<li><strong>Body-Specific Scaling:</strong> The
+<code>engine.timing.timeScale</code> property affects every dynamic body
+in the world simultaneously. If you need a single body to move in slow
+motion while others move normally, you must manually manipulate that
+body's <code>velocity</code> and <code>force</code> properties instead
+of changing the global engine timescale.</li>
+<li><strong>Framerate Independence:</strong> When using custom game
+loops rather than <code>Matter.Runner.run()</code>, ensure you pass
+scaled delta values into
+<code>Matter.Engine.update(engine, delta)</code> to maintain consistent
+behavior across displays with varying refresh rates.</li>
+</ol></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/matter.js'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/matter.js/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/matter.js/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

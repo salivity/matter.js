@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Matter.js Community Plugins: Availability and Use - matter.js</title>
+    <meta name="description" content="Matter.js features a dedicated, community-driven plugin ecosystem supported by its native modular architecture. Developers can expand the 2D physics engine's core capabilities through third-party packages that add specialized physics behaviors, simplify">
+    <link rel="canonical" href="https://salivity.github.io/matter.js/article/matter-js-community-plugins-availability-and-use">
+    <link rel="search" type="application/opensearchdescription+xml" title="matter.js" href="/matter.js/opensearch.xml">
+    <link rel="icon" href="/matter.js/favicon.ico">
+    <link rel="stylesheet" href="/matter.js/css/style.css">
+    <link media="print" rel="stylesheet" href="/matter.js/css/print.css">
+    <script src="/matter.js/js/fuse.min.js"></script>
+    <script src="/matter.js/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Matter.js Community Plugins: Availability and Use - matter.js" />
+    <meta property="og:url" content="https://salivity.github.io/matter.js/article/matter-js-community-plugins-availability-and-use" />
+    <meta property="og:image" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Matter.js features a dedicated, community-driven plugin ecosystem supported by its native modular architecture. Developers can expand the 2D physics engine's core capabilities through third-party packages that add specialized physics behaviors, simplify" />
+    <link rel="manifest" href="/matter.js/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/matter.js/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>matter.js</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/matter.js/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="matterjs-community-plugins-availability-and-use">Matter.js
+Community Plugins: Availability and Use</h1>
+<p>Matter.js features a dedicated, community-driven plugin ecosystem
+supported by its native modular architecture. Developers can expand the
+2D physics engine's core capabilities through third-party packages that
+add specialized physics behaviors, simplify event handling, and provide
+developer tooling. This guide covers the availability of these plugins,
+the most widely used community packages, and how to integrate them into
+your projects.</p>
+<h3 id="the-matterjs-plugin-architecture">The Matter.js Plugin
+Architecture</h3>
+<p>Matter.js includes a built-in module system called
+<code>Matter.Plugin</code> that allows external developers to hook into
+the engine's core lifecycle without modifying its source code. Plugins
+can patch core methods, register listeners to simulation steps (such as
+<code>beforeUpdate</code> and <code>afterUpdate</code>), and inject
+custom properties into bodies, engines, and renderers.</p>
+<p>To register any plugin, Matter.js provides the
+<code>Matter.use()</code> method, which automatically resolves
+dependencies and versioning requirements specified by the plugin
+author.</p>
+<h3 id="popular-community-driven-plugins">Popular Community-Driven
+Plugins</h3>
+<p>The community has created numerous plugins to solve common physics
+simulation challenges in web and game development:</p>
+<ul>
+<li><strong>matter-attractors:</strong> Adds support for attraction
+forces, allowing bodies to simulate gravity, magnetic fields, or
+celestial pull. Developers can apply built-in gravitational behaviors or
+define custom force-calculation functions for specific bodies.</li>
+<li><strong>matter-wrap:</strong> Automatically wraps bodies around
+coordinate boundaries, such as screen edges. When a body exits one side
+of the viewport, it seamlessly reappears on the opposite side, making it
+ideal for classic arcade-style games.</li>
+<li><strong>matter-collision-events:</strong> Simplifies Matter.js
+collision detection by attaching event listeners directly to individual
+rigid bodies (e.g., <code>body.onCollide(callback)</code>), avoiding the
+need to manually iterate over global engine collision arrays.</li>
+<li><strong>matter-springs:</strong> Provides dedicated spring
+constraints with customizable damping, stiffness, and rest lengths,
+simplifying soft-body mechanics and suspended structures.</li>
+</ul>
+<h3 id="installing-and-implementing-plugins">Installing and Implementing
+Plugins</h3>
+<p>Community plugins are typically distributed via npm and can be used
+in both modern bundled environments and traditional browser script
+setups.</p>
+<p>In a modular JavaScript project, you install the package via npm and
+register it before initializing your engine:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> Matter <span class="im">from</span> <span class="st">&#39;matter-js&#39;</span><span class="op">;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> MatterAttractors <span class="im">from</span> <span class="st">&#39;matter-attractors&#39;</span><span class="op">;</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="co">// Register the plugin with the engine</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>Matter<span class="op">.</span><span class="fu">use</span>(MatterAttractors)<span class="op">;</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a><span class="co">// Create your engine and apply plugin-specific properties</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> engine <span class="op">=</span> Matter<span class="op">.</span><span class="at">Engine</span><span class="op">.</span><span class="fu">create</span>()<span class="op">;</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> body <span class="op">=</span> Matter<span class="op">.</span><span class="at">Bodies</span><span class="op">.</span><span class="fu">circle</span>(<span class="dv">100</span><span class="op">,</span> <span class="dv">100</span><span class="op">,</span> <span class="dv">20</span><span class="op">,</span> {</span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>  <span class="dt">plugin</span><span class="op">:</span> {</span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>    <span class="dt">attractors</span><span class="op">:</span> [</span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>      (bodyA<span class="op">,</span> bodyB) <span class="kw">=&gt;</span> {</span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>        <span class="co">// Custom attraction logic</span></span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>      }</span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a>    ]</span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div>
+<h3 id="finding-and-evaluating-plugins">Finding and Evaluating
+Plugins</h3>
+<p>Most community plugins are indexed on npm using the
+<code>matter-</code> prefix or under the GitHub topic
+<code>#matter-js-plugin</code>. When selecting a community-driven
+plugin, review its compatibility with your installed version of
+Matter.js. While the engine's core API has remained stable, older
+plugins may require checking whether they register hooks against
+deprecated engine events.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/matter.js'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/matter.js/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/matter.js/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

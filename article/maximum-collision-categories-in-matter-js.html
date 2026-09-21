@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Maximum Collision Categories in Matter.js - matter.js</title>
+    <meta name="description" content="In Matter.js, the maximum number of unique collision categories you can define is 32. This limit is governed by the underlying bitmask system that the physics engine uses to process collision filtering, combined with JavaScript's 32-bit integer constrain">
+    <link rel="canonical" href="https://salivity.github.io/matter.js/article/maximum-collision-categories-in-matter-js">
+    <link rel="search" type="application/opensearchdescription+xml" title="matter.js" href="/matter.js/opensearch.xml">
+    <link rel="icon" href="/matter.js/favicon.ico">
+    <link rel="stylesheet" href="/matter.js/css/style.css">
+    <link media="print" rel="stylesheet" href="/matter.js/css/print.css">
+    <script src="/matter.js/js/fuse.min.js"></script>
+    <script src="/matter.js/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Maximum Collision Categories in Matter.js - matter.js" />
+    <meta property="og:url" content="https://salivity.github.io/matter.js/article/maximum-collision-categories-in-matter-js" />
+    <meta property="og:image" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="In Matter.js, the maximum number of unique collision categories you can define is 32. This limit is governed by the underlying bitmask system that the physics engine uses to process collision filtering, combined with JavaScript's 32-bit integer constrain" />
+    <link rel="manifest" href="/matter.js/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/matter.js/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>matter.js</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/matter.js/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="maximum-collision-categories-in-matterjs">Maximum Collision
+Categories in Matter.js</h1>
+<p>In Matter.js, the maximum number of unique collision categories you
+can define is 32. This limit is governed by the underlying bitmask
+system that the physics engine uses to process collision filtering,
+combined with JavaScript's 32-bit integer constraints during bitwise
+operations. This article covers why this 32-category ceiling exists, how
+collision filtering works with bitmasks, and practical alternatives if
+your simulation requires more complex interaction rules.</p>
+<h3 id="why-the-limit-is-32-categories">Why the Limit Is 32
+Categories</h3>
+<p>Matter.js relies on bitwise operations to efficiently calculate
+whether two bodies should collide. The properties responsible for this
+are <code>collisionFilter.category</code> and
+<code>collisionFilter.mask</code>.</p>
+<p>In JavaScript, bitwise operators (such as <code>AND</code>
+(<code>&amp;</code>) and <code>OR</code> (<code>|</code>)) treat their
+operands as a sequence of 32 bits, regardless of JavaScript's standard
+64-bit floating-point numeric type. Because a bitmask assigns one unique
+binary bit to represent each collision category, there are exactly 32
+available bit positions:</p>
+<ul>
+<li>Category 1: <code>0x0001</code> (<span
+class="math inline">\(2^0\)</span>)</li>
+<li>Category 2: <code>0x0002</code> (<span
+class="math inline">\(2^1\)</span>)</li>
+<li>Category 3: <code>0x0004</code> (<span
+class="math inline">\(2^2\)</span>)</li>
+<li>...</li>
+<li>Category 31: <code>0x40000000</code> (<span
+class="math inline">\(2^{30}\)</span>)</li>
+<li>Category 32: <code>0x80000000</code> (<span
+class="math inline">\(2^{31}\)</span>)</li>
+</ul>
+<p>Attempting to define a 33rd category using <span
+class="math inline">\(2^{32}\)</span> overflows the 32-bit integer
+boundary, wrapping the value and causing unexpected collisions.</p>
+<h3 id="how-matterjs-determines-collisions">How Matter.js Determines
+Collisions</h3>
+<p>For two bodies, Body A and Body B, to collide, two conditions must
+evaluate to true:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a>(bodyA<span class="op">.</span><span class="at">collisionFilter</span><span class="op">.</span><span class="at">category</span> <span class="op">&amp;</span> bodyB<span class="op">.</span><span class="at">collisionFilter</span><span class="op">.</span><span class="at">mask</span>) <span class="op">!==</span> <span class="dv">0</span> <span class="op">&amp;&amp;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>(bodyB<span class="op">.</span><span class="at">collisionFilter</span><span class="op">.</span><span class="at">category</span> <span class="op">&amp;</span> bodyA<span class="op">.</span><span class="at">collisionFilter</span><span class="op">.</span><span class="at">mask</span>) <span class="op">!==</span> <span class="dv">0</span></span></code></pre></div>
+<ol type="1">
+<li><strong><code>category</code></strong>: Defines what category the
+body belongs to (typically a single bit flag).</li>
+<li><strong><code>mask</code></strong>: Defines which categories the
+body can collide with (a combination of bit flags combined with the
+bitwise OR <code>|</code> operator).</li>
+<li><strong><code>group</code></strong>: An optional higher-priority
+rule. If both bodies share the same positive group ID, they always
+collide; if they share the same negative group ID, they never
+collide.</li>
+</ol>
+<h3 id="workarounds-for-more-than-32-interaction-types">Workarounds for
+More Than 32 Interaction Types</h3>
+<p>If a project requires more than 32 distinct interaction states,
+relying strictly on bitmask categories is not sufficient. Common
+approaches to handle larger scale interaction models include:</p>
+<ul>
+<li><strong>Leverage <code>collisionFilter.group</code></strong>: Use
+signed group integers for strict non-colliding or always-colliding rules
+among groups of objects to free up bit categories.</li>
+<li><strong>Filter with Collision Events</strong>: Set broad categories
+and use the <code>collisionStart</code> or <code>collisionActive</code>
+events to cancel or apply custom response logic manually when specific
+bodies touch.</li>
+<li><strong>Dynamic Category Reassignment</strong>: If all 32 categories
+are not active simultaneously across all objects, reassign
+<code>category</code> and <code>mask</code> values dynamically based on
+object proximity or current game state.</li>
+</ul></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/matter.js'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/matter.js/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/matter.js/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

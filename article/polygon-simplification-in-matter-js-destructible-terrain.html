@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Polygon Simplification in Matter.js Destructible Terrain - matter.js</title>
+    <meta name="description" content="Dynamic terrain destruction in Matter.js often degrades physics engine performance due to vertex inflation caused by repeated geometric subtractions. When explosive craters carve into 2D terrain, boolean clipping algorithms produce complex paths containi">
+    <link rel="canonical" href="https://salivity.github.io/matter.js/article/polygon-simplification-in-matter-js-destructible-terrain">
+    <link rel="search" type="application/opensearchdescription+xml" title="matter.js" href="/matter.js/opensearch.xml">
+    <link rel="icon" href="/matter.js/favicon.ico">
+    <link rel="stylesheet" href="/matter.js/css/style.css">
+    <link media="print" rel="stylesheet" href="/matter.js/css/print.css">
+    <script src="/matter.js/js/fuse.min.js"></script>
+    <script src="/matter.js/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Polygon Simplification in Matter.js Destructible Terrain - matter.js" />
+    <meta property="og:url" content="https://salivity.github.io/matter.js/article/polygon-simplification-in-matter-js-destructible-terrain" />
+    <meta property="og:image" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Dynamic terrain destruction in Matter.js often degrades physics engine performance due to vertex inflation caused by repeated geometric subtractions. When explosive craters carve into 2D terrain, boolean clipping algorithms produce complex paths containi" />
+    <link rel="manifest" href="/matter.js/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/matter.js/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>matter.js</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/matter.js/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="polygon-simplification-in-matterjs-destructible-terrain">Polygon
+Simplification in Matter.js Destructible Terrain</h1>
+<p>Dynamic terrain destruction in Matter.js often degrades physics
+engine performance due to vertex inflation caused by repeated geometric
+subtractions. When explosive craters carve into 2D terrain, boolean
+clipping algorithms produce complex paths containing redundant,
+micro-distance, and collinear vertices. This guide explains how to
+implement a robust polygon simplification pipeline using the
+Ramer-Douglas-Peucker (RDP) algorithm and convex decomposition to
+maintain steady frame rates and stable physics bodies in Matter.js.</p>
+<h3 id="the-performance-problem">The Performance Problem</h3>
+<p>Matter.js relies on the Separating Axis Theorem (SAT) for collision
+detection. The computational cost of SAT scales directly with the number
+of vertices and the convex sub-bodies making up a composite shape.</p>
+<p>When explosives carve out parts of a terrain, libraries such as
+ClipperLib or polybooljs output complex paths. Consecutive blasts
+compound this issue:</p>
+<ul>
+<li>Thousands of tiny edges form around jagged explosion
+perimeters.</li>
+<li>Near-collinear points form along straight edges that intersect
+explosion boundaries.</li>
+<li>Convex decomposition libraries (like <code>poly-decomp.js</code>,
+used internally by Matter.js) become computationally expensive or fail
+entirely, generating degenerate triangles.</li>
+</ul>
+<h3 id="step-1-execute-the-boolean-subtraction">Step 1: Execute the
+Boolean Subtraction</h3>
+<p>Terrain destruction begins by modeling the blast as a geometric
+subtraction. The explosion radius is approximated as a low-resolution
+polygon (typically 12 to 16 vertices rather than a smooth circle) to
+avoid introducing unnecessary detail at the source.</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Example using ClipperLib</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">carveTerrain</span>(terrainPolygon<span class="op">,</span> blastPolygon) {</span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> clipper <span class="op">=</span> <span class="kw">new</span> ClipperLib<span class="op">.</span><span class="fu">Clipper</span>()<span class="op">;</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> solution <span class="op">=</span> <span class="kw">new</span> ClipperLib<span class="op">.</span><span class="fu">Paths</span>()<span class="op">;</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>    clipper<span class="op">.</span><span class="fu">AddPath</span>(terrainPolygon<span class="op">,</span> ClipperLib<span class="op">.</span><span class="at">PolyType</span><span class="op">.</span><span class="at">ptSubject</span><span class="op">,</span> <span class="kw">true</span>)<span class="op">;</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>    clipper<span class="op">.</span><span class="fu">AddPath</span>(blastPolygon<span class="op">,</span> ClipperLib<span class="op">.</span><span class="at">PolyType</span><span class="op">.</span><span class="at">ptClip</span><span class="op">,</span> <span class="kw">true</span>)<span class="op">;</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>    clipper<span class="op">.</span><span class="fu">Execute</span>(</span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>        ClipperLib<span class="op">.</span><span class="at">ClipType</span><span class="op">.</span><span class="at">ctDifference</span><span class="op">,</span></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>        solution<span class="op">,</span></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>        ClipperLib<span class="op">.</span><span class="at">PolyFillType</span><span class="op">.</span><span class="at">pftNonZero</span><span class="op">,</span></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>        ClipperLib<span class="op">.</span><span class="at">PolyFillType</span><span class="op">.</span><span class="at">pftNonZero</span></span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>    )<span class="op">;</span></span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> solution<span class="op">;</span> <span class="co">// Array of remaining polygon paths</span></span>
+<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<h3 id="step-2-remove-collinear-and-redundant-points">Step 2: Remove
+Collinear and Redundant Points</h3>
+<p>Before passing the resulting paths through aggressive simplification,
+prune identical points and points lying along a straight line.
+ClipperLib provides a built-in clean method, or you can implement a
+tolerance-based pass:</p>
+<ul>
+<li><strong>Distance Threshold:</strong> Remove points closer than an
+established threshold (e.g., 1–2 pixels).</li>
+<li><strong>Angle Threshold:</strong> Remove any vertex whose angle
+relative to its neighboring edges is within a fraction of a degree from
+180°.</li>
+</ul>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Clean degenerate micro-edges using ClipperLib&#39;s native utility</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>ClipperLib<span class="op">.</span><span class="at">JS</span><span class="op">.</span><span class="fu">Clean</span>(solution<span class="op">,</span> <span class="fl">1.5</span>)<span class="op">;</span> <span class="co">// 1.5 pixel tolerance</span></span></code></pre></div>
+<h3 id="step-3-apply-the-ramer-douglas-peucker-rdp-algorithm">Step 3:
+Apply the Ramer-Douglas-Peucker (RDP) Algorithm</h3>
+<p>The Ramer-Douglas-Peucker algorithm reduces a curve composed of line
+segments to a similar curve with fewer points based on an
+<code>epsilon</code> distance threshold. Applying RDP directly to each
+path returned by the boolean subtraction eliminates the jagged perimeter
+without visibly degrading the terrain shape.</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">getPerpendicularDistance</span>(point<span class="op">,</span> lineStart<span class="op">,</span> lineEnd) {</span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> dx <span class="op">=</span> lineEnd<span class="op">.</span><span class="at">x</span> <span class="op">-</span> lineStart<span class="op">.</span><span class="at">x</span><span class="op">;</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> dy <span class="op">=</span> lineEnd<span class="op">.</span><span class="at">y</span> <span class="op">-</span> lineStart<span class="op">.</span><span class="at">y</span><span class="op">;</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> mag <span class="op">=</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">hypot</span>(dx<span class="op">,</span> dy)<span class="op">;</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (mag <span class="op">===</span> <span class="dv">0</span>) <span class="cf">return</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">hypot</span>(point<span class="op">.</span><span class="at">x</span> <span class="op">-</span> lineStart<span class="op">.</span><span class="at">x</span><span class="op">,</span> point<span class="op">.</span><span class="at">y</span> <span class="op">-</span> lineStart<span class="op">.</span><span class="at">y</span>)<span class="op">;</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">abs</span>(dy <span class="op">*</span> point<span class="op">.</span><span class="at">x</span> <span class="op">-</span> dx <span class="op">*</span> point<span class="op">.</span><span class="at">y</span> <span class="op">+</span> lineEnd<span class="op">.</span><span class="at">x</span> <span class="op">*</span> lineStart<span class="op">.</span><span class="at">y</span> <span class="op">-</span> lineEnd<span class="op">.</span><span class="at">y</span> <span class="op">*</span> lineStart<span class="op">.</span><span class="at">x</span>) <span class="op">/</span> mag<span class="op">;</span></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">simplifyRDP</span>(points<span class="op">,</span> epsilon) {</span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (points<span class="op">.</span><span class="at">length</span> <span class="op">&lt;=</span> <span class="dv">2</span>) <span class="cf">return</span> points<span class="op">;</span></span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a>    <span class="kw">let</span> maxDist <span class="op">=</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a>    <span class="kw">let</span> index <span class="op">=</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb3-14"><a href="#cb3-14" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> end <span class="op">=</span> points<span class="op">.</span><span class="at">length</span> <span class="op">-</span> <span class="dv">1</span><span class="op">;</span></span>
+<span id="cb3-15"><a href="#cb3-15" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-16"><a href="#cb3-16" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> (<span class="kw">let</span> i <span class="op">=</span> <span class="dv">1</span><span class="op">;</span> i <span class="op">&lt;</span> end<span class="op">;</span> i<span class="op">++</span>) {</span>
+<span id="cb3-17"><a href="#cb3-17" aria-hidden="true" tabindex="-1"></a>        <span class="kw">const</span> dist <span class="op">=</span> <span class="fu">getPerpendicularDistance</span>(points[i]<span class="op">,</span> points[<span class="dv">0</span>]<span class="op">,</span> points[end])<span class="op">;</span></span>
+<span id="cb3-18"><a href="#cb3-18" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> (dist <span class="op">&gt;</span> maxDist) {</span>
+<span id="cb3-19"><a href="#cb3-19" aria-hidden="true" tabindex="-1"></a>            maxDist <span class="op">=</span> dist<span class="op">;</span></span>
+<span id="cb3-20"><a href="#cb3-20" aria-hidden="true" tabindex="-1"></a>            index <span class="op">=</span> i<span class="op">;</span></span>
+<span id="cb3-21"><a href="#cb3-21" aria-hidden="true" tabindex="-1"></a>        }</span>
+<span id="cb3-22"><a href="#cb3-22" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb3-23"><a href="#cb3-23" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-24"><a href="#cb3-24" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (maxDist <span class="op">&gt;</span> epsilon) {</span>
+<span id="cb3-25"><a href="#cb3-25" aria-hidden="true" tabindex="-1"></a>        <span class="kw">const</span> left <span class="op">=</span> <span class="fu">simplifyRDP</span>(points<span class="op">.</span><span class="fu">slice</span>(<span class="dv">0</span><span class="op">,</span> index <span class="op">+</span> <span class="dv">1</span>)<span class="op">,</span> epsilon)<span class="op">;</span></span>
+<span id="cb3-26"><a href="#cb3-26" aria-hidden="true" tabindex="-1"></a>        <span class="kw">const</span> right <span class="op">=</span> <span class="fu">simplifyRDP</span>(points<span class="op">.</span><span class="fu">slice</span>(index)<span class="op">,</span> epsilon)<span class="op">;</span></span>
+<span id="cb3-27"><a href="#cb3-27" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> left<span class="op">.</span><span class="fu">slice</span>(<span class="dv">0</span><span class="op">,</span> <span class="op">-</span><span class="dv">1</span>)<span class="op">.</span><span class="fu">concat</span>(right)<span class="op">;</span></span>
+<span id="cb3-28"><a href="#cb3-28" aria-hidden="true" tabindex="-1"></a>    } <span class="cf">else</span> {</span>
+<span id="cb3-29"><a href="#cb3-29" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> [points[<span class="dv">0</span>]<span class="op">,</span> points[end]]<span class="op">;</span></span>
+<span id="cb3-30"><a href="#cb3-30" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb3-31"><a href="#cb3-31" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<p>An <code>epsilon</code> value between <code>1.0</code> and
+<code>3.0</code> typically yields a 60–80% reduction in vertex count
+while keeping visual discrepancies undetectable to the player.</p>
+<h3 id="step-4-validate-polygon-validity-and-winding">Step 4: Validate
+Polygon Validity and Winding</h3>
+<p>Matter.js and <code>poly-decomp.js</code> require paths to follow
+strict constraints:</p>
+<ol type="1">
+<li><strong>Clockwise Winding:</strong> Ensure outer contours are wound
+clockwise, while internal holes are wound counter-clockwise.</li>
+<li><strong>Non-Self-Intersecting:</strong> RDP can occasionally
+introduce self-intersections if <code>epsilon</code> is set too high on
+tight geometry. Running a fast simplification pass with Clipper’s
+<code>SimplifyPolygons</code> prevents this.</li>
+<li><strong>Minimum Vertex Limit:</strong> Discard any closed path that
+ends up with fewer than 3 vertices.</li>
+</ol>
+<h3 id="step-5-reconstruct-the-matterjs-bodies">Step 5: Reconstruct the
+Matter.js Bodies</h3>
+<p>Once the polygon data is clean, pass the simplified vertices into
+<code>Matter.Bodies.fromVertices</code>. Avoid replacing the entire
+terrain body every frame; only update the terrain chunks overlapping the
+explosion's axis-aligned bounding box (AABB).</p>
+<div class="sourceCode" id="cb4"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">updateTerrainPhysics</span>(world<span class="op">,</span> oldBody<span class="op">,</span> simplifiedPaths) {</span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>    <span class="co">// 1. Remove the old, un-carved body</span></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>    Matter<span class="op">.</span><span class="at">Composite</span><span class="op">.</span><span class="fu">remove</span>(world<span class="op">,</span> oldBody)<span class="op">;</span></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> newBodies <span class="op">=</span> []<span class="op">;</span></span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a>    <span class="co">// 2. Re-create rigid bodies from simplified paths</span></span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> (<span class="kw">const</span> path <span class="kw">of</span> simplifiedPaths) {</span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> (path<span class="op">.</span><span class="at">length</span> <span class="op">&lt;</span> <span class="dv">3</span>) <span class="cf">continue</span><span class="op">;</span></span>
+<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a>        <span class="kw">const</span> body <span class="op">=</span> Matter<span class="op">.</span><span class="at">Bodies</span><span class="op">.</span><span class="fu">fromVertices</span>(</span>
+<span id="cb4-12"><a href="#cb4-12" aria-hidden="true" tabindex="-1"></a>            <span class="dv">0</span><span class="op">,</span> <span class="dv">0</span><span class="op">,</span> </span>
+<span id="cb4-13"><a href="#cb4-13" aria-hidden="true" tabindex="-1"></a>            path<span class="op">,</span> </span>
+<span id="cb4-14"><a href="#cb4-14" aria-hidden="true" tabindex="-1"></a>            {</span>
+<span id="cb4-15"><a href="#cb4-15" aria-hidden="true" tabindex="-1"></a>                <span class="dt">isStatic</span><span class="op">:</span> <span class="kw">true</span><span class="op">,</span></span>
+<span id="cb4-16"><a href="#cb4-16" aria-hidden="true" tabindex="-1"></a>                <span class="dt">render</span><span class="op">:</span> { <span class="dt">fillStyle</span><span class="op">:</span> <span class="st">&#39;#444444&#39;</span> }</span>
+<span id="cb4-17"><a href="#cb4-17" aria-hidden="true" tabindex="-1"></a>            }<span class="op">,</span> </span>
+<span id="cb4-18"><a href="#cb4-18" aria-hidden="true" tabindex="-1"></a>            <span class="kw">true</span> <span class="co">// Flag to auto-decompose concave shapes</span></span>
+<span id="cb4-19"><a href="#cb4-19" aria-hidden="true" tabindex="-1"></a>        )<span class="op">;</span></span>
+<span id="cb4-20"><a href="#cb4-20" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-21"><a href="#cb4-21" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> (body) {</span>
+<span id="cb4-22"><a href="#cb4-22" aria-hidden="true" tabindex="-1"></a>            <span class="co">// Reposition body to its calculated centroid</span></span>
+<span id="cb4-23"><a href="#cb4-23" aria-hidden="true" tabindex="-1"></a>            Matter<span class="op">.</span><span class="at">Body</span><span class="op">.</span><span class="fu">setPosition</span>(body<span class="op">,</span> Matter<span class="op">.</span><span class="at">Vertices</span><span class="op">.</span><span class="fu">centre</span>(path))<span class="op">;</span></span>
+<span id="cb4-24"><a href="#cb4-24" aria-hidden="true" tabindex="-1"></a>            newBodies<span class="op">.</span><span class="fu">push</span>(body)<span class="op">;</span></span>
+<span id="cb4-25"><a href="#cb4-25" aria-hidden="true" tabindex="-1"></a>        }</span>
+<span id="cb4-26"><a href="#cb4-26" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb4-27"><a href="#cb4-27" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-28"><a href="#cb4-28" aria-hidden="true" tabindex="-1"></a>    <span class="co">// 3. Add updated bodies back to the simulation</span></span>
+<span id="cb4-29"><a href="#cb4-29" aria-hidden="true" tabindex="-1"></a>    Matter<span class="op">.</span><span class="at">Composite</span><span class="op">.</span><span class="fu">add</span>(world<span class="op">,</span> newBodies)<span class="op">;</span></span>
+<span id="cb4-30"><a href="#cb4-30" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> newBodies<span class="op">;</span></span>
+<span id="cb4-31"><a href="#cb4-31" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<h3 id="architectural-best-practices-for-production">Architectural Best
+Practices for Production</h3>
+<ul>
+<li><strong>Chunking:</strong> Divide the terrain into grid sectors
+(e.g., 256x256 pixels). Explosions only perform boolean clipping and
+simplification on chunks they intersect, preventing the global terrain
+array from ballooning in complexity.</li>
+<li><strong>Worker Threads:</strong> Offload boolean clipping and RDP
+simplification to a Web Worker. Passing vertex arrays back and forth via
+<code>ArrayBuffer</code> keeps the main thread and physics step running
+at 60 FPS.</li>
+<li><strong>Decomposition Caching:</strong> If a piece of terrain is
+detached completely and forms an island that is no longer being
+destroyed, cache its convex decomposition to prevent redundant
+processing in future frames.</li>
+</ul></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/matter.js'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/matter.js/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/matter.js/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

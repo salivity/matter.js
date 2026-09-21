@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Testing Custom Physics Behaviors in Matter.js - matter.js</title>
+    <meta name="description" content="This guide explains how to write reliable automated tests for custom physics behaviors in Matter.js using standard JavaScript testing frameworks like Jest or Vitest. It covers decoupling the physics engine from rendering, executing deterministic manual t">
+    <link rel="canonical" href="https://salivity.github.io/matter.js/article/testing-custom-physics-behaviors-in-matter-js">
+    <link rel="search" type="application/opensearchdescription+xml" title="matter.js" href="/matter.js/opensearch.xml">
+    <link rel="icon" href="/matter.js/favicon.ico">
+    <link rel="stylesheet" href="/matter.js/css/style.css">
+    <link media="print" rel="stylesheet" href="/matter.js/css/print.css">
+    <script src="/matter.js/js/fuse.min.js"></script>
+    <script src="/matter.js/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Testing Custom Physics Behaviors in Matter.js - matter.js" />
+    <meta property="og:url" content="https://salivity.github.io/matter.js/article/testing-custom-physics-behaviors-in-matter-js" />
+    <meta property="og:image" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This guide explains how to write reliable automated tests for custom physics behaviors in Matter.js using standard JavaScript testing frameworks like Jest or Vitest. It covers decoupling the physics engine from rendering, executing deterministic manual t" />
+    <link rel="manifest" href="/matter.js/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/matter.js/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>matter.js</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/matter.js/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="testing-custom-physics-behaviors-in-matterjs">Testing Custom
+Physics Behaviors in Matter.js</h1>
+<p>This guide explains how to write reliable automated tests for custom
+physics behaviors in Matter.js using standard JavaScript testing
+frameworks like Jest or Vitest. It covers decoupling the physics engine
+from rendering, executing deterministic manual timesteps via
+<code>Engine.update</code>, testing custom forces and constraints, and
+handling floating-point assertions to verify physical interactions.</p>
+<h3 id="decoupling-the-engine-for-headless-testing">Decoupling the
+Engine for Headless Testing</h3>
+<p>Matter.js is modular, meaning the simulation engine
+(<code>Engine</code>) does not depend on the HTML5 canvas renderer
+(<code>Render</code>) or the browser's animation loop
+(<code>Runner</code>). To run automated tests in a Node.js
+environment:</p>
+<ol type="1">
+<li>Import only the core modules (<code>Engine</code>,
+<code>World</code>, <code>Bodies</code>, <code>Body</code>,
+<code>Events</code>).</li>
+<li>Do not instantiate <code>Matter.Render</code> or
+<code>Matter.Runner</code>.</li>
+<li>Manage the passage of time manually to ensure total determinism
+across test runs.</li>
+</ol>
+<h3 id="implementing-deterministic-timesteps">Implementing Deterministic
+Timesteps</h3>
+<p>Using the standard <code>Runner</code> creates asynchronous, variable
+timesteps that cause flaky tests. Instead, advance the simulation
+synchronously using <code>Engine.update(engine, delta)</code> with a
+fixed delta value (typically <code>1000 / 60</code> for 60 FPS).</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">stepSimulation</span>(engine<span class="op">,</span> ticks <span class="op">=</span> <span class="dv">1</span><span class="op">,</span> delta <span class="op">=</span> <span class="dv">1000</span> <span class="op">/</span> <span class="dv">60</span>) {</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>  <span class="cf">for</span> (<span class="kw">let</span> i <span class="op">=</span> <span class="dv">0</span><span class="op">;</span> i <span class="op">&lt;</span> ticks<span class="op">;</span> i<span class="op">++</span>) {</span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>    Engine<span class="op">.</span><span class="fu">update</span>(engine<span class="op">,</span> delta)<span class="op">;</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<h3 id="testing-custom-forces-and-behaviors">Testing Custom Forces and
+Behaviors</h3>
+<p>Custom behaviors are typically implemented using engine lifecycle
+hooks, such as <code>beforeUpdate</code>, or by directly manipulating
+body velocities and forces.</p>
+<p>Consider a custom behavior: a directional wind force applied to all
+dynamic bodies within a specific zone.</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="co">// behavior.js</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="im">export</span> <span class="kw">function</span> <span class="fu">applyWindForce</span>(engine<span class="op">,</span> bodies<span class="op">,</span> forceVector) {</span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>  Events<span class="op">.</span><span class="fu">on</span>(engine<span class="op">,</span> <span class="st">&#39;beforeUpdate&#39;</span><span class="op">,</span> () <span class="kw">=&gt;</span> {</span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>    bodies<span class="op">.</span><span class="fu">forEach</span>((body) <span class="kw">=&gt;</span> {</span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>      <span class="cf">if</span> (<span class="op">!</span>body<span class="op">.</span><span class="at">isStatic</span>) {</span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>        Body<span class="op">.</span><span class="fu">applyForce</span>(body<span class="op">,</span> body<span class="op">.</span><span class="at">position</span><span class="op">,</span> forceVector)<span class="op">;</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>      }</span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>    })<span class="op">;</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>  })<span class="op">;</span></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<p>To test this behavior, construct an isolated test suite:</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="co">// behavior.test.js</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> { Engine<span class="op">,</span> Bodies<span class="op">,</span> Composite } <span class="im">from</span> <span class="st">&#39;matter-js&#39;</span><span class="op">;</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> { applyWindForce } <span class="im">from</span> <span class="st">&#39;./behavior&#39;</span><span class="op">;</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a><span class="fu">describe</span>(<span class="st">&#39;Custom Physics: Wind Force Behavior&#39;</span><span class="op">,</span> () <span class="kw">=&gt;</span> {</span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>  <span class="kw">let</span> engine<span class="op">;</span></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>  <span class="fu">beforeEach</span>(() <span class="kw">=&gt;</span> {</span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a>    engine <span class="op">=</span> Engine<span class="op">.</span><span class="fu">create</span>({ <span class="dt">gravity</span><span class="op">:</span> { <span class="dt">x</span><span class="op">:</span> <span class="dv">0</span><span class="op">,</span> <span class="dt">y</span><span class="op">:</span> <span class="dv">0</span> } })<span class="op">;</span> <span class="co">// Zero gravity for isolation</span></span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a>  })<span class="op">;</span></span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a>  <span class="fu">test</span>(<span class="st">&#39;should accelerate bodies along the X-axis over multiple steps&#39;</span><span class="op">,</span> () <span class="kw">=&gt;</span> {</span>
+<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> box <span class="op">=</span> Bodies<span class="op">.</span><span class="fu">rectangle</span>(<span class="dv">0</span><span class="op">,</span> <span class="dv">0</span><span class="op">,</span> <span class="dv">50</span><span class="op">,</span> <span class="dv">50</span>)<span class="op">;</span></span>
+<span id="cb3-14"><a href="#cb3-14" aria-hidden="true" tabindex="-1"></a>    Composite<span class="op">.</span><span class="fu">add</span>(engine<span class="op">.</span><span class="at">world</span><span class="op">,</span> box)<span class="op">;</span></span>
+<span id="cb3-15"><a href="#cb3-15" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-16"><a href="#cb3-16" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> windForce <span class="op">=</span> { <span class="dt">x</span><span class="op">:</span> <span class="fl">0.005</span><span class="op">,</span> <span class="dt">y</span><span class="op">:</span> <span class="dv">0</span> }<span class="op">;</span></span>
+<span id="cb3-17"><a href="#cb3-17" aria-hidden="true" tabindex="-1"></a>    <span class="fu">applyWindForce</span>(engine<span class="op">,</span> [box]<span class="op">,</span> windForce)<span class="op">;</span></span>
+<span id="cb3-18"><a href="#cb3-18" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-19"><a href="#cb3-19" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Initial state</span></span>
+<span id="cb3-20"><a href="#cb3-20" aria-hidden="true" tabindex="-1"></a>    <span class="fu">expect</span>(box<span class="op">.</span><span class="at">position</span><span class="op">.</span><span class="at">x</span>)<span class="op">.</span><span class="fu">toBe</span>(<span class="dv">0</span>)<span class="op">;</span></span>
+<span id="cb3-21"><a href="#cb3-21" aria-hidden="true" tabindex="-1"></a>    <span class="fu">expect</span>(box<span class="op">.</span><span class="at">velocity</span><span class="op">.</span><span class="at">x</span>)<span class="op">.</span><span class="fu">toBe</span>(<span class="dv">0</span>)<span class="op">;</span></span>
+<span id="cb3-22"><a href="#cb3-22" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-23"><a href="#cb3-23" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Advance 10 frames</span></span>
+<span id="cb3-24"><a href="#cb3-24" aria-hidden="true" tabindex="-1"></a>    <span class="fu">stepSimulation</span>(engine<span class="op">,</span> <span class="dv">10</span>)<span class="op">;</span></span>
+<span id="cb3-25"><a href="#cb3-25" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-26"><a href="#cb3-26" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Assert movement and velocity increases</span></span>
+<span id="cb3-27"><a href="#cb3-27" aria-hidden="true" tabindex="-1"></a>    <span class="fu">expect</span>(box<span class="op">.</span><span class="at">velocity</span><span class="op">.</span><span class="at">x</span>)<span class="op">.</span><span class="fu">toBeGreaterThan</span>(<span class="dv">0</span>)<span class="op">;</span></span>
+<span id="cb3-28"><a href="#cb3-28" aria-hidden="true" tabindex="-1"></a>    <span class="fu">expect</span>(box<span class="op">.</span><span class="at">position</span><span class="op">.</span><span class="at">x</span>)<span class="op">.</span><span class="fu">toBeGreaterThan</span>(<span class="dv">0</span>)<span class="op">;</span></span>
+<span id="cb3-29"><a href="#cb3-29" aria-hidden="true" tabindex="-1"></a>  })<span class="op">;</span></span>
+<span id="cb3-30"><a href="#cb3-30" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div>
+<h3 id="asserting-custom-collision-logic">Asserting Custom Collision
+Logic</h3>
+<p>When testing custom collision triggers (like trampolines, portals, or
+damage zones), register an event listener on <code>collisionStart</code>
+and evaluate the state after advancing the simulation until the
+collision occurs.</p>
+<div class="sourceCode" id="cb4"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="fu">test</span>(<span class="st">&#39;should trigger a jump impulse when a body enters a launch pad&#39;</span><span class="op">,</span> () <span class="kw">=&gt;</span> {</span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> jumper <span class="op">=</span> Bodies<span class="op">.</span><span class="fu">circle</span>(<span class="dv">100</span><span class="op">,</span> <span class="dv">50</span><span class="op">,</span> <span class="dv">10</span>)<span class="op">;</span></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> pad <span class="op">=</span> Bodies<span class="op">.</span><span class="fu">rectangle</span>(<span class="dv">100</span><span class="op">,</span> <span class="dv">100</span><span class="op">,</span> <span class="dv">50</span><span class="op">,</span> <span class="dv">10</span><span class="op">,</span> { <span class="dt">isStatic</span><span class="op">:</span> <span class="kw">true</span><span class="op">,</span> <span class="dt">label</span><span class="op">:</span> <span class="st">&#39;launcher&#39;</span> })<span class="op">;</span></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>  Composite<span class="op">.</span><span class="fu">add</span>(engine<span class="op">.</span><span class="at">world</span><span class="op">,</span> [jumper<span class="op">,</span> pad])<span class="op">;</span></span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a>  Events<span class="op">.</span><span class="fu">on</span>(engine<span class="op">,</span> <span class="st">&#39;collisionStart&#39;</span><span class="op">,</span> (<span class="bu">event</span>) <span class="kw">=&gt;</span> {</span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a>    <span class="bu">event</span><span class="op">.</span><span class="at">pairs</span><span class="op">.</span><span class="fu">forEach</span>(({ bodyA<span class="op">,</span> bodyB }) <span class="kw">=&gt;</span> {</span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a>      <span class="cf">if</span> (bodyA<span class="op">.</span><span class="at">label</span> <span class="op">===</span> <span class="st">&#39;launcher&#39;</span> <span class="op">||</span> bodyB<span class="op">.</span><span class="at">label</span> <span class="op">===</span> <span class="st">&#39;launcher&#39;</span>) {</span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a>        <span class="kw">const</span> target <span class="op">=</span> bodyA<span class="op">.</span><span class="at">label</span> <span class="op">===</span> <span class="st">&#39;launcher&#39;</span> <span class="op">?</span> bodyB <span class="op">:</span> bodyA<span class="op">;</span></span>
+<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a>        Body<span class="op">.</span><span class="fu">setVelocity</span>(target<span class="op">,</span> { <span class="dt">x</span><span class="op">:</span> <span class="dv">0</span><span class="op">,</span> <span class="dt">y</span><span class="op">:</span> <span class="op">-</span><span class="dv">15</span> })<span class="op">;</span></span>
+<span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a>      }</span>
+<span id="cb4-12"><a href="#cb4-12" aria-hidden="true" tabindex="-1"></a>    })<span class="op">;</span></span>
+<span id="cb4-13"><a href="#cb4-13" aria-hidden="true" tabindex="-1"></a>  })<span class="op">;</span></span>
+<span id="cb4-14"><a href="#cb4-14" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-15"><a href="#cb4-15" aria-hidden="true" tabindex="-1"></a>  <span class="co">// Step simulation until contact is made</span></span>
+<span id="cb4-16"><a href="#cb4-16" aria-hidden="true" tabindex="-1"></a>  <span class="fu">stepSimulation</span>(engine<span class="op">,</span> <span class="dv">15</span>)<span class="op">;</span></span>
+<span id="cb4-17"><a href="#cb4-17" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-18"><a href="#cb4-18" aria-hidden="true" tabindex="-1"></a>  <span class="fu">expect</span>(jumper<span class="op">.</span><span class="at">velocity</span><span class="op">.</span><span class="at">y</span>)<span class="op">.</span><span class="fu">toBeCloseTo</span>(<span class="op">-</span><span class="dv">15</span><span class="op">,</span> <span class="dv">1</span>)<span class="op">;</span></span>
+<span id="cb4-19"><a href="#cb4-19" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div>
+<h3 id="best-practices-for-matterjs-tests">Best Practices for Matter.js
+Tests</h3>
+<ul>
+<li><strong>Floating-Point Tolerances:</strong> Physics engines
+accumulate precision drift. Always use matchers like
+<code>toBeCloseTo()</code> instead of strict equality
+(<code>toBe()</code>) when validating coordinates, speed, or
+angles.</li>
+<li><strong>Isolate World Gravity:</strong> Set
+<code>engine.gravity.scale = 0</code> or adjust
+<code>engine.gravity.x / y</code> to zero when testing isolated
+horizontal forces or specific mechanics.</li>
+<li><strong>Avoid Shared State:</strong> Create fresh
+<code>Engine</code> and <code>World</code> instances in
+<code>beforeEach</code> hooks to prevent accumulated forces, velocity,
+or constraints from leaking across tests.</li>
+</ul></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/matter.js'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/matter.js/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/matter.js/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

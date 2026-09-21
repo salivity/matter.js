@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Matter.js Platformer Controller with Smooth Slopes - matter.js</title>
+    <meta name="description" content="Building a 2D platformer character controller in Matter.js often leads to issues on inclined surfaces, such as catching on edges, sliding backward, or moving at inconsistent speeds. This guide outlines how to construct a robust character controller in Ma">
+    <link rel="canonical" href="https://salivity.github.io/matter.js/article/matter-js-platformer-controller-with-smooth-slopes">
+    <link rel="search" type="application/opensearchdescription+xml" title="matter.js" href="/matter.js/opensearch.xml">
+    <link rel="icon" href="/matter.js/favicon.ico">
+    <link rel="stylesheet" href="/matter.js/css/style.css">
+    <link media="print" rel="stylesheet" href="/matter.js/css/print.css">
+    <script src="/matter.js/js/fuse.min.js"></script>
+    <script src="/matter.js/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Matter.js Platformer Controller with Smooth Slopes - matter.js" />
+    <meta property="og:url" content="https://salivity.github.io/matter.js/article/matter-js-platformer-controller-with-smooth-slopes" />
+    <meta property="og:image" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Building a 2D platformer character controller in Matter.js often leads to issues on inclined surfaces, such as catching on edges, sliding backward, or moving at inconsistent speeds. This guide outlines how to construct a robust character controller in Ma" />
+    <link rel="manifest" href="/matter.js/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/matter.js/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>matter.js</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/matter.js/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="matterjs-platformer-controller-with-smooth-slopes">Matter.js
+Platformer Controller with Smooth Slopes</h1>
+<p>Building a 2D platformer character controller in Matter.js often
+leads to issues on inclined surfaces, such as catching on edges, sliding
+backward, or moving at inconsistent speeds. This guide outlines how to
+construct a robust character controller in Matter.js that navigates
+slopes smoothly by using rounded compound bodies, custom velocity
+projections, ground sensors, and downward slope clamping.</p>
+<h3 id="1-constructing-a-rounded-compound-body">1. Constructing a
+Rounded Compound Body</h3>
+<p>Default rectangular hitboxes snag against the vertices of angled
+static bodies. To achieve smooth movement over slopes, construct a
+compound body with a rounded base (such as a capsule or a rectangle
+paired with a circle at the bottom) and lock its rotation.</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> { Bodies<span class="op">,</span> Body } <span class="op">=</span> Matter<span class="op">;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> width <span class="op">=</span> <span class="dv">40</span><span class="op">;</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> height <span class="op">=</span> <span class="dv">60</span><span class="op">;</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> radius <span class="op">=</span> width <span class="op">/</span> <span class="dv">2</span><span class="op">;</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a><span class="co">// Main torso and rounded bottom</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> torso <span class="op">=</span> Bodies<span class="op">.</span><span class="fu">rectangle</span>(x<span class="op">,</span> y <span class="op">-</span> radius <span class="op">/</span> <span class="dv">2</span><span class="op">,</span> width<span class="op">,</span> height <span class="op">-</span> radius<span class="op">,</span> {</span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>  <span class="dt">collisionFilter</span><span class="op">:</span> { <span class="dt">group</span><span class="op">:</span> <span class="op">-</span><span class="dv">1</span> }</span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> feet <span class="op">=</span> Bodies<span class="op">.</span><span class="fu">circle</span>(x<span class="op">,</span> y <span class="op">+</span> height <span class="op">/</span> <span class="dv">2</span> <span class="op">-</span> radius<span class="op">,</span> radius<span class="op">,</span> {</span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>  <span class="dt">collisionFilter</span><span class="op">:</span> { <span class="dt">group</span><span class="op">:</span> <span class="op">-</span><span class="dv">1</span> }</span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a><span class="co">// Ground check sensor positioned slightly below the feet</span></span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> sensor <span class="op">=</span> Bodies<span class="op">.</span><span class="fu">rectangle</span>(x<span class="op">,</span> y <span class="op">+</span> height <span class="op">/</span> <span class="dv">2</span><span class="op">,</span> width <span class="op">*</span> <span class="fl">0.8</span><span class="op">,</span> <span class="dv">10</span><span class="op">,</span> {</span>
+<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a>  <span class="dt">isSensor</span><span class="op">:</span> <span class="kw">true</span><span class="op">,</span></span>
+<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a>  <span class="dt">isStatic</span><span class="op">:</span> <span class="kw">false</span></span>
+<span id="cb1-19"><a href="#cb1-19" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span>
+<span id="cb1-20"><a href="#cb1-20" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-21"><a href="#cb1-21" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> player <span class="op">=</span> Body<span class="op">.</span><span class="fu">create</span>({</span>
+<span id="cb1-22"><a href="#cb1-22" aria-hidden="true" tabindex="-1"></a>  <span class="dt">parts</span><span class="op">:</span> [torso<span class="op">,</span> feet<span class="op">,</span> sensor]<span class="op">,</span></span>
+<span id="cb1-23"><a href="#cb1-23" aria-hidden="true" tabindex="-1"></a>  <span class="dt">inertia</span><span class="op">:</span> <span class="kw">Infinity</span><span class="op">,</span> <span class="co">// Locks rotation</span></span>
+<span id="cb1-24"><a href="#cb1-24" aria-hidden="true" tabindex="-1"></a>  <span class="dt">friction</span><span class="op">:</span> <span class="dv">0</span><span class="op">,</span>       <span class="co">// Prevents catching on walls/slopes</span></span>
+<span id="cb1-25"><a href="#cb1-25" aria-hidden="true" tabindex="-1"></a>  <span class="dt">frictionStatic</span><span class="op">:</span> <span class="dv">0</span><span class="op">,</span></span>
+<span id="cb1-26"><a href="#cb1-26" aria-hidden="true" tabindex="-1"></a>  <span class="dt">restitution</span><span class="op">:</span> <span class="dv">0</span></span>
+<span id="cb1-27"><a href="#cb1-27" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div>
+<h3 id="2-detecting-the-ground-and-surface-normal">2. Detecting the
+Ground and Surface Normal</h3>
+<p>Matter.js generates collision pairs containing contact normals during
+the update loop. To walk up and down an incline at a uniform speed, you
+need to read the slope's normal vector rather than assuming horizontal
+movement.</p>
+<p>Listen to <code>collisionActive</code> events to identify when the
+bottom sensor contacts a surface and store the surface's normal
+vector:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">let</span> isGrounded <span class="op">=</span> <span class="kw">false</span><span class="op">;</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="kw">let</span> groundNormal <span class="op">=</span> { <span class="dt">x</span><span class="op">:</span> <span class="dv">0</span><span class="op">,</span> <span class="dt">y</span><span class="op">:</span> <span class="op">-</span><span class="dv">1</span> }<span class="op">;</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>Matter<span class="op">.</span><span class="at">Events</span><span class="op">.</span><span class="fu">on</span>(engine<span class="op">,</span> <span class="st">&#39;collisionActive&#39;</span><span class="op">,</span> (<span class="bu">event</span>) <span class="kw">=&gt;</span> {</span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>  isGrounded <span class="op">=</span> <span class="kw">false</span><span class="op">;</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>  <span class="bu">event</span><span class="op">.</span><span class="at">pairs</span><span class="op">.</span><span class="fu">forEach</span>((pair) <span class="kw">=&gt;</span> {</span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (pair<span class="op">.</span><span class="at">bodyA</span> <span class="op">===</span> sensor <span class="op">||</span> pair<span class="op">.</span><span class="at">bodyB</span> <span class="op">===</span> sensor) {</span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>      isGrounded <span class="op">=</span> <span class="kw">true</span><span class="op">;</span></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>      </span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>      <span class="co">// Extract the normal pointing outward from the surface</span></span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>      <span class="kw">const</span> normal <span class="op">=</span> pair<span class="op">.</span><span class="at">collision</span><span class="op">.</span><span class="at">normal</span><span class="op">;</span></span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>      <span class="cf">if</span> (pair<span class="op">.</span><span class="at">bodyA</span> <span class="op">===</span> sensor) {</span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a>        groundNormal <span class="op">=</span> { <span class="dt">x</span><span class="op">:</span> <span class="op">-</span>normal<span class="op">.</span><span class="at">x</span><span class="op">,</span> <span class="dt">y</span><span class="op">:</span> <span class="op">-</span>normal<span class="op">.</span><span class="at">y</span> }<span class="op">;</span></span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a>      } <span class="cf">else</span> {</span>
+<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a>        groundNormal <span class="op">=</span> { <span class="dt">x</span><span class="op">:</span> normal<span class="op">.</span><span class="at">x</span><span class="op">,</span> <span class="dt">y</span><span class="op">:</span> normal<span class="op">.</span><span class="at">y</span> }<span class="op">;</span></span>
+<span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a>      }</span>
+<span id="cb2-18"><a href="#cb2-18" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb2-19"><a href="#cb2-19" aria-hidden="true" tabindex="-1"></a>  })<span class="op">;</span></span>
+<span id="cb2-20"><a href="#cb2-20" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div>
+<h3 id="3-projecting-velocity-along-the-incline">3. Projecting Velocity
+Along the Incline</h3>
+<p>Applying velocity solely on the X-axis causes a character to push
+directly into a slope, killing momentum, or to launch into the air when
+cresting a hill. Instead, calculate the tangent of the ground normal and
+scale your movement along that tangent:</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">updatePlayer</span>(horizontalInput<span class="op">,</span> moveSpeed) {</span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (isGrounded <span class="op">&amp;&amp;</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">abs</span>(groundNormal<span class="op">.</span><span class="at">x</span>) <span class="op">&gt;</span> <span class="fl">0.01</span>) {</span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Calculate the tangent perpendicular to the ground normal</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Normal: (nx, ny) -&gt; Tangent: (-ny, nx)</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> tangent <span class="op">=</span> { <span class="dt">x</span><span class="op">:</span> <span class="op">-</span>groundNormal<span class="op">.</span><span class="at">y</span><span class="op">,</span> <span class="dt">y</span><span class="op">:</span> groundNormal<span class="op">.</span><span class="at">x</span> }<span class="op">;</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Direct movement along the surface tangent</span></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> targetVelocityX <span class="op">=</span> tangent<span class="op">.</span><span class="at">x</span> <span class="op">*</span> horizontalInput <span class="op">*</span> moveSpeed<span class="op">;</span></span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> targetVelocityY <span class="op">=</span> tangent<span class="op">.</span><span class="at">y</span> <span class="op">*</span> horizontalInput <span class="op">*</span> moveSpeed<span class="op">;</span></span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a>    Body<span class="op">.</span><span class="fu">setVelocity</span>(player<span class="op">,</span> {</span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a>      <span class="dt">x</span><span class="op">:</span> targetVelocityX<span class="op">,</span></span>
+<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a>      <span class="dt">y</span><span class="op">:</span> targetVelocityY</span>
+<span id="cb3-14"><a href="#cb3-14" aria-hidden="true" tabindex="-1"></a>    })<span class="op">;</span></span>
+<span id="cb3-15"><a href="#cb3-15" aria-hidden="true" tabindex="-1"></a>  } <span class="cf">else</span> {</span>
+<span id="cb3-16"><a href="#cb3-16" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Standard horizontal movement while airborne or on flat surfaces</span></span>
+<span id="cb3-17"><a href="#cb3-17" aria-hidden="true" tabindex="-1"></a>    Body<span class="op">.</span><span class="fu">setVelocity</span>(player<span class="op">,</span> {</span>
+<span id="cb3-18"><a href="#cb3-18" aria-hidden="true" tabindex="-1"></a>      <span class="dt">x</span><span class="op">:</span> horizontalInput <span class="op">*</span> moveSpeed<span class="op">,</span></span>
+<span id="cb3-19"><a href="#cb3-19" aria-hidden="true" tabindex="-1"></a>      <span class="dt">y</span><span class="op">:</span> player<span class="op">.</span><span class="at">velocity</span><span class="op">.</span><span class="at">y</span></span>
+<span id="cb3-20"><a href="#cb3-20" aria-hidden="true" tabindex="-1"></a>    })<span class="op">;</span></span>
+<span id="cb3-21"><a href="#cb3-21" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb3-22"><a href="#cb3-22" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<h3 id="4-preventing-downhill-bouncing-and-slope-sliding">4. Preventing
+Downhill Bouncing and Slope Sliding</h3>
+<p>When descending a slope, momentum can cause the player to detach from
+the incline and skip downward. Additionally, setting
+<code>friction: 0</code> can cause the player to slide down slopes while
+idle.</p>
+<p>Handle these issues in the engine's <code>beforeUpdate</code>
+cycle:</p>
+<ul>
+<li><strong>Slope Snapping:</strong> If <code>isGrounded</code> is true
+and horizontal input is moving down the slope, apply a slight downward
+force (<code>Body.applyForce</code>) or an explicit downward velocity
+clamp to ensure the sensor does not break contact with the surface.</li>
+<li><strong>Idle Slope Holding:</strong> When
+<code>horizontalInput === 0</code> and <code>isGrounded</code> is true,
+temporarily zero out both the X and Y velocities to resist gravity
+without needing dynamic friction adjustments:</li>
+</ul>
+<div class="sourceCode" id="cb4"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a>Matter<span class="op">.</span><span class="at">Events</span><span class="op">.</span><span class="fu">on</span>(engine<span class="op">,</span> <span class="st">&#39;beforeUpdate&#39;</span><span class="op">,</span> () <span class="kw">=&gt;</span> {</span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (isGrounded <span class="op">&amp;&amp;</span> horizontalInput <span class="op">===</span> <span class="dv">0</span>) {</span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>    Body<span class="op">.</span><span class="fu">setVelocity</span>(player<span class="op">,</span> { <span class="dt">x</span><span class="op">:</span> <span class="dv">0</span><span class="op">,</span> <span class="dt">y</span><span class="op">:</span> <span class="dv">0</span> })<span class="op">;</span></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div>
+<p>By combining a rounded collision boundary, normal-projected movement,
+and an active velocity lock when stationary, the character moves up and
+down sloped geometry with consistent speed and full directional
+control.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/matter.js'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/matter.js/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/matter.js/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

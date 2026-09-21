@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How to Simulate an Air Cushion in Matter.js - matter.js</title>
+    <meta name="description" content="Simulating an inflatable air cushion in Matter.js requires a combination of soft-body physics, tuned damping constraints, and custom force calculations to mimic internal pneumatic pressure. This guide walks through constructing a deformable cushion using">
+    <link rel="canonical" href="https://salivity.github.io/matter.js/article/how-to-simulate-an-air-cushion-in-matter-js">
+    <link rel="search" type="application/opensearchdescription+xml" title="matter.js" href="/matter.js/opensearch.xml">
+    <link rel="icon" href="/matter.js/favicon.ico">
+    <link rel="stylesheet" href="/matter.js/css/style.css">
+    <link media="print" rel="stylesheet" href="/matter.js/css/print.css">
+    <script src="/matter.js/js/fuse.min.js"></script>
+    <script src="/matter.js/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How to Simulate an Air Cushion in Matter.js - matter.js" />
+    <meta property="og:url" content="https://salivity.github.io/matter.js/article/how-to-simulate-an-air-cushion-in-matter-js" />
+    <meta property="og:image" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Simulating an inflatable air cushion in Matter.js requires a combination of soft-body physics, tuned damping constraints, and custom force calculations to mimic internal pneumatic pressure. This guide walks through constructing a deformable cushion using" />
+    <link rel="manifest" href="/matter.js/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/matter.js/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>matter.js</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/matter.js/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="how-to-simulate-an-air-cushion-in-matterjs">How to Simulate an
+Air Cushion in Matter.js</h1>
+<p>Simulating an inflatable air cushion in Matter.js requires a
+combination of soft-body physics, tuned damping constraints, and custom
+force calculations to mimic internal pneumatic pressure. This guide
+walks through constructing a deformable cushion using Matter.js
+composites, configuring physical properties to absorb high-velocity
+impacts without excessive bouncing or tunneling, and applying custom
+collision events to simulate progressive air compression and
+venting.</p>
+<h3 id="1-build-the-deformable-membrane">1. Build the Deformable
+Membrane</h3>
+<p>Matter.js does not feature a native pneumatic fluid-body type, so an
+air cushion is best modeled as a soft-body composite. A soft body
+consists of a grid of rigid circular bodies connected by elastic
+distance constraints.</p>
+<p>Use <code>Matter.Composites.softBody</code> to generate the
+structure:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> cushion <span class="op">=</span> Matter<span class="op">.</span><span class="at">Composites</span><span class="op">.</span><span class="fu">softBody</span>(x<span class="op">,</span> y<span class="op">,</span> columns<span class="op">,</span> rows<span class="op">,</span> columnGap<span class="op">,</span> rowGap<span class="op">,</span> crossBrace<span class="op">,</span> particleRadius<span class="op">,</span> particleOptions<span class="op">,</span> constraintOptions)<span class="op">;</span></span></code></pre></div>
+<ul>
+<li><strong>Grid dimensions:</strong> A grid of 8 columns by 3 rows
+generally provides enough surface resolution to deform around falling
+objects.</li>
+<li><strong>Particle options:</strong> Set <code>density</code> high
+enough to resist immediate collapse, but keep individual particle mass
+modest so the structure remains compliant.</li>
+<li><strong>Cross-bracing:</strong> Set <code>crossBrace: true</code> to
+prevent the cushion from shearing completely flat on impact.</li>
+</ul>
+<h3 id="2-configure-restitution-and-damping">2. Configure Restitution
+and Damping</h3>
+<p>An air cushion must dissipate kinetic energy rapidly. In standard
+physics engines, high-velocity collisions produce either an extreme
+rebound (high restitution) or a stiff collision that acts like concrete
+(low restitution with rigid bodies).</p>
+<p>To achieve safe deceleration:</p>
+<ul>
+<li><strong>Zero Restitution:</strong> Set the <code>restitution</code>
+(bounciness) of both the cushion particles and the falling body to
+<code>0</code>. Energy absorption should come from the constraints, not
+surface bounce.</li>
+<li><strong>Constraint Damping and Stiffness:</strong> In
+<code>constraintOptions</code>, set <code>stiffness</code> to a moderate
+range (e.g., <code>0.2</code> to <code>0.5</code>) and
+<code>damping</code> to a high range (e.g., <code>0.1</code> to
+<code>0.3</code>). This allows the cushion to give way upon impact while
+bleeding off the projectile's kinetic energy as heat-like mechanical
+loss.</li>
+</ul>
+<h3 id="3-simulate-internal-air-pressure">3. Simulate Internal Air
+Pressure</h3>
+<p>While the outer membrane constraints hold the cushion together, a
+real inflatable cushion resists compression non-linearly: the more it is
+compressed, the higher the internal pressure pushes back.</p>
+<p>To simulate this dynamic pressure, attach a <code>beforeUpdate</code>
+event to apply an upward counter-force proportional to the cushion's
+displacement:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a>Matter<span class="op">.</span><span class="at">Events</span><span class="op">.</span><span class="fu">on</span>(engine<span class="op">,</span> <span class="st">&#39;beforeUpdate&#39;</span><span class="op">,</span> () <span class="kw">=&gt;</span> {</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>    cushion<span class="op">.</span><span class="at">bodies</span><span class="op">.</span><span class="fu">forEach</span>(body <span class="kw">=&gt;</span> {</span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>        <span class="co">// Calculate displacement from the resting Y position</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>        <span class="kw">const</span> displacementY <span class="op">=</span> body<span class="op">.</span><span class="at">position</span><span class="op">.</span><span class="at">y</span> <span class="op">-</span> body<span class="op">.</span><span class="at">initialY</span><span class="op">;</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> (displacementY <span class="op">&gt;</span> <span class="dv">0</span>) {</span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>            <span class="co">// Apply progressive restorative force (Hooke&#39;s Law variation)</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>            <span class="kw">const</span> pressureForce <span class="op">=</span> displacementY <span class="op">*</span> <span class="fl">0.005</span><span class="op">;</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>            Matter<span class="op">.</span><span class="at">Body</span><span class="op">.</span><span class="fu">applyForce</span>(body<span class="op">,</span> body<span class="op">.</span><span class="at">position</span><span class="op">,</span> { <span class="dt">x</span><span class="op">:</span> <span class="dv">0</span><span class="op">,</span> <span class="dt">y</span><span class="op">:</span> <span class="op">-</span>pressureForce })<span class="op">;</span></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>        }</span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>    })<span class="op">;</span></span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div>
+<p>Store the original Y coordinate
+(<code>body.initialY = body.position.y</code>) upon creation. When an
+object drives the cushion downward, the counter-force pushes back
+progressively to stop the descent before the object hits the floor.</p>
+<h3 id="4-implement-air-venting-dynamics">4. Implement Air Venting
+Dynamics</h3>
+<p>True stunt cushions allow air to escape through vents when struck,
+preventing the falling body from rebounding. You can mimic air venting
+by dynamically increasing air friction during active compression:</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a>Matter<span class="op">.</span><span class="at">Events</span><span class="op">.</span><span class="fu">on</span>(engine<span class="op">,</span> <span class="st">&#39;collisionActive&#39;</span><span class="op">,</span> (<span class="bu">event</span>) <span class="kw">=&gt;</span> {</span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>    <span class="bu">event</span><span class="op">.</span><span class="at">pairs</span><span class="op">.</span><span class="fu">forEach</span>(pair <span class="kw">=&gt;</span> {</span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> (pair<span class="op">.</span><span class="at">bodyA</span><span class="op">.</span><span class="at">label</span> <span class="op">===</span> <span class="st">&#39;fallingObject&#39;</span> <span class="op">||</span> pair<span class="op">.</span><span class="at">bodyB</span><span class="op">.</span><span class="at">label</span> <span class="op">===</span> <span class="st">&#39;fallingObject&#39;</span>) {</span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>            <span class="kw">const</span> object <span class="op">=</span> pair<span class="op">.</span><span class="at">bodyA</span><span class="op">.</span><span class="at">label</span> <span class="op">===</span> <span class="st">&#39;fallingObject&#39;</span> <span class="op">?</span> pair<span class="op">.</span><span class="at">bodyA</span> <span class="op">:</span> pair<span class="op">.</span><span class="at">bodyB</span><span class="op">;</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>            </span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>            <span class="co">// Emulate air displacement resistance</span></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>            object<span class="op">.</span><span class="at">frictionAir</span> <span class="op">=</span> <span class="fl">0.15</span><span class="op">;</span></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>        }</span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a>    })<span class="op">;</span></span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a>Matter<span class="op">.</span><span class="at">Events</span><span class="op">.</span><span class="fu">on</span>(engine<span class="op">,</span> <span class="st">&#39;collisionEnd&#39;</span><span class="op">,</span> (<span class="bu">event</span>) <span class="kw">=&gt;</span> {</span>
+<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a>    <span class="bu">event</span><span class="op">.</span><span class="at">pairs</span><span class="op">.</span><span class="fu">forEach</span>(pair <span class="kw">=&gt;</span> {</span>
+<span id="cb3-14"><a href="#cb3-14" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> (pair<span class="op">.</span><span class="at">bodyA</span><span class="op">.</span><span class="at">label</span> <span class="op">===</span> <span class="st">&#39;fallingObject&#39;</span> <span class="op">||</span> pair<span class="op">.</span><span class="at">bodyB</span><span class="op">.</span><span class="at">label</span> <span class="op">===</span> <span class="st">&#39;fallingObject&#39;</span>) {</span>
+<span id="cb3-15"><a href="#cb3-15" aria-hidden="true" tabindex="-1"></a>            <span class="kw">const</span> object <span class="op">=</span> pair<span class="op">.</span><span class="at">bodyA</span><span class="op">.</span><span class="at">label</span> <span class="op">===</span> <span class="st">&#39;fallingObject&#39;</span> <span class="op">?</span> pair<span class="op">.</span><span class="at">bodyA</span> <span class="op">:</span> pair<span class="op">.</span><span class="at">bodyB</span><span class="op">;</span></span>
+<span id="cb3-16"><a href="#cb3-16" aria-hidden="true" tabindex="-1"></a>            </span>
+<span id="cb3-17"><a href="#cb3-17" aria-hidden="true" tabindex="-1"></a>            <span class="co">// Reset to default aerodynamic resistance</span></span>
+<span id="cb3-18"><a href="#cb3-18" aria-hidden="true" tabindex="-1"></a>            object<span class="op">.</span><span class="at">frictionAir</span> <span class="op">=</span> <span class="fl">0.01</span><span class="op">;</span></span>
+<span id="cb3-19"><a href="#cb3-19" aria-hidden="true" tabindex="-1"></a>        }</span>
+<span id="cb3-20"><a href="#cb3-20" aria-hidden="true" tabindex="-1"></a>    })<span class="op">;</span></span>
+<span id="cb3-21"><a href="#cb3-21" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div>
+<h3 id="5-prevent-tunneling-on-high-velocity-impacts">5. Prevent
+Tunneling on High-Velocity Impacts</h3>
+<p>High-velocity objects can pass straight through thin bodies in
+discrete physics steps—an issue known as tunneling. To ensure stability
+during extreme falls:</p>
+<ol type="1">
+<li><strong>Increase Engine Iterations:</strong> Increase the solver
+accuracy in the engine configuration:
+<div class="sourceCode" id="cb4"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a>engine<span class="op">.</span><span class="at">positionIterations</span> <span class="op">=</span> <span class="dv">10</span><span class="op">;</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>engine<span class="op">.</span><span class="at">velocityIterations</span> <span class="op">=</span> <span class="dv">10</span><span class="op">;</span></span></code></pre></div></li>
+<li><strong>Anchor the Base:</strong> Anchor the bottom row of particles
+in the soft body by setting <code>isStatic: true</code> on those
+specific bodies, or bind them to a static ground segment with fixed
+constraints.</li>
+<li><strong>Thicken the Collider:</strong> Avoid paper-thin falling
+objects. Use thicker bounding geometry for falling entities to maximize
+the contact frames available to the collision solver.</li>
+</ol></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/matter.js'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/matter.js/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/matter.js/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

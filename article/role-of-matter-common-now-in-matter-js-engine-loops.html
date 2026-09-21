@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Role of Matter.Common.now in Matter.js Engine Loops - matter.js</title>
+    <meta name="description" content="This article examines the role of Matter.Common.now within the Matter.js 2D physics engine, specifically how it provides high-precision timing mechanisms to calculate frame time deltas. You will learn how this utility interfaces with the engine runner to">
+    <link rel="canonical" href="https://salivity.github.io/matter.js/article/role-of-matter-common-now-in-matter-js-engine-loops">
+    <link rel="search" type="application/opensearchdescription+xml" title="matter.js" href="/matter.js/opensearch.xml">
+    <link rel="icon" href="/matter.js/favicon.ico">
+    <link rel="stylesheet" href="/matter.js/css/style.css">
+    <link media="print" rel="stylesheet" href="/matter.js/css/print.css">
+    <script src="/matter.js/js/fuse.min.js"></script>
+    <script src="/matter.js/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Role of Matter.Common.now in Matter.js Engine Loops - matter.js" />
+    <meta property="og:url" content="https://salivity.github.io/matter.js/article/role-of-matter-common-now-in-matter-js-engine-loops" />
+    <meta property="og:image" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article examines the role of Matter.Common.now within the Matter.js 2D physics engine, specifically how it provides high-precision timing mechanisms to calculate frame time deltas. You will learn how this utility interfaces with the engine runner to" />
+    <link rel="manifest" href="/matter.js/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/matter.js/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>matter.js</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/matter.js/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="role-of-mattercommonnow-in-matterjs-engine-loops">Role of
+Matter.Common.now in Matter.js Engine Loops</h1>
+<p>This article examines the role of <code>Matter.Common.now</code>
+within the Matter.js 2D physics engine, specifically how it provides
+high-precision timing mechanisms to calculate frame time deltas. You
+will learn how this utility interfaces with the engine runner to
+maintain smooth physical simulations, adapt to fluctuating frame rates,
+and prevent instability during performance drops.</p>
+<h3 id="the-mechanics-of-mattercommonnow">The Mechanics of
+Matter.Common.now</h3>
+<p><code>Matter.Common.now</code> is an internal utility method designed
+to provide an accurate, high-resolution timestamp. It acts as an
+abstraction layer over the host environment's timing APIs:</p>
+<ul>
+<li><strong>High-Resolution Timing:</strong> In modern browser
+environments, it utilizes <code>window.performance.now()</code>, which
+provides microsecond-level precision and is monotonically increasing,
+unaffected by system clock adjustments.</li>
+<li><strong>Fallback Compatibility:</strong> In environments where
+<code>performance.now()</code> is unavailable, it gracefully falls back
+to <code>Date.now()</code> or equivalent millisecond-based time
+representations.</li>
+</ul>
+<p>This consistent time standard allows the engine to accurately measure
+how much real-world time passes between execution steps.</p>
+<h3 id="measuring-elapsed-time-across-loops">Measuring Elapsed Time
+Across Loops</h3>
+<p>In a standard simulation cycle, the physics loop is driven either
+manually or by <code>Matter.Runner</code>. The loop must evaluate how
+much time has passed since the previous frame to advance the physics
+state accurately.</p>
+<p><code>Matter.Common.now</code> is invoked at the start of each tick
+to fetch the current timestamp. The delta (<span
+class="math inline">\(\Delta t\)</span>) is calculated by subtracting
+the previous frame's timestamp from the current one:</p>
+<p><span class="math display">\[\Delta t = \text{currentTime} -
+\text{lastTime}\]</span></p>
+<p>This calculated delta is passed into
+<code>Matter.Engine.update(engine, delta)</code>, dictating how far
+forward positions, velocities, and constraint resolutions must
+progress.</p>
+<h3 id="mitigating-frame-rate-fluctuations">Mitigating Frame Rate
+Fluctuations</h3>
+<p>Screens operate at varying refresh rates (such as 60Hz, 120Hz, or
+144Hz), and processing bottlenecks can introduce frame drops. Without
+dynamic delta tracking powered by <code>Matter.Common.now</code>, the
+physics engine would run too fast on high-refresh displays or stutter
+during performance dips.</p>
+<p>By supplying an exact delta measurement:</p>
+<ul>
+<li><strong>Frame-Rate Independence:</strong> Physics bodies move at a
+uniform speed regardless of the display refresh rate or the browser's
+render frequency.</li>
+<li><strong>Lag Compensation:</strong> When a frame takes longer than
+expected, the larger delta informs the solver to step physics
+proportionally further, preventing the simulation from slowing
+down.</li>
+</ul>
+<h3 id="preventing-physics-explosions-and-tunneling">Preventing Physics
+Explosions and Tunneling</h3>
+<p>While tracking real-world time is vital, unbounded time deltas pose a
+risk to numerical integrators like the Verlet integration used in
+Matter.js. If a browser tab is placed in the background or experiences a
+severe freeze, a naive calculation would yield an enormous delta.
+Passing a massive delta into <code>Matter.Engine.update</code> can cause
+high-velocity collisions, tunneling (objects passing through one
+another), or complete simulation breakdown.</p>
+<p><code>Matter.Runner</code> uses the timestamps derived from
+<code>Matter.Common.now</code> alongside internal caps and smoothing
+filters. It clamps the maximum delta permitted in a single frame to
+ensure the engine remains stable even when real-world timing metrics
+spike unpredictably.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/matter.js'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/matter.js/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/matter.js/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Velocity-Based Collision Damage in Matter.js - matter.js</title>
+    <meta name="description" content="This article explains how to implement a dynamic damage system in Matter.js by calculating the impact velocity between colliding physics bodies. While Matter.js handles rigid body dynamics out of the box, it does not include a native health or damage sys">
+    <link rel="canonical" href="https://salivity.github.io/matter.js/article/velocity-based-collision-damage-in-matter-js">
+    <link rel="search" type="application/opensearchdescription+xml" title="matter.js" href="/matter.js/opensearch.xml">
+    <link rel="icon" href="/matter.js/favicon.ico">
+    <link rel="stylesheet" href="/matter.js/css/style.css">
+    <link media="print" rel="stylesheet" href="/matter.js/css/print.css">
+    <script src="/matter.js/js/fuse.min.js"></script>
+    <script src="/matter.js/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Velocity-Based Collision Damage in Matter.js - matter.js" />
+    <meta property="og:url" content="https://salivity.github.io/matter.js/article/velocity-based-collision-damage-in-matter-js" />
+    <meta property="og:image" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article explains how to implement a dynamic damage system in Matter.js by calculating the impact velocity between colliding physics bodies. While Matter.js handles rigid body dynamics out of the box, it does not include a native health or damage sys" />
+    <link rel="manifest" href="/matter.js/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/matter.js/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>matter.js</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/matter.js/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="velocity-based-collision-damage-in-matterjs">Velocity-Based
+Collision Damage in Matter.js</h1>
+<p>This article explains how to implement a dynamic damage system in
+Matter.js by calculating the impact velocity between colliding physics
+bodies. While Matter.js handles rigid body dynamics out of the box, it
+does not include a native health or damage system. By intercepting
+collision events, computing the relative velocity of the colliding
+bodies, and taking collision normals into account, you can determine
+impact intensity and apply proportional damage to custom entity
+properties.</p>
+<h3 id="1-attaching-custom-properties-to-bodies">1. Attaching Custom
+Properties to Bodies</h3>
+<p>Before processing damage, assign health tracking and damage
+configuration directly to the Matter.js body objects or attach a
+reference to a parent game entity:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> player <span class="op">=</span> Matter<span class="op">.</span><span class="at">Bodies</span><span class="op">.</span><span class="fu">rectangle</span>(<span class="dv">100</span><span class="op">,</span> <span class="dv">100</span><span class="op">,</span> <span class="dv">50</span><span class="op">,</span> <span class="dv">50</span>)<span class="op">;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>player<span class="op">.</span><span class="at">health</span> <span class="op">=</span> <span class="dv">100</span><span class="op">;</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>player<span class="op">.</span><span class="at">damageThreshold</span> <span class="op">=</span> <span class="dv">4</span><span class="op">;</span> <span class="co">// Minimum speed required to take damage</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>player<span class="op">.</span><span class="at">damageMultiplier</span> <span class="op">=</span> <span class="dv">5</span><span class="op">;</span> <span class="co">// Scales velocity into hit points lost</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> obstacle <span class="op">=</span> Matter<span class="op">.</span><span class="at">Bodies</span><span class="op">.</span><span class="fu">circle</span>(<span class="dv">100</span><span class="op">,</span> <span class="dv">300</span><span class="op">,</span> <span class="dv">30</span>)<span class="op">;</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>obstacle<span class="op">.</span><span class="at">health</span> <span class="op">=</span> <span class="dv">50</span><span class="op">;</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>obstacle<span class="op">.</span><span class="at">damageThreshold</span> <span class="op">=</span> <span class="dv">3</span><span class="op">;</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>obstacle<span class="op">.</span><span class="at">damageMultiplier</span> <span class="op">=</span> <span class="dv">2</span><span class="op">;</span></span></code></pre></div>
+<h3 id="2-listening-to-collision-events">2. Listening to Collision
+Events</h3>
+<p>Use the <code>collisionStart</code> event from the
+<code>Matter.Events</code> module. This triggers on the initial frame
+two bodies make contact, preventing multiple calculations for a single
+impact:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a>Matter<span class="op">.</span><span class="at">Events</span><span class="op">.</span><span class="fu">on</span>(engine<span class="op">,</span> <span class="st">&#39;collisionStart&#39;</span><span class="op">,</span> (<span class="bu">event</span>) <span class="kw">=&gt;</span> {</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> pairs <span class="op">=</span> <span class="bu">event</span><span class="op">.</span><span class="at">pairs</span><span class="op">;</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> (<span class="kw">let</span> i <span class="op">=</span> <span class="dv">0</span><span class="op">;</span> i <span class="op">&lt;</span> pairs<span class="op">.</span><span class="at">length</span><span class="op">;</span> i<span class="op">++</span>) {</span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>        <span class="kw">const</span> pair <span class="op">=</span> pairs[i]<span class="op">;</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>        <span class="fu">handleCollisionDamage</span>(pair<span class="op">.</span><span class="at">bodyA</span><span class="op">,</span> pair<span class="op">.</span><span class="at">bodyB</span><span class="op">,</span> pair<span class="op">.</span><span class="at">collision</span>)<span class="op">;</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div>
+<h3 id="3-calculating-impact-velocity-along-the-collision-normal">3.
+Calculating Impact Velocity Along the Collision Normal</h3>
+<p>Relying solely on the scalar difference between two body speeds can
+cause false readings, such as bodies scraping alongside each other
+receiving maximum damage. To find the true impact force, calculate the
+relative velocity vector and project it onto the collision normal using
+a dot product.</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">handleCollisionDamage</span>(bodyA<span class="op">,</span> bodyB<span class="op">,</span> collision) {</span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>    <span class="co">// 1. Calculate relative velocity vector (vA - vB)</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> relativeVelocity <span class="op">=</span> {</span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>        <span class="dt">x</span><span class="op">:</span> bodyA<span class="op">.</span><span class="at">velocity</span><span class="op">.</span><span class="at">x</span> <span class="op">-</span> bodyB<span class="op">.</span><span class="at">velocity</span><span class="op">.</span><span class="at">x</span><span class="op">,</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>        <span class="dt">y</span><span class="op">:</span> bodyA<span class="op">.</span><span class="at">velocity</span><span class="op">.</span><span class="at">y</span> <span class="op">-</span> bodyB<span class="op">.</span><span class="at">velocity</span><span class="op">.</span><span class="at">y</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>    }<span class="op">;</span></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>    <span class="co">// 2. Normal vector provided by Matter.js collision pair</span></span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> normal <span class="op">=</span> collision<span class="op">.</span><span class="at">normal</span><span class="op">;</span></span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a>    <span class="co">// 3. Dot product: project relative velocity along the collision normal</span></span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> impactSpeed <span class="op">=</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">abs</span>(</span>
+<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a>        relativeVelocity<span class="op">.</span><span class="at">x</span> <span class="op">*</span> normal<span class="op">.</span><span class="at">x</span> <span class="op">+</span> relativeVelocity<span class="op">.</span><span class="at">y</span> <span class="op">*</span> normal<span class="op">.</span><span class="at">y</span></span>
+<span id="cb3-14"><a href="#cb3-14" aria-hidden="true" tabindex="-1"></a>    )<span class="op">;</span></span>
+<span id="cb3-15"><a href="#cb3-15" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-16"><a href="#cb3-16" aria-hidden="true" tabindex="-1"></a>    <span class="co">// 4. Apply damage to both bodies</span></span>
+<span id="cb3-17"><a href="#cb3-17" aria-hidden="true" tabindex="-1"></a>    <span class="fu">applyDamage</span>(bodyA<span class="op">,</span> impactSpeed)<span class="op">;</span></span>
+<span id="cb3-18"><a href="#cb3-18" aria-hidden="true" tabindex="-1"></a>    <span class="fu">applyDamage</span>(bodyB<span class="op">,</span> impactSpeed)<span class="op">;</span></span>
+<span id="cb3-19"><a href="#cb3-19" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<h3 id="4-computing-and-applying-damage">4. Computing and Applying
+Damage</h3>
+<p>Using the <code>impactSpeed</code>, check if the speed exceeds the
+body's defined threshold. If it does, subtract the calculated damage
+from the body's health:</p>
+<div class="sourceCode" id="cb4"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">applyDamage</span>(body<span class="op">,</span> impactSpeed) {</span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (<span class="op">!</span>body<span class="op">.</span><span class="at">health</span> <span class="op">||</span> impactSpeed <span class="op">&lt;</span> body<span class="op">.</span><span class="at">damageThreshold</span>) {</span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span><span class="op">;</span></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> effectiveImpact <span class="op">=</span> impactSpeed <span class="op">-</span> body<span class="op">.</span><span class="at">damageThreshold</span><span class="op">;</span></span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> damage <span class="op">=</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">round</span>(effectiveImpact <span class="op">*</span> body<span class="op">.</span><span class="at">damageMultiplier</span>)<span class="op">;</span></span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a>    body<span class="op">.</span><span class="at">health</span> <span class="op">-=</span> damage<span class="op">;</span></span>
+<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (body<span class="op">.</span><span class="at">health</span> <span class="op">&lt;=</span> <span class="dv">0</span>) {</span>
+<span id="cb4-12"><a href="#cb4-12" aria-hidden="true" tabindex="-1"></a>        body<span class="op">.</span><span class="at">health</span> <span class="op">=</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb4-13"><a href="#cb4-13" aria-hidden="true" tabindex="-1"></a>        <span class="fu">onBodyDestroyed</span>(body)<span class="op">;</span></span>
+<span id="cb4-14"><a href="#cb4-14" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb4-15"><a href="#cb4-15" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb4-16"><a href="#cb4-16" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-17"><a href="#cb4-17" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">onBodyDestroyed</span>(body) {</span>
+<span id="cb4-18"><a href="#cb4-18" aria-hidden="true" tabindex="-1"></a>    Matter<span class="op">.</span><span class="at">Composite</span><span class="op">.</span><span class="fu">remove</span>(engine<span class="op">.</span><span class="at">world</span><span class="op">,</span> body)<span class="op">;</span></span>
+<span id="cb4-19"><a href="#cb4-19" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<h3 id="5-incorporating-mass-optional">5. Incorporating Mass
+(Optional)</h3>
+<p>To create a more realistic system where heavy objects deal more
+damage than light ones, factor the mass of the opposing body into the
+calculation:</p>
+<div class="sourceCode" id="cb5"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">applyMassBasedDamage</span>(targetBody<span class="op">,</span> opposingBody<span class="op">,</span> impactSpeed) {</span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (<span class="op">!</span>targetBody<span class="op">.</span><span class="at">health</span> <span class="op">||</span> impactSpeed <span class="op">&lt;</span> targetBody<span class="op">.</span><span class="at">damageThreshold</span>) {</span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span><span class="op">;</span></span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Heavy objects exert higher momentum on impact</span></span>
+<span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> massFactor <span class="op">=</span> opposingBody<span class="op">.</span><span class="at">mass</span> <span class="op">/</span> targetBody<span class="op">.</span><span class="at">mass</span><span class="op">;</span></span>
+<span id="cb5-8"><a href="#cb5-8" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> effectiveImpact <span class="op">=</span> (impactSpeed <span class="op">-</span> targetBody<span class="op">.</span><span class="at">damageThreshold</span>) <span class="op">*</span> massFactor<span class="op">;</span></span>
+<span id="cb5-9"><a href="#cb5-9" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> damage <span class="op">=</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">max</span>(<span class="dv">0</span><span class="op">,</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">round</span>(effectiveImpact <span class="op">*</span> targetBody<span class="op">.</span><span class="at">damageMultiplier</span>))<span class="op">;</span></span>
+<span id="cb5-10"><a href="#cb5-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-11"><a href="#cb5-11" aria-hidden="true" tabindex="-1"></a>    targetBody<span class="op">.</span><span class="at">health</span> <span class="op">-=</span> damage<span class="op">;</span></span>
+<span id="cb5-12"><a href="#cb5-12" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<p>This ensures that high-speed collisions deal significant damage,
+light scrapes are ignored via the threshold, and large masses
+appropriately influence the impact.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/matter.js'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/matter.js/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/matter.js/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How to Use Matter.Query.point in Matter.js - matter.js</title>
+    <meta name="description" content="This article explains how to detect physics bodies at specific 2D coordinates in Matter.js using the Matter.Query.point method. You will learn the correct syntax, how to retrieve the active bodies from your physics simulation, and how to implement a work">
+    <link rel="canonical" href="https://salivity.github.io/matter.js/article/how-to-use-matter-query-point-in-matter-js">
+    <link rel="search" type="application/opensearchdescription+xml" title="matter.js" href="/matter.js/opensearch.xml">
+    <link rel="icon" href="/matter.js/favicon.ico">
+    <link rel="stylesheet" href="/matter.js/css/style.css">
+    <link media="print" rel="stylesheet" href="/matter.js/css/print.css">
+    <script src="/matter.js/js/fuse.min.js"></script>
+    <script src="/matter.js/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How to Use Matter.Query.point in Matter.js - matter.js" />
+    <meta property="og:url" content="https://salivity.github.io/matter.js/article/how-to-use-matter-query-point-in-matter-js" />
+    <meta property="og:image" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article explains how to detect physics bodies at specific 2D coordinates in Matter.js using the Matter.Query.point method. You will learn the correct syntax, how to retrieve the active bodies from your physics simulation, and how to implement a work" />
+    <link rel="manifest" href="/matter.js/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/matter.js/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>matter.js</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/matter.js/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="how-to-use-matterquerypoint-in-matterjs">How to Use
+Matter.Query.point in Matter.js</h1>
+<p>This article explains how to detect physics bodies at specific 2D
+coordinates in Matter.js using the <code>Matter.Query.point</code>
+method. You will learn the correct syntax, how to retrieve the active
+bodies from your physics simulation, and how to implement a working
+example commonly used for mouse clicks, touch interactions, or spatial
+point checks.</p>
+<h3 id="the-matterquerypoint-method">The Matter.Query.point Method</h3>
+<p>Matter.js provides the <code>Matter.Query</code> module for
+performing spatial queries against physics bodies. To check for
+collisions or intersections at a single coordinate, use
+<code>Matter.Query.point()</code>.</p>
+<p>The method accepts two arguments:</p>
+<ol type="1">
+<li><strong><code>bodies</code></strong> <em>(Array)</em>: The list of
+<code>Matter.Body</code> objects you want to test against.</li>
+<li><strong><code>point</code></strong> <em>(Object)</em>: A coordinate
+object in the format <code>{ x: Number, y: Number }</code>.</li>
+</ol>
+<p>It returns an <strong>Array</strong> containing all bodies that
+overlap the specified point. If no bodies overlap, it returns an empty
+array (<code>[]</code>).</p>
+<h3 id="implementation-example">Implementation Example</h3>
+<p>To query bodies within an active world, first retrieve all bodies
+using <code>Matter.Composite.allBodies()</code>, then pass them along
+with your target coordinates into <code>Matter.Query.point()</code>:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="co">// 1. Define the point to check (e.g., mouse click or screen coordinate)</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> checkPoint <span class="op">=</span> { <span class="dt">x</span><span class="op">:</span> <span class="dv">400</span><span class="op">,</span> <span class="dt">y</span><span class="op">:</span> <span class="dv">300</span> }<span class="op">;</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="co">// 2. Retrieve all bodies currently active in the physics world</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> allBodies <span class="op">=</span> Matter<span class="op">.</span><span class="at">Composite</span><span class="op">.</span><span class="fu">allBodies</span>(engine<span class="op">.</span><span class="at">world</span>)<span class="op">;</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a><span class="co">// 3. Query for bodies intersecting the point</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> foundBodies <span class="op">=</span> Matter<span class="op">.</span><span class="at">Query</span><span class="op">.</span><span class="fu">point</span>(allBodies<span class="op">,</span> checkPoint)<span class="op">;</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a><span class="co">// 4. Handle the results</span></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> (foundBodies<span class="op">.</span><span class="at">length</span> <span class="op">&gt;</span> <span class="dv">0</span>) {</span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>    foundBodies<span class="op">.</span><span class="fu">forEach</span>((body) <span class="kw">=&gt;</span> {</span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>        <span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(<span class="st">&quot;Body clicked or intersected:&quot;</span><span class="op">,</span> body<span class="op">.</span><span class="at">id</span><span class="op">,</span> body<span class="op">.</span><span class="at">label</span>)<span class="op">;</span></span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>    })<span class="op">;</span></span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a>} <span class="cf">else</span> {</span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a>    <span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(<span class="st">&quot;No bodies found at the given point.&quot;</span>)<span class="op">;</span></span>
+<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<h3 id="handling-mouse-and-touch-events">Handling Mouse and Touch
+Events</h3>
+<p>A standard use case is detecting which body a user clicked on an HTML
+canvas:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a>canvas<span class="op">.</span><span class="fu">addEventListener</span>(<span class="st">&#39;click&#39;</span><span class="op">,</span> (<span class="bu">event</span>) <span class="kw">=&gt;</span> {</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> rect <span class="op">=</span> canvas<span class="op">.</span><span class="fu">getBoundingClientRect</span>()<span class="op">;</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> mousePosition <span class="op">=</span> {</span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>        <span class="dt">x</span><span class="op">:</span> <span class="bu">event</span><span class="op">.</span><span class="at">clientX</span> <span class="op">-</span> rect<span class="op">.</span><span class="at">left</span><span class="op">,</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>        <span class="dt">y</span><span class="op">:</span> <span class="bu">event</span><span class="op">.</span><span class="at">clientY</span> <span class="op">-</span> rect<span class="op">.</span><span class="at">top</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>    }<span class="op">;</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> bodies <span class="op">=</span> Matter<span class="op">.</span><span class="at">Composite</span><span class="op">.</span><span class="fu">allBodies</span>(engine<span class="op">.</span><span class="at">world</span>)<span class="op">;</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> clickedBodies <span class="op">=</span> Matter<span class="op">.</span><span class="at">Query</span><span class="op">.</span><span class="fu">point</span>(bodies<span class="op">,</span> mousePosition)<span class="op">;</span></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (clickedBodies<span class="op">.</span><span class="at">length</span> <span class="op">&gt;</span> <span class="dv">0</span>) {</span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>        <span class="kw">const</span> topBody <span class="op">=</span> clickedBodies[<span class="dv">0</span>]<span class="op">;</span> <span class="co">// The first detected body</span></span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>        Matter<span class="op">.</span><span class="at">Body</span><span class="op">.</span><span class="fu">applyForce</span>(topBody<span class="op">,</span> topBody<span class="op">.</span><span class="at">position</span><span class="op">,</span> { <span class="dt">x</span><span class="op">:</span> <span class="dv">0</span><span class="op">,</span> <span class="dt">y</span><span class="op">:</span> <span class="op">-</span><span class="fl">0.05</span> })<span class="op">;</span></span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div>
+<h3 id="key-considerations">Key Considerations</h3>
+<ul>
+<li><strong>Compound Bodies:</strong> If you are using compound bodies
+made of multiple sub-parts, <code>Matter.Query.point</code> will
+evaluate the individual parts. Ensure you check <code>body.parent</code>
+if you want to apply logic to the main composite entity rather than an
+individual sub-part.</li>
+<li><strong>Performance:</strong> If your world contains hundreds of
+bodies, querying the entire array via <code>Composite.allBodies()</code>
+every frame can impact performance. Filter the array to only relevant or
+active bodies before running the query if necessary.</li>
+<li><strong>Sensors and Static Bodies:</strong>
+<code>Matter.Query.point</code> tests against all bodies passed to it,
+including static boundaries and bodies flagged with
+<code>isSensor: true</code>. If you do not want to interact with static
+walls or sensor triggers, filter them out of <code>foundBodies</code>
+using standard JavaScript array filters (e.g.,
+<code>foundBodies.filter(b =&gt; !b.isStatic)</code>).</li>
+</ul></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/matter.js'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/matter.js/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/matter.js/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

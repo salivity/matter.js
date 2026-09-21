@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How to Model Tire Blowouts in Matter.js - matter.js</title>
+    <meta name="description" content="Simulating a sudden tire blowout in a 2D physics environment requires instantly modifying the dynamic material properties of a wheel body to reflect sudden depressurization. In Matter.js, this effect is achieved by immediately updating the rigid body's r">
+    <link rel="canonical" href="https://salivity.github.io/matter.js/article/how-to-model-tire-blowouts-in-matter-js">
+    <link rel="search" type="application/opensearchdescription+xml" title="matter.js" href="/matter.js/opensearch.xml">
+    <link rel="icon" href="/matter.js/favicon.ico">
+    <link rel="stylesheet" href="/matter.js/css/style.css">
+    <link media="print" rel="stylesheet" href="/matter.js/css/print.css">
+    <script src="/matter.js/js/fuse.min.js"></script>
+    <script src="/matter.js/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How to Model Tire Blowouts in Matter.js - matter.js" />
+    <meta property="og:url" content="https://salivity.github.io/matter.js/article/how-to-model-tire-blowouts-in-matter-js" />
+    <meta property="og:image" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Simulating a sudden tire blowout in a 2D physics environment requires instantly modifying the dynamic material properties of a wheel body to reflect sudden depressurization. In Matter.js, this effect is achieved by immediately updating the rigid body's r" />
+    <link rel="manifest" href="/matter.js/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/matter.js/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>matter.js</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/matter.js/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="how-to-model-tire-blowouts-in-matterjs">How to Model Tire
+Blowouts in Matter.js</h1>
+<p>Simulating a sudden tire blowout in a 2D physics environment requires
+instantly modifying the dynamic material properties of a wheel body to
+reflect sudden depressurization. In Matter.js, this effect is achieved
+by immediately updating the rigid body's <code>restitution</code> to
+eliminate bounce, altering its <code>friction</code> and
+<code>frictionStatic</code> to simulate tread degradation or rim
+grinding, and applying asymmetrical forces to destabilize the
+vehicle.</p>
+<h2 id="the-physical-mechanics-of-a-blowout">The Physical Mechanics of a
+Blowout</h2>
+<p>When an inflated tire bursts, two primary physical changes occur
+immediately:</p>
+<ol type="1">
+<li><strong>Loss of Elasticity (Restitution):</strong> A pressurized
+tire behaves like a spring, storing and returning kinetic energy upon
+impact with an elasticity (<code>restitution</code>) typically between
+<code>0.2</code> and <code>0.4</code>. A blown tire becomes a dead
+weight of deflated rubber and steel, dropping its restitution to near
+<code>0</code>.</li>
+<li><strong>Shift in Traction (Friction):</strong> Traction changes
+depending on whether the vehicle rides on shredded rubber or the bare
+wheel rim. Surface contact shifts from predictable grip to high-drag
+sliding or erratic slipping. <code>frictionStatic</code> and sliding
+<code>friction</code> must be modified accordingly.</li>
+<li><strong>Chassis Asymmetry:</strong> The effective radius of the
+wheel contracts, lowering that corner of the vehicle and creating an
+instantaneous torque imbalance.</li>
+</ol>
+<h2 id="instantly-modifying-body-properties-in-matterjs">Instantly
+Modifying Body Properties in Matter.js</h2>
+<p>Matter.js exposes body properties directly and via the
+<code>Matter.Body</code> module. The recommended way to alter these
+properties in the middle of a simulation loop is by using
+<code>Body.set()</code>.</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Reference the Matter.js modules</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> { Body<span class="op">,</span> Vector } <span class="op">=</span> Matter<span class="op">;</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="co">/**</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="co"> * Triggers an instant tire blowout on a specified wheel body.</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a><span class="co"> * </span><span class="an">@param</span><span class="co"> </span><span class="cv">{Matter.Body}</span><span class="co"> wheel - The wheel rigid body experiencing the blowout.</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a><span class="co"> */</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">triggerTireBlowout</span>(wheel) {</span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>    <span class="co">// 1. Strip elasticity completely</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>    Body<span class="op">.</span><span class="fu">set</span>(wheel<span class="op">,</span> <span class="st">&#39;restitution&#39;</span><span class="op">,</span> <span class="fl">0.0</span>)<span class="op">;</span></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>    <span class="co">// 2. Adjust friction values</span></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>    <span class="co">// A shredded tire increases rolling resistance and loses consistent grip</span></span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>    Body<span class="op">.</span><span class="fu">set</span>(wheel<span class="op">,</span> <span class="st">&#39;friction&#39;</span><span class="op">,</span> <span class="fl">0.8</span>)<span class="op">;</span>        <span class="co">// Kinetic sliding friction</span></span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a>    Body<span class="op">.</span><span class="fu">set</span>(wheel<span class="op">,</span> <span class="st">&#39;frictionStatic&#39;</span><span class="op">,</span> <span class="fl">1.2</span>)<span class="op">;</span>  <span class="co">// Static grip resistance</span></span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a>    Body<span class="op">.</span><span class="fu">set</span>(wheel<span class="op">,</span> <span class="st">&#39;frictionAir&#39;</span><span class="op">,</span> <span class="fl">0.02</span>)<span class="op">;</span>    <span class="co">// Added drag on the rotating mass</span></span>
+<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a>    <span class="co">// 3. Mark the wheel state for custom logic</span></span>
+<span id="cb1-19"><a href="#cb1-19" aria-hidden="true" tabindex="-1"></a>    wheel<span class="op">.</span><span class="at">isBlown</span> <span class="op">=</span> <span class="kw">true</span><span class="op">;</span></span>
+<span id="cb1-20"><a href="#cb1-20" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<p>Direct property assignment (e.g., <code>wheel.restitution = 0</code>)
+is also functional in Matter.js, but <code>Body.set()</code> ensures
+proper internal updates within the physics engine pipeline.</p>
+<h2 id="simulating-vehicle-instability">Simulating Vehicle
+Instability</h2>
+<p>Modifying friction and restitution alone creates passive mechanical
+changes. To fully capture the violent nature of a blowout at high speed,
+you must introduce an instantaneous force imbalance to pull the vehicle
+toward the compromised side.</p>
+<h3 id="applying-a-sudden-lateral-impulse">Applying a Sudden Lateral
+Impulse</h3>
+<p>When the tire fails, apply an immediate directional impulse to the
+chassis to mimic the abrupt pull:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">applyBlowoutInstability</span>(chassis<span class="op">,</span> isLeftTire) {</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Determine the direction of the jerk (left or right)</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> pullDirection <span class="op">=</span> isLeftTire <span class="op">?</span> <span class="op">-</span><span class="dv">1</span> <span class="op">:</span> <span class="dv">1</span><span class="op">;</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Apply a sudden angular velocity or lateral force</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>    Body<span class="op">.</span><span class="fu">applyForce</span>(chassis<span class="op">,</span> chassis<span class="op">.</span><span class="at">position</span><span class="op">,</span> {</span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>        <span class="dt">x</span><span class="op">:</span> pullDirection <span class="op">*</span> <span class="fl">0.05</span> <span class="op">*</span> chassis<span class="op">.</span><span class="at">mass</span><span class="op">,</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>        <span class="dt">y</span><span class="op">:</span> <span class="fl">0.01</span> <span class="op">*</span> chassis<span class="op">.</span><span class="at">mass</span> <span class="co">// Slight downward jolt</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>    })<span class="op">;</span></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<h3 id="simulating-rim-drop-and-deflation">Simulating Rim Drop and
+Deflation</h3>
+<p>A flat tire loses structural height. If your vehicle uses
+<code>Matter.Constraint</code> for suspension, you can simulate rim drop
+by shortening the constraint length:</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">deflateSuspension</span>(suspensionConstraint) {</span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Shorten the rest length of the spring constraint to drop the chassis</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>    suspensionConstraint<span class="op">.</span><span class="at">length</span> <span class="op">*=</span> <span class="fl">0.75</span><span class="op">;</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<p>Alternatively, if the wheel is a single circle body, you can scale
+the wheel geometry down using <code>Body.scale()</code>:</p>
+<div class="sourceCode" id="cb4"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Shrink the wheel radius to simulate the drop onto the rim</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>Body<span class="op">.</span><span class="fu">scale</span>(wheel<span class="op">,</span> <span class="fl">0.85</span><span class="op">,</span> <span class="fl">0.85</span>)<span class="op">;</span></span></code></pre></div>
+<h2 id="continuous-post-blowout-dynamics">Continuous Post-Blowout
+Dynamics</h2>
+<p>After the blowout trigger executes, the wheel should behave
+unpredictably while rolling. You can listen to the engine's
+<code>beforeUpdate</code> event to inject rim-drag turbulence:</p>
+<div class="sourceCode" id="cb5"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a>Matter<span class="op">.</span><span class="at">Events</span><span class="op">.</span><span class="fu">on</span>(engine<span class="op">,</span> <span class="st">&#39;beforeUpdate&#39;</span><span class="op">,</span> () <span class="kw">=&gt;</span> {</span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (wheel<span class="op">.</span><span class="at">isBlown</span> <span class="op">&amp;&amp;</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">abs</span>(wheel<span class="op">.</span><span class="at">angularVelocity</span>) <span class="op">&gt;</span> <span class="fl">0.05</span>) {</span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a>        <span class="co">// Apply random micro-jitter to simulate an uneven rim skipping on the ground</span></span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a>        <span class="kw">const</span> jitter <span class="op">=</span> (<span class="bu">Math</span><span class="op">.</span><span class="fu">random</span>() <span class="op">-</span> <span class="fl">0.5</span>) <span class="op">*</span> <span class="fl">0.002</span> <span class="op">*</span> wheel<span class="op">.</span><span class="at">mass</span><span class="op">;</span></span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a>        Body<span class="op">.</span><span class="fu">applyForce</span>(wheel<span class="op">,</span> wheel<span class="op">.</span><span class="at">position</span><span class="op">,</span> { <span class="dt">x</span><span class="op">:</span> <span class="dv">0</span><span class="op">,</span> <span class="dt">y</span><span class="op">:</span> jitter })<span class="op">;</span></span>
+<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div>
+<p>This combination of instant property updates, suspension collapse,
+and post-blowout force application yields a stable, physically
+believable tire failure in 2D space.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/matter.js'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/matter.js/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/matter.js/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

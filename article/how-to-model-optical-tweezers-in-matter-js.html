@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How to Model Optical Tweezers in Matter.js - matter.js</title>
+    <meta name="description" content="This article explains how to simulate optical tweezers trapping micro-spheres in a fluid medium using the Matter.js 2D physics engine. By translating the underlying physics—primarily the optical gradient force, fluidic drag, and Brownian motion—into">
+    <link rel="canonical" href="https://salivity.github.io/matter.js/article/how-to-model-optical-tweezers-in-matter-js">
+    <link rel="search" type="application/opensearchdescription+xml" title="matter.js" href="/matter.js/opensearch.xml">
+    <link rel="icon" href="/matter.js/favicon.ico">
+    <link rel="stylesheet" href="/matter.js/css/style.css">
+    <link media="print" rel="stylesheet" href="/matter.js/css/print.css">
+    <script src="/matter.js/js/fuse.min.js"></script>
+    <script src="/matter.js/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How to Model Optical Tweezers in Matter.js - matter.js" />
+    <meta property="og:url" content="https://salivity.github.io/matter.js/article/how-to-model-optical-tweezers-in-matter-js" />
+    <meta property="og:image" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article explains how to simulate optical tweezers trapping micro-spheres in a fluid medium using the Matter.js 2D physics engine. By translating the underlying physics—primarily the optical gradient force, fluidic drag, and Brownian motion—into" />
+    <link rel="manifest" href="/matter.js/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/matter.js/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>matter.js</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/matter.js/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="how-to-model-optical-tweezers-in-matterjs">How to Model Optical
+Tweezers in Matter.js</h1>
+<p>This article explains how to simulate optical tweezers trapping
+micro-spheres in a fluid medium using the Matter.js 2D physics engine.
+By translating the underlying physics—primarily the optical gradient
+force, fluidic drag, and Brownian motion—into computational forces, you
+can build an interactive, browser-based laser trap. The following
+sections break down the theoretical approximations and provide a direct
+implementation in Matter.js.</p>
+<h2 id="the-physical-forces-to-model">The Physical Forces to Model</h2>
+<p>An optical tweezer uses a strongly focused laser beam to trap
+microscopic dielectric particles. At the microscopic scale, three main
+physical phenomena govern the particle's behavior:</p>
+<ol type="1">
+<li><strong>Optical Gradient Force (Trap Force):</strong> Near the
+focus, the electric field gradient pulls the sphere toward the region of
+highest laser intensity. Within a small radius (the beam waist <span
+class="math inline">\(w_0\)</span>), this acts like a Hookean spring:
+<span class="math display">\[\vec{F}_{\text{trap}} = -k (\vec{r} -
+\vec{r}_0)\]</span> Beyond the beam waist, the force quickly decays to
+zero following a Gaussian or Lorentzian profile.</li>
+<li><strong>Stokes' Drag (Fluid Friction):</strong> Micro-spheres
+operate at low Reynolds numbers, meaning viscous drag dominates
+inertia.</li>
+<li><strong>Brownian Motion:</strong> Collisions with surrounding liquid
+molecules cause random thermal fluctuations.</li>
+</ol>
+<h2 id="setting-up-the-particle-and-environment">Setting Up the Particle
+and Environment</h2>
+<p>To model low Reynolds number physics in Matter.js, disable global
+gravity and increase the sphere's air friction
+(<code>frictionAir</code>) to represent viscous resistance.</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> { Engine<span class="op">,</span> Render<span class="op">,</span> Runner<span class="op">,</span> Bodies<span class="op">,</span> Composite<span class="op">,</span> Body<span class="op">,</span> Vector<span class="op">,</span> Events } <span class="op">=</span> Matter<span class="op">;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> engine <span class="op">=</span> Engine<span class="op">.</span><span class="fu">create</span>({</span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>    <span class="dt">gravity</span><span class="op">:</span> { <span class="dt">x</span><span class="op">:</span> <span class="dv">0</span><span class="op">,</span> <span class="dt">y</span><span class="op">:</span> <span class="dv">0</span><span class="op">,</span> <span class="dt">scale</span><span class="op">:</span> <span class="dv">0</span> } <span class="co">// Microscopic scale has negligible gravity</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a><span class="co">// Micro-sphere representation</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> sphereRadius <span class="op">=</span> <span class="dv">15</span><span class="op">;</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> microSphere <span class="op">=</span> Bodies<span class="op">.</span><span class="fu">circle</span>(<span class="dv">400</span><span class="op">,</span> <span class="dv">300</span><span class="op">,</span> sphereRadius<span class="op">,</span> {</span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>    <span class="dt">frictionAir</span><span class="op">:</span> <span class="fl">0.15</span><span class="op">,</span> <span class="co">// Simulates fluid viscosity (Stokes&#39; drag)</span></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>    <span class="dt">restitution</span><span class="op">:</span> <span class="dv">0</span><span class="op">,</span></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>    <span class="dt">density</span><span class="op">:</span> <span class="fl">0.001</span></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a>Composite<span class="op">.</span><span class="fu">add</span>(engine<span class="op">.</span><span class="at">world</span><span class="op">,</span> microSphere)<span class="op">;</span></span></code></pre></div>
+<h2 id="implementing-the-trap-mechanics">Implementing the Trap
+Mechanics</h2>
+<p>The optical trap is applied continuously during the simulation loop
+using the <code>beforeUpdate</code> event.</p>
+<h3 id="1-optical-gradient-force">1. Optical Gradient Force</h3>
+<p>Define the trap center (focal point) and apply an inward force. To
+create a realistic trap, scale the restoring force using a Gaussian
+envelope so that particles far away from the laser beam are not
+affected:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> trapCenter <span class="op">=</span> { <span class="dt">x</span><span class="op">:</span> <span class="dv">400</span><span class="op">,</span> <span class="dt">y</span><span class="op">:</span> <span class="dv">300</span> }<span class="op">;</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> trapStiffness <span class="op">=</span> <span class="fl">0.0005</span><span class="op">;</span> <span class="co">// Spring constant (k)</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> beamWaist <span class="op">=</span> <span class="dv">60</span><span class="op">;</span> <span class="co">// Optical beam radius</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">applyOpticalForces</span>(body<span class="op">,</span> target) {</span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> delta <span class="op">=</span> Vector<span class="op">.</span><span class="fu">sub</span>(target<span class="op">,</span> body<span class="op">.</span><span class="at">position</span>)<span class="op">;</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> distance <span class="op">=</span> Vector<span class="op">.</span><span class="fu">magnitude</span>(delta)<span class="op">;</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (distance <span class="op">===</span> <span class="dv">0</span>) <span class="cf">return</span><span class="op">;</span></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Normalized direction vector toward trap center</span></span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> direction <span class="op">=</span> Vector<span class="op">.</span><span class="fu">div</span>(delta<span class="op">,</span> distance)<span class="op">;</span></span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Gaussian intensity profile factor: exp(-(r / w)^2)</span></span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> intensity <span class="op">=</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">exp</span>(<span class="op">-</span><span class="bu">Math</span><span class="op">.</span><span class="fu">pow</span>(distance <span class="op">/</span> beamWaist<span class="op">,</span> <span class="dv">2</span>))<span class="op">;</span></span>
+<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Force magnitude: linear with distance near the center, scaled by intensity</span></span>
+<span id="cb2-18"><a href="#cb2-18" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> forceMagnitude <span class="op">=</span> trapStiffness <span class="op">*</span> distance <span class="op">*</span> intensity<span class="op">;</span></span>
+<span id="cb2-19"><a href="#cb2-19" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> force <span class="op">=</span> Vector<span class="op">.</span><span class="fu">mult</span>(direction<span class="op">,</span> forceMagnitude)<span class="op">;</span></span>
+<span id="cb2-20"><a href="#cb2-20" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-21"><a href="#cb2-21" aria-hidden="true" tabindex="-1"></a>    Body<span class="op">.</span><span class="fu">applyForce</span>(body<span class="op">,</span> body<span class="op">.</span><span class="at">position</span><span class="op">,</span> force)<span class="op">;</span></span>
+<span id="cb2-22"><a href="#cb2-22" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<h3 id="2-brownian-motion-thermal-noise">2. Brownian Motion (Thermal
+Noise)</h3>
+<p>Brownian motion adds small, random velocity perturbations at every
+tick:</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> thermalNoiseMagnitude <span class="op">=</span> <span class="fl">0.00005</span><span class="op">;</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">applyBrownianMotion</span>(body) {</span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> randomAngle <span class="op">=</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">random</span>() <span class="op">*</span> <span class="bu">Math</span><span class="op">.</span><span class="cn">PI</span> <span class="op">*</span> <span class="dv">2</span><span class="op">;</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> randomForce <span class="op">=</span> {</span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>        <span class="dt">x</span><span class="op">:</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">cos</span>(randomAngle) <span class="op">*</span> thermalNoiseMagnitude<span class="op">,</span></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>        <span class="dt">y</span><span class="op">:</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">sin</span>(randomAngle) <span class="op">*</span> thermalNoiseMagnitude</span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>    }<span class="op">;</span></span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a>    Body<span class="op">.</span><span class="fu">applyForce</span>(body<span class="op">,</span> body<span class="op">.</span><span class="at">position</span><span class="op">,</span> randomForce)<span class="op">;</span></span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<h2 id="running-the-simulation-loop">Running the Simulation Loop</h2>
+<p>Attach these forces to the Matter.js engine loop:</p>
+<div class="sourceCode" id="cb4"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a>Events<span class="op">.</span><span class="fu">on</span>(engine<span class="op">,</span> <span class="st">&#39;beforeUpdate&#39;</span><span class="op">,</span> () <span class="kw">=&gt;</span> {</span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>    <span class="fu">applyOpticalForces</span>(microSphere<span class="op">,</span> trapCenter)<span class="op">;</span></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>    <span class="fu">applyBrownianMotion</span>(microSphere)<span class="op">;</span></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div>
+<p>To simulate dynamic manipulation (such as steering the trapped bead),
+update <code>trapCenter.x</code> and <code>trapCenter.y</code> based on
+mouse coordinates or an automated path. When the trap moves slowly, the
+particle follows stably; moving the trap faster than the drag-limited
+escape velocity causes the micro-sphere to fall out of the trap,
+mirroring real-world optical tweezers experiments.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/matter.js'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/matter.js/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/matter.js/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

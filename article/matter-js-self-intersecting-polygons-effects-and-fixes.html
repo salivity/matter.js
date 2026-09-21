@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Matter.js Self-Intersecting Polygons: Effects and Fixes - matter.js</title>
+    <meta name="description" content="Defining a self-intersecting polygon in Matter.js causes severe simulation glitches, including broken collision detection, erroneous mass properties, and failure during convex decomposition. Because Matter.js relies on algorithms that assume simple, non-">
+    <link rel="canonical" href="https://salivity.github.io/matter.js/article/matter-js-self-intersecting-polygons-effects-and-fixes">
+    <link rel="search" type="application/opensearchdescription+xml" title="matter.js" href="/matter.js/opensearch.xml">
+    <link rel="icon" href="/matter.js/favicon.ico">
+    <link rel="stylesheet" href="/matter.js/css/style.css">
+    <link media="print" rel="stylesheet" href="/matter.js/css/print.css">
+    <script src="/matter.js/js/fuse.min.js"></script>
+    <script src="/matter.js/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Matter.js Self-Intersecting Polygons: Effects and Fixes - matter.js" />
+    <meta property="og:url" content="https://salivity.github.io/matter.js/article/matter-js-self-intersecting-polygons-effects-and-fixes" />
+    <meta property="og:image" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Defining a self-intersecting polygon in Matter.js causes severe simulation glitches, including broken collision detection, erroneous mass properties, and failure during convex decomposition. Because Matter.js relies on algorithms that assume simple, non-" />
+    <link rel="manifest" href="/matter.js/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/matter.js/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>matter.js</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/matter.js/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="matterjs-self-intersecting-polygons-effects-and-fixes">Matter.js
+Self-Intersecting Polygons: Effects and Fixes</h1>
+<p>Defining a self-intersecting polygon in Matter.js causes severe
+simulation glitches, including broken collision detection, erroneous
+mass properties, and failure during convex decomposition. Because
+Matter.js relies on algorithms that assume simple, non-self-intersecting
+geometric boundaries, feeding it intersecting vertices violates its
+mathematical preconditions. This article details the specific physics
+engine breakdowns that occur with self-intersecting paths and explains
+how to properly handle complex geometry in your simulations.</p>
+<h2 id="broken-mass-and-inertia-calculations">Broken Mass and Inertia
+Calculations</h2>
+<p>Matter.js calculates a body's physical properties—such as area,
+center of mass, and moment of inertia—using Green's theorem, which
+integrates over the boundary formed by the vertices. This calculation
+assumes that the vertex loop defines a clear interior and exterior with
+consistent winding (clockwise or counter-clockwise).</p>
+<p>When edges intersect, parts of the polygon have opposing winding
+directions relative to each other. As a result:</p>
+<ul>
+<li><strong>Subtracted Area:</strong> The signed areas of opposing loops
+cancel each other out, leading to an artificially tiny, zero, or
+negative calculated area and mass.</li>
+<li><strong>Displaced Center of Mass:</strong> The calculated center of
+gravity shifts unpredictably, often landing outside the visible bounds
+of the shape.</li>
+<li><strong>Erratic Rotation:</strong> Because the moment of inertia
+depends on proper mass distribution, the body may spin with unnatural
+acceleration or resist rotation completely.</li>
+</ul>
+<h2 id="collision-failures-with-the-separating-axis-theorem">Collision
+Failures with the Separating Axis Theorem</h2>
+<p>Matter.js relies on the Separating Axis Theorem (SAT) to detect
+collisions between rigid bodies. SAT strictly requires convex shapes.
+When an arbitrary polygon is provided directly via
+<code>Matter.Body.create</code>, the engine treats the vertices as a
+single hull.</p>
+<p>With a self-intersecting polygon:</p>
+<ul>
+<li><strong>Invalid Collision Normals:</strong> SAT generates surface
+normals along each defined edge. An edge cutting through the interior
+creates normals pointing inward, confusing the collision solver.</li>
+<li><strong>Physics Explosions:</strong> When another body touches an
+inward-pointing edge, the overlap depth calculation becomes inverted.
+The solver attempts to resolve penetration by applying massive
+separation impulses, launching bodies across the screen at extreme
+velocities.</li>
+<li><strong>Tunneling and Ghost Collisions:</strong> Objects may pass
+straight through visible areas or collide with empty space near
+intersection points.</li>
+</ul>
+<h2 id="failure-in-bodiesfromvertices-and-poly-decomp">Failure in
+<code>Bodies.fromVertices</code> and Poly-Decomp</h2>
+<p>To handle non-convex shapes, Matter.js provides
+<code>Matter.Bodies.fromVertices()</code>, which integrates with the
+external library <code>poly-decomp.js</code> to automatically slice
+concave polygons into a set of convex parts.</p>
+<p><code>poly-decomp.js</code> requires simple polygons that do not
+cross over themselves. When passed a self-intersecting set of
+vertices:</p>
+<ul>
+<li><strong>Silent Failures or Dropped Parts:</strong> The decomposition
+algorithm often fails to resolve valid diagonals, leading to missing
+chunks of the object or skipped decomposition entirely.</li>
+<li><strong>Inverted Child Bodies:</strong> Decomposed parts may
+generate with backwards vertex orders, which Matter.js either rejects or
+processes as inside-out colliders.</li>
+<li><strong>Infinite Loops or Crashes:</strong> In some complex
+configurations, the triangulation or decomposition routines can enter
+infinite recursion or throw runtime errors, freezing the simulation
+thread.</li>
+</ul>
+<h2 id="visual-artifacts-in-the-default-renderer">Visual Artifacts in
+the Default Renderer</h2>
+<p>The built-in <code>Matter.Render</code> module renders vertices using
+the HTML5 Canvas 2D API's path drawing methods (<code>moveTo</code> and
+<code>lineTo</code>). By default, canvas rendering uses the non-zero
+winding rule to fill paths.</p>
+<p>A self-intersecting polygon creates overlapping sub-regions where the
+fill rule produces visual inconsistencies:</p>
+<ul>
+<li>Overlapping sections may appear filled or hollow depending on their
+winding direction.</li>
+<li>The visible shape on screen will not match the collision hull
+computed by the physics engine, leading to a visual disconnect where
+external bodies bounce off invisible boundaries or sink deep into
+visible geometry.</li>
+</ul>
+<h2 id="how-to-properly-handle-self-intersecting-polygons">How to
+Properly Handle Self-Intersecting Polygons</h2>
+<p>To use shapes with intersecting edges in Matter.js, you must
+preprocess the geometry before instantiating the physics body:</p>
+<ol type="1">
+<li><strong>Polygon Boolean Operations:</strong> Run the vertex set
+through a polygon-clipping library (such as <code>polyclip-ts</code> or
+<code>martinez-polygon-clipping</code>) to perform a self-union
+operation. This resolves self-intersections and extracts a clean,
+non-overlapping boundary.</li>
+<li><strong>Manual Decomposition:</strong> Manually break down the
+complex shape into multiple simple, non-intersecting polygons, create a
+separate body for each, and combine them using
+<code>Matter.Body.create({ parts: [...] })</code>.</li>
+<li><strong>Ensure Consistent Winding:</strong> Always ensure the final
+vertex arrays are wound in a consistent direction (clockwise or
+counter-clockwise) without crossing lines before passing them to
+<code>Bodies.fromVertices</code>.</li>
+</ol></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/matter.js'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/matter.js/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/matter.js/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

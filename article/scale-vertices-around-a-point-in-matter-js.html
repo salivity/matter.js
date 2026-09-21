@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Scale Vertices Around a Point in Matter.js - matter.js</title>
+    <meta name="description" content="This article explains how to scale geometric vertices relative to a specific origin point in Matter.js using the Matter.Vertices.scale method. You will learn the function signature, how the custom origin parameter modifies vertex positions directly in-pl">
+    <link rel="canonical" href="https://salivity.github.io/matter.js/article/scale-vertices-around-a-point-in-matter-js">
+    <link rel="search" type="application/opensearchdescription+xml" title="matter.js" href="/matter.js/opensearch.xml">
+    <link rel="icon" href="/matter.js/favicon.ico">
+    <link rel="stylesheet" href="/matter.js/css/style.css">
+    <link media="print" rel="stylesheet" href="/matter.js/css/print.css">
+    <script src="/matter.js/js/fuse.min.js"></script>
+    <script src="/matter.js/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Scale Vertices Around a Point in Matter.js - matter.js" />
+    <meta property="og:url" content="https://salivity.github.io/matter.js/article/scale-vertices-around-a-point-in-matter-js" />
+    <meta property="og:image" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article explains how to scale geometric vertices relative to a specific origin point in Matter.js using the Matter.Vertices.scale method. You will learn the function signature, how the custom origin parameter modifies vertex positions directly in-pl" />
+    <link rel="manifest" href="/matter.js/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/matter.js/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>matter.js</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/matter.js/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="scale-vertices-around-a-point-in-matterjs">Scale Vertices Around
+a Point in Matter.js</h1>
+<p>This article explains how to scale geometric vertices relative to a
+specific origin point in Matter.js using the
+<code>Matter.Vertices.scale</code> method. You will learn the function
+signature, how the custom origin parameter modifies vertex positions
+directly in-place, and how to apply this technique through a concise,
+practical code example.</p>
+<h3 id="the-matterverticesscale-method">The
+<code>Matter.Vertices.scale</code> Method</h3>
+<p>In Matter.js, the <code>Vertices</code> module contains utility
+functions for creating and manipulating sets of polygonal points. The
+<code>Matter.Vertices.scale</code> function allows you to scale an array
+of vertices non-uniformly along both axes relative to a given coordinate
+point.</p>
+<p>The method signature is:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a>Matter<span class="op">.</span><span class="at">Vertices</span><span class="op">.</span><span class="fu">scale</span>(vertices<span class="op">,</span> scaleX<span class="op">,</span> scaleY<span class="op">,</span> point)</span></code></pre></div>
+<ul>
+<li><strong><code>vertices</code></strong>: An array of
+<code>Vector</code> objects (<code>[{ x, y }, ...]</code>) defining the
+polygon.</li>
+<li><strong><code>scaleX</code></strong>: The multiplication factor
+along the horizontal axis.</li>
+<li><strong><code>scaleY</code></strong>: The multiplication factor
+along the vertical axis.</li>
+<li><strong><code>point</code></strong> <em>(optional)</em>: The origin
+<code>Vector</code> (<code>{ x, y }</code>) around which the scaling
+takes place.</li>
+</ul>
+<p>If the <code>point</code> argument is omitted, Matter.js defaults to
+using the geometric center calculated by
+<code>Matter.Vertices.centre(vertices)</code>. To scale around an
+arbitrary anchor—such as a corner, a pivot joint, or the world origin
+<code>(0, 0)</code>—you must pass that coordinate as the fourth
+argument.</p>
+<h3 id="how-scaling-around-an-origin-works">How Scaling Around an Origin
+Works</h3>
+<p>When a point is provided, the algorithm calculates the distance delta
+between each vertex and the origin point, scales that delta vector by
+<code>scaleX</code> and <code>scaleY</code>, and adds the result back to
+the origin coordinates:</p>
+<p><span class="math display">\[\text{vertex.x} = \text{point.x} +
+(\text{vertex.x} - \text{point.x}) \times \text{scaleX}\]</span> <span
+class="math display">\[\text{vertex.y} = \text{point.y} +
+(\text{vertex.y} - \text{point.y}) \times \text{scaleY}\]</span></p>
+<p>Because the function modifies the original vertex objects in place,
+any reference to those vertices will reflect the transformation
+immediately.</p>
+<h3 id="code-example-scaling-around-a-custom-point">Code Example:
+Scaling Around a Custom Point</h3>
+<p>Below is an implementation demonstrating how to define a set of
+vertices and scale them around a specific pivot point:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Define a triangle</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> vertices <span class="op">=</span> [</span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>    { <span class="dt">x</span><span class="op">:</span> <span class="dv">100</span><span class="op">,</span> <span class="dt">y</span><span class="op">:</span> <span class="dv">100</span> }<span class="op">,</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>    { <span class="dt">x</span><span class="op">:</span> <span class="dv">200</span><span class="op">,</span> <span class="dt">y</span><span class="op">:</span> <span class="dv">100</span> }<span class="op">,</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>    { <span class="dt">x</span><span class="op">:</span> <span class="dv">150</span><span class="op">,</span> <span class="dt">y</span><span class="op">:</span> <span class="dv">200</span> }</span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>]<span class="op">;</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a><span class="co">// Define the custom origin point (e.g., the top-left vertex)</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> originPoint <span class="op">=</span> { <span class="dt">x</span><span class="op">:</span> <span class="dv">100</span><span class="op">,</span> <span class="dt">y</span><span class="op">:</span> <span class="dv">100</span> }<span class="op">;</span></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a><span class="co">// Scale the vertices by 2x horizontally and 1.5x vertically around originPoint</span></span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>Matter<span class="op">.</span><span class="at">Vertices</span><span class="op">.</span><span class="fu">scale</span>(vertices<span class="op">,</span> <span class="dv">2</span><span class="op">,</span> <span class="fl">1.5</span><span class="op">,</span> originPoint)<span class="op">;</span></span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a><span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(vertices)<span class="op">;</span></span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a><span class="co">// Resulting vertices:</span></span>
+<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a><span class="co">// [{ x: 100, y: 100 }, { x: 300, y: 100 }, { x: 200, y: 250 }]</span></span></code></pre></div>
+<h3 id="applying-scaled-vertices-to-a-matterjs-body">Applying Scaled
+Vertices to a Matter.js Body</h3>
+<p>If you are modifying vertices intended for an active physics body
+(<code>Matter.Body</code>), updating vertices directly with
+<code>Matter.Vertices.scale</code> does not automatically update the
+body's internal properties, such as mass, inertia, or bounding
+boxes.</p>
+<p>To safely apply the transformed vertices to a body, use
+<code>Matter.Body.setVertices</code>:</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> body <span class="op">=</span> Matter<span class="op">.</span><span class="at">Bodies</span><span class="op">.</span><span class="fu">fromVertices</span>(<span class="dv">200</span><span class="op">,</span> <span class="dv">200</span><span class="op">,</span> vertices)<span class="op">;</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a><span class="co">// Define origin to scale around (e.g., world coordinate or local body position)</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> pivot <span class="op">=</span> { <span class="dt">x</span><span class="op">:</span> body<span class="op">.</span><span class="at">position</span><span class="op">.</span><span class="at">x</span><span class="op">,</span> <span class="dt">y</span><span class="op">:</span> body<span class="op">.</span><span class="at">position</span><span class="op">.</span><span class="at">y</span> }<span class="op">;</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a><span class="co">// Scale vertices in-place</span></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>Matter<span class="op">.</span><span class="at">Vertices</span><span class="op">.</span><span class="fu">scale</span>(body<span class="op">.</span><span class="at">vertices</span><span class="op">,</span> <span class="fl">1.5</span><span class="op">,</span> <span class="fl">1.5</span><span class="op">,</span> pivot)<span class="op">;</span></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a><span class="co">// Recompute mass, inertia, and bounds based on the modified vertices</span></span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a>Matter<span class="op">.</span><span class="at">Body</span><span class="op">.</span><span class="fu">setVertices</span>(body<span class="op">,</span> body<span class="op">.</span><span class="at">vertices</span>)<span class="op">;</span></span></code></pre></div></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/matter.js'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/matter.js/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/matter.js/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

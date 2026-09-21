@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Understanding the Matter.js afterUpdate Event - matter.js</title>
+    <meta name="description" content="The afterUpdate event in Matter.js is an engine-level lifecycle event that fires immediately after all physics calculations, collision detections, and position integrations have completed for the current frame. This article explains what the afterUpdate">
+    <link rel="canonical" href="https://salivity.github.io/matter.js/article/understanding-the-matter-js-after-update-event">
+    <link rel="search" type="application/opensearchdescription+xml" title="matter.js" href="/matter.js/opensearch.xml">
+    <link rel="icon" href="/matter.js/favicon.ico">
+    <link rel="stylesheet" href="/matter.js/css/style.css">
+    <link media="print" rel="stylesheet" href="/matter.js/css/print.css">
+    <script src="/matter.js/js/fuse.min.js"></script>
+    <script src="/matter.js/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Understanding the Matter.js afterUpdate Event - matter.js" />
+    <meta property="og:url" content="https://salivity.github.io/matter.js/article/understanding-the-matter-js-after-update-event" />
+    <meta property="og:image" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="The afterUpdate event in Matter.js is an engine-level lifecycle event that fires immediately after all physics calculations, collision detections, and position integrations have completed for the current frame. This article explains what the afterUpdate" />
+    <link rel="manifest" href="/matter.js/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/matter.js/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>matter.js</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/matter.js/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="understanding-the-matterjs-afterupdate-event">Understanding the
+Matter.js afterUpdate Event</h1>
+<p>The <code>afterUpdate</code> event in Matter.js is an engine-level
+lifecycle event that fires immediately after all physics calculations,
+collision detections, and position integrations have completed for the
+current frame. This article explains what the <code>afterUpdate</code>
+event does, where it fits within the Matter.js execution cycle, its
+common use cases, and how to implement it correctly in your
+projects.</p>
+<h3 id="what-is-the-afterupdate-event">What is the afterUpdate
+Event?</h3>
+<p>In Matter.js, the <code>Matter.Engine</code> manages the core
+simulation loop. During each tick, the engine calculates the movement of
+bodies, handles collisions, and solves constraints. Once these
+calculations are complete, the engine triggers the
+<code>afterUpdate</code> event.</p>
+<p>Because it executes after physical positions and velocities have been
+recalculated, it provides the most accurate, up-to-date state of all
+physics bodies before they are drawn to the screen.</p>
+<h3 id="the-matterjs-update-cycle">The Matter.js Update Cycle</h3>
+<p>To understand <code>afterUpdate</code>, it helps to see where it fits
+within the standard execution order:</p>
+<ol type="1">
+<li><strong><code>beforeUpdate</code></strong>: Triggered before any
+physics calculations occur for the frame.</li>
+<li><strong>Physics Step</strong>: The engine detects collisions,
+updates velocities, adjusts body positions, and resolves
+constraints.</li>
+<li><strong><code>afterUpdate</code></strong>: Triggered immediately
+after the physics step finishes.</li>
+<li><strong><code>beforeRender</code> /
+<code>afterRender</code></strong>: The renderer draws the updated bodies
+to the canvas.</li>
+</ol>
+<h3 id="common-use-cases">Common Use Cases</h3>
+<p>The <code>afterUpdate</code> event is essential for tasks that depend
+on the final computed state of physics bodies for the current frame:</p>
+<ul>
+<li><strong>Rendering Synchronization</strong>: If you are using an
+external rendering library like PixiJS or Three.js instead of the
+built-in Matter.js renderer, <code>afterUpdate</code> is the ideal place
+to copy body coordinates and rotation angles over to your visual sprites
+or 3D meshes.</li>
+<li><strong>Boundary and Lifecycle Checks</strong>: You can inspect body
+positions to determine if objects have fallen outside the game world or
+passed specific thresholds, allowing you to remove them cleanly before
+the next frame.</li>
+<li><strong>Custom Constraints and Clamping</strong>: If you need to
+enforce custom behavior—such as clamping a body's maximum velocity,
+locking an axis, or applying manual position overrides—doing so in
+<code>afterUpdate</code> ensures these limits take effect immediately
+before visual rendering.</li>
+<li><strong>Game Logic Triggers</strong>: State updates that rely on the
+outcome of the latest frame's physics (such as checking if a character
+has stopped moving) should be evaluated during this event.</li>
+</ul>
+<h3 id="implementation-example">Implementation Example</h3>
+<p>To listen for the event, use the <code>Matter.Events.on</code> method
+targeting your <code>engine</code> instance:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> { Engine<span class="op">,</span> Events<span class="op">,</span> Composite } <span class="op">=</span> Matter<span class="op">;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> engine <span class="op">=</span> Engine<span class="op">.</span><span class="fu">create</span>()<span class="op">;</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>Events<span class="op">.</span><span class="fu">on</span>(engine<span class="op">,</span> <span class="st">&#39;afterUpdate&#39;</span><span class="op">,</span> <span class="kw">function</span>(<span class="bu">event</span>) {</span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Access the engine or its timestamp from the event object</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> timestamp <span class="op">=</span> <span class="bu">event</span><span class="op">.</span><span class="at">timestamp</span><span class="op">;</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Example: Iterate through bodies to clamp velocity or check bounds</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> bodies <span class="op">=</span> Composite<span class="op">.</span><span class="fu">allBodies</span>(engine<span class="op">.</span><span class="at">world</span>)<span class="op">;</span></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> (<span class="kw">let</span> i <span class="op">=</span> <span class="dv">0</span><span class="op">;</span> i <span class="op">&lt;</span> bodies<span class="op">.</span><span class="at">length</span><span class="op">;</span> i<span class="op">++</span>) {</span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>        <span class="kw">const</span> body <span class="op">=</span> bodies[i]<span class="op">;</span></span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a>        <span class="co">// Remove bodies that fall off the bottom of the screen</span></span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> (body<span class="op">.</span><span class="at">position</span><span class="op">.</span><span class="at">y</span> <span class="op">&gt;</span> <span class="dv">1000</span>) {</span>
+<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a>            Composite<span class="op">.</span><span class="fu">remove</span>(engine<span class="op">.</span><span class="at">world</span><span class="op">,</span> body)<span class="op">;</span></span>
+<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a>        }</span>
+<span id="cb1-19"><a href="#cb1-19" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb1-20"><a href="#cb1-20" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div>
+<h3 id="performance-considerations">Performance Considerations</h3>
+<p>The <code>afterUpdate</code> callback runs once per engine tick
+(typically 60 times per second). Keep logic inside this listener
+lightweight. Heavy computations, deep object cloning, or excessive
+allocations within this function can lower the frame rate and introduce
+physics stuttering.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/matter.js'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/matter.js/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/matter.js/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

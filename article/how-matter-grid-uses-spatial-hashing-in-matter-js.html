@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How Matter.Grid Uses Spatial Hashing in Matter.js - matter.js</title>
+    <meta name="description" content="This article explains how the Matter.Grid module in Matter.js uses spatial hashing to accelerate broad-phase collision detection. By partitioning 2D space into uniform grid cells (hash buckets), the physics engine maps rigid bodies to localized spatial r">
+    <link rel="canonical" href="https://salivity.github.io/matter.js/article/how-matter-grid-uses-spatial-hashing-in-matter-js">
+    <link rel="search" type="application/opensearchdescription+xml" title="matter.js" href="/matter.js/opensearch.xml">
+    <link rel="icon" href="/matter.js/favicon.ico">
+    <link rel="stylesheet" href="/matter.js/css/style.css">
+    <link media="print" rel="stylesheet" href="/matter.js/css/print.css">
+    <script src="/matter.js/js/fuse.min.js"></script>
+    <script src="/matter.js/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How Matter.Grid Uses Spatial Hashing in Matter.js - matter.js" />
+    <meta property="og:url" content="https://salivity.github.io/matter.js/article/how-matter-grid-uses-spatial-hashing-in-matter-js" />
+    <meta property="og:image" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article explains how the Matter.Grid module in Matter.js uses spatial hashing to accelerate broad-phase collision detection. By partitioning 2D space into uniform grid cells (hash buckets), the physics engine maps rigid bodies to localized spatial r" />
+    <link rel="manifest" href="/matter.js/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/matter.js/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>matter.js</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/matter.js/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="how-mattergrid-uses-spatial-hashing-in-matterjs">How Matter.Grid
+Uses Spatial Hashing in Matter.js</h1>
+<p>This article explains how the <code>Matter.Grid</code> module in
+Matter.js uses spatial hashing to accelerate broad-phase collision
+detection. By partitioning 2D space into uniform grid cells (hash
+buckets), the physics engine maps rigid bodies to localized spatial
+regions based on their axis-aligned bounding boxes (AABBs). This
+approach drastically minimizes the number of pairwise checks required
+per frame, reducing the computational complexity from a brute-force
+<span class="math inline">\(O(n^2)\)</span> down to roughly <span
+class="math inline">\(O(n)\)</span> in typical simulations.</p>
+<h3 id="the-role-of-broad-phase-detection">The Role of Broad-Phase
+Detection</h3>
+<p>Physics engines divide collision detection into two primary stages:
+broad-phase and narrow-phase.</p>
+<p>The narrow-phase performs precise geometric calculations (such as the
+Separating Axis Theorem) to determine exact points of contact,
+penetration depth, and collision normals. Because these calculations are
+computationally expensive, testing every body against every other body
+in a scene with <span class="math inline">\(n\)</span> objects requires
+<span class="math inline">\(\frac{n(n - 1)}{2}\)</span> operations.</p>
+<p>The broad-phase eliminates impossible collisions early by quickly
+identifying which bodies are close enough to warrant narrow-phase
+evaluation. <code>Matter.Grid</code> provides this optimization through
+spatial partitioning.</p>
+<h3 id="subdividing-space-into-uniform-cells">Subdividing Space into
+Uniform Cells</h3>
+<p><code>Matter.Grid</code> divides the continuous 2D coordinate plane
+into a discrete, uniform grid. The grid configuration relies on two
+parameters:</p>
+<ul>
+<li><code>bucketWidth</code>: The horizontal size of each grid
+cell.</li>
+<li><code>bucketHeight</code>: The vertical size of each grid cell.</li>
+</ul>
+<p>Instead of maintaining a massive two-dimensional array representing
+the entire infinite coordinate space, <code>Matter.Grid</code> uses a
+hash map (an object or dictionary) where keys represent active grid
+coordinates, and values are arrays (buckets) containing references to
+the bodies residing within those coordinates.</p>
+<h3 id="mapping-bodies-to-hash-buckets">Mapping Bodies to Hash
+Buckets</h3>
+<p>During each update cycle, <code>Matter.Grid</code> updates the
+spatial mapping of all active bodies through the following steps:</p>
+<ol type="1">
+<li><strong>AABB Extraction:</strong> The engine takes the axis-aligned
+bounding box (AABB) of each body, defined by minimum and maximum bounds:
+<code>(min.x, min.y)</code> and <code>(max.x, max.y)</code>.</li>
+<li><strong>Cell Coordinate Computation:</strong> The engine determines
+the range of grid indices covered by the body's AABB by performing
+integer division on the bounds:
+<ul>
+<li><code>startCol = Math.floor(bounds.min.x / bucketWidth)</code></li>
+<li><code>endCol = Math.floor(bounds.max.x / bucketWidth)</code></li>
+<li><code>startRow = Math.floor(bounds.min.y / bucketHeight)</code></li>
+<li><code>endRow = Math.floor(bounds.max.y / bucketHeight)</code></li>
+</ul></li>
+<li><strong>Hash Key Generation:</strong> For every cell intersecting
+the body's AABB from <code>startCol</code> to <code>endCol</code> and
+<code>startRow</code> to <code>endRow</code>, a string-based hash key is
+generated (e.g., <code>"C" + col + "R" + row</code>).</li>
+<li><strong>Bucket Insertion:</strong> The body reference is pushed into
+the bucket associated with each generated key. If an object spans the
+boundary between cells, it is inserted into multiple buckets
+simultaneously.</li>
+</ol>
+<h3 id="generating-potential-collision-pairs">Generating Potential
+Collision Pairs</h3>
+<p>Once all active bodies are registered into their respective buckets,
+the grid generates candidate collision pairs:</p>
+<ol type="1">
+<li><strong>Iterating Active Buckets:</strong> The engine loops through
+only the buckets that contain two or more bodies. Completely empty
+buckets or buckets with a single object are skipped immediately.</li>
+<li><strong>Local Pairwise Checks:</strong> Within each multi-body
+bucket, the engine pairs the bodies together for broad-phase
+verification.</li>
+<li><strong>Duplicate Elimination:</strong> Because a single body can
+overlap multiple grid cells, the same pair of bodies might appear in
+multiple buckets. <code>Matter.Grid</code> prevents redundant checks by
+assigning each potential pair a unique identifier (derived from their
+individual IDs, such as
+<code>bodyA.id &lt; bodyB.id ? bodyA.id + '_' + bodyB.id : bodyB.id + '_' + bodyA.id</code>)
+and tracking processed pairs in an active table.</li>
+</ol>
+<p>The resulting deduplicated list of candidate pairs is then forwarded
+directly to the narrow-phase pipeline for exact collision
+resolution.</p>
+<h3 id="performance-tuning-and-bucket-size">Performance Tuning and
+Bucket Size</h3>
+<p>The efficiency of <code>Matter.Grid</code> depends heavily on the
+chosen bucket dimensions relative to the scale of the objects in the
+world:</p>
+<ul>
+<li><strong>Buckets Too Small:</strong> If the cell size is
+significantly smaller than average bodies, each body will span a large
+number of buckets. This increases memory overhead, hashing time, and
+duplicate pair resolution costs.</li>
+<li><strong>Buckets Too Large:</strong> If the cell size is too large,
+too many bodies cluster into the same bucket. In extreme cases, this
+degrades performance back toward the unoptimized <span
+class="math inline">\(O(n^2)\)</span> state.</li>
+</ul>
+<p>For optimal performance, <code>bucketWidth</code> and
+<code>bucketHeight</code> are typically configured to be roughly 1.5 to
+2 times the size of the average rigid body in the simulation.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/matter.js'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/matter.js/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/matter.js/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

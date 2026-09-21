@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How to Apply Torque to a Body in Matter.js - matter.js</title>
+    <meta name="description" content="In Matter.js, applying torque to rotate a rigid body can be achieved either by directly modifying the body's torque property or by applying an off-center force using the Matter.Body.applyForce() method. This article covers both techniques, explaining how">
+    <link rel="canonical" href="https://salivity.github.io/matter.js/article/how-to-apply-torque-to-a-body-in-matter-js">
+    <link rel="search" type="application/opensearchdescription+xml" title="matter.js" href="/matter.js/opensearch.xml">
+    <link rel="icon" href="/matter.js/favicon.ico">
+    <link rel="stylesheet" href="/matter.js/css/style.css">
+    <link media="print" rel="stylesheet" href="/matter.js/css/print.css">
+    <script src="/matter.js/js/fuse.min.js"></script>
+    <script src="/matter.js/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How to Apply Torque to a Body in Matter.js - matter.js" />
+    <meta property="og:url" content="https://salivity.github.io/matter.js/article/how-to-apply-torque-to-a-body-in-matter-js" />
+    <meta property="og:image" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="In Matter.js, applying torque to rotate a rigid body can be achieved either by directly modifying the body's torque property or by applying an off-center force using the Matter.Body.applyForce() method. This article covers both techniques, explaining how" />
+    <link rel="manifest" href="/matter.js/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/matter.js/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>matter.js</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/matter.js/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="how-to-apply-torque-to-a-body-in-matterjs">How to Apply Torque
+to a Body in Matter.js</h1>
+<p>In Matter.js, applying torque to rotate a rigid body can be achieved
+either by directly modifying the body's <code>torque</code> property or
+by applying an off-center force using the
+<code>Matter.Body.applyForce()</code> method. This article covers both
+techniques, explaining how to implement them within the engine's update
+loop and when to use direct angular velocity adjustments for immediate
+rotational changes.</p>
+<h2 id="method-1-directly-modifying-the-torque-property">Method 1:
+Directly Modifying the <code>torque</code> Property</h2>
+<p>The most straightforward way to add rotational force is by setting or
+incrementing the <code>torque</code> property on the target body.
+Matter.js resets this value to zero at the end of every physics step, so
+the torque must be applied continuously within the engine loop.</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Register an event listener before the physics update runs</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>Matter<span class="op">.</span><span class="at">Events</span><span class="op">.</span><span class="fu">on</span>(engine<span class="op">,</span> <span class="st">&#39;beforeUpdate&#39;</span><span class="op">,</span> <span class="kw">function</span>() {</span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Add a positive value for clockwise, negative for counter-clockwise</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>    myBody<span class="op">.</span><span class="at">torque</span> <span class="op">=</span> <span class="fl">0.05</span><span class="op">;</span> </span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div>
+<p>Because <code>torque = inertia * angularAcceleration</code>, a body
+with high inertia (often determined by its mass, width, and height)
+requires a larger torque value to achieve visible acceleration.</p>
+<h2 id="method-2-applying-an-off-center-force">Method 2: Applying an
+Off-Center Force</h2>
+<p>In real-world physics, torque is generated when a force is applied at
+a distance from the center of mass (<span class="math inline">\(\tau = r
+\times F\)</span>). In Matter.js, you can replicate this using
+<code>Matter.Body.applyForce()</code>. If the point of application is
+offset from <code>body.position</code>, the engine automatically
+computes both the linear force and the resulting torque.</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Define a point offset from the center of mass</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> applicationPoint <span class="op">=</span> {</span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>    <span class="dt">x</span><span class="op">:</span> myBody<span class="op">.</span><span class="at">position</span><span class="op">.</span><span class="at">x</span> <span class="op">+</span> <span class="dv">20</span><span class="op">,</span> <span class="co">// 20 units to the right of center</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>    <span class="dt">y</span><span class="op">:</span> myBody<span class="op">.</span><span class="at">position</span><span class="op">.</span><span class="at">y</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>}<span class="op">;</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a><span class="co">// Define the directional force vector</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> force <span class="op">=</span> {</span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>    <span class="dt">x</span><span class="op">:</span> <span class="dv">0</span><span class="op">,</span></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>    <span class="dt">y</span><span class="op">:</span> <span class="op">-</span><span class="fl">0.01</span> <span class="co">// Upward force</span></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>}<span class="op">;</span></span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a><span class="co">// Apply the force</span></span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a>Matter<span class="op">.</span><span class="at">Body</span><span class="op">.</span><span class="fu">applyForce</span>(myBody<span class="op">,</span> applicationPoint<span class="op">,</span> force)<span class="op">;</span></span></code></pre></div>
+<p>Applying force above or below the center of mass in a horizontal
+direction, or to the left or right in a vertical direction, causes the
+body to spin while simultaneously pushing it linearly.</p>
+<h2 id="alternative-setting-angular-velocity-directly">Alternative:
+Setting Angular Velocity Directly</h2>
+<p>If you need an instantaneous change in rotation without relying on
+force accumulation or mass properties, you can directly set the angular
+velocity using <code>Matter.Body.setAngularVelocity()</code>.</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Set rotational speed directly (in radians per step)</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>Matter<span class="op">.</span><span class="at">Body</span><span class="op">.</span><span class="fu">setAngularVelocity</span>(myBody<span class="op">,</span> <span class="fl">0.1</span>)<span class="op">;</span></span></code></pre></div>
+<p>This bypasses torque and inertia calculations entirely, instantly
+making the body spin at the specified rate. Use direct torque or
+off-center forces when realistic physical acceleration is required, and
+use angular velocity when you need immediate, deterministic
+rotation.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/matter.js'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/matter.js/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/matter.js/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

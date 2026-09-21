@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Profiling Vector Memory Leaks in Matter.js - matter.js</title>
+    <meta name="description" content="High-frequency physics simulations built with Matter.js often suffer from frame drops and memory bloat caused by excessive allocations of vector objects within the update loop. This article outlines how to identify and profile Matter.Vector allocation sp">
+    <link rel="canonical" href="https://salivity.github.io/matter.js/article/profiling-vector-memory-leaks-in-matter-js">
+    <link rel="search" type="application/opensearchdescription+xml" title="matter.js" href="/matter.js/opensearch.xml">
+    <link rel="icon" href="/matter.js/favicon.ico">
+    <link rel="stylesheet" href="/matter.js/css/style.css">
+    <link media="print" rel="stylesheet" href="/matter.js/css/print.css">
+    <script src="/matter.js/js/fuse.min.js"></script>
+    <script src="/matter.js/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Profiling Vector Memory Leaks in Matter.js - matter.js" />
+    <meta property="og:url" content="https://salivity.github.io/matter.js/article/profiling-vector-memory-leaks-in-matter-js" />
+    <meta property="og:image" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="High-frequency physics simulations built with Matter.js often suffer from frame drops and memory bloat caused by excessive allocations of vector objects within the update loop. This article outlines how to identify and profile Matter.Vector allocation sp" />
+    <link rel="manifest" href="/matter.js/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/matter.js/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>matter.js</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/matter.js/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="profiling-vector-memory-leaks-in-matterjs">Profiling Vector
+Memory Leaks in Matter.js</h1>
+<p>High-frequency physics simulations built with Matter.js often suffer
+from frame drops and memory bloat caused by excessive allocations of
+vector objects within the update loop. This article outlines how to
+identify and profile <code>Matter.Vector</code> allocation spikes using
+browser developer tools, trace retaining paths, and refactor physics
+code to maintain a flat memory footprint.</p>
+<h2 id="why-matterjs-vectors-leak">Why Matter.js Vectors Leak</h2>
+<p>Matter.js relies heavily on 2D vectors for positions, velocities, and
+forces. Methods such as <code>Vector.create(x, y)</code>,
+<code>Vector.add()</code>, and <code>Vector.sub()</code> return fresh
+object instances:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Creates a new object reference every execution</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> force <span class="op">=</span> Matter<span class="op">.</span><span class="at">Vector</span><span class="op">.</span><span class="fu">create</span>(<span class="dv">0</span><span class="op">,</span> <span class="fl">0.05</span>)<span class="op">;</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>Matter<span class="op">.</span><span class="at">Body</span><span class="op">.</span><span class="fu">applyForce</span>(body<span class="op">,</span> body<span class="op">.</span><span class="at">position</span><span class="op">,</span> force)<span class="op">;</span></span></code></pre></div>
+<p>When called repeatedly inside <code>beforeUpdate</code> events or
+<code>requestAnimationFrame</code> cycles, thousands of short-lived
+<code>{ x, y }</code> objects are allocated every second. If references
+to these vectors are inadvertently retained in arrays, custom cache
+structures, or closures, the garbage collector cannot free them, causing
+a steady climb in heap size. Even without permanent retention, frequent
+allocations trigger garbage collection (GC) thrashing, causing visible
+micro-stutters.</p>
+<h2 id="step-by-step-profiling-with-chrome-devtools">Step-by-Step
+Profiling with Chrome DevTools</h2>
+<p>To isolate transient or leaking vector objects, use the Chrome
+DevTools Memory profiler.</p>
+<h3 id="1-capture-allocation-instrumentation-on-timeline">1. Capture
+Allocation Instrumentation on Timeline</h3>
+<ol type="1">
+<li>Open your application in Google Chrome.</li>
+<li>Open DevTools (<code>F12</code> or <code>Ctrl+Shift+I</code> /
+<code>Cmd+Option+I</code>) and switch to the <strong>Memory</strong>
+panel.</li>
+<li>Select <strong>Allocation instrumentation on timeline</strong>.</li>
+<li>Click <strong>Start</strong> to begin profiling while your Matter.js
+physics engine is actively stepping.</li>
+<li>Let the simulation run for 10–20 seconds to establish a baseline,
+then perform the actions suspected of causing leaks.</li>
+<li>Click the red record button to stop.</li>
+</ol>
+<h3 id="2-isolate-vector-allocations">2. Isolate Vector Allocations</h3>
+<p>The timeline displays vertical bars representing memory
+allocations:</p>
+<ul>
+<li><strong>Blue bars</strong> indicate memory that is still retained at
+the end of the recording.</li>
+<li><strong>Grey bars</strong> indicate memory allocated and
+subsequently reclaimed by garbage collection.</li>
+</ul>
+<p>A sustained staircase pattern of blue bars confirms a genuine memory
+leak. To inspect vectors:</p>
+<ol type="1">
+<li>Drag a selection window over a section of the timeline with high
+blue spikes.</li>
+<li>In the <strong>Constructor</strong> view, filter by
+<code>Object</code>.</li>
+<li>Expand <code>Object</code> and sort by <strong>Shallow Size</strong>
+or <strong>Distance</strong>. Matter.js vectors appear as generic
+objects containing only <code>x</code> and <code>y</code> numeric
+properties.</li>
+<li>If you have wrapped vector creation in custom classes, search
+directly for your class name.</li>
+</ol>
+<h3 id="3-trace-retaining-paths">3. Trace Retaining Paths</h3>
+<p>Click on an individual vector instance to populate the
+<strong>Retainers</strong> panel at the bottom:</p>
+<ol type="1">
+<li>Look for the chain of references keeping the object alive.</li>
+<li>Identify whether the vector is held by a custom array (such as an
+unpruned history of past body positions), an internal Matter.js property
+(such as <code>body.parts</code> or custom plugin state), or an active
+closure context (such as an event listener callback created inside a
+loop).</li>
+<li>Check the <strong>Distance</strong> column: lower numbers indicate
+objects closer to the root (e.g., <code>window</code>), which are
+actively preventing garbage collection.</li>
+</ol>
+<h2 id="taking-comparative-heap-snapshots">Taking Comparative Heap
+Snapshots</h2>
+<p>For persistent leaks:</p>
+<ol type="1">
+<li>In the <strong>Memory</strong> panel, select <strong>Heap
+snapshot</strong>.</li>
+<li>Take <strong>Snapshot 1</strong> immediately after the physics world
+stabilizes.</li>
+<li>Allow the simulation to run for several minutes.</li>
+<li>Take <strong>Snapshot 2</strong>.</li>
+<li>Switch the view dropdown from <strong>Summary</strong> to
+<strong>Comparison</strong>, comparing Snapshot 2 against Snapshot
+1.</li>
+<li>Sort by <strong># Delta</strong>. If <code>Object</code> shows a
+large positive delta matching your frame count multiplied by your
+bodies, vectors are failing to clean up.</li>
+</ol>
+<h2 id="eliminating-vector-allocations">Eliminating Vector
+Allocations</h2>
+<p>Once you find the offending code, eliminate the creation of new
+vector instances.</p>
+<h3 id="mutate-existing-vectors">Mutate Existing Vectors</h3>
+<p>Modify the properties of an existing vector instead of generating a
+new one:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Avoid</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> displacement <span class="op">=</span> Matter<span class="op">.</span><span class="at">Vector</span><span class="op">.</span><span class="fu">sub</span>(bodyA<span class="op">.</span><span class="at">position</span><span class="op">,</span> bodyB<span class="op">.</span><span class="at">position</span>)<span class="op">;</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a><span class="co">// Preferred: Reuse a dedicated vector object</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>displacement<span class="op">.</span><span class="at">x</span> <span class="op">=</span> bodyA<span class="op">.</span><span class="at">position</span><span class="op">.</span><span class="at">x</span> <span class="op">-</span> bodyB<span class="op">.</span><span class="at">position</span><span class="op">.</span><span class="at">x</span><span class="op">;</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>displacement<span class="op">.</span><span class="at">y</span> <span class="op">=</span> bodyA<span class="op">.</span><span class="at">position</span><span class="op">.</span><span class="at">y</span> <span class="op">-</span> bodyB<span class="op">.</span><span class="at">position</span><span class="op">.</span><span class="at">y</span><span class="op">;</span></span></code></pre></div>
+<h3 id="pre-allocate-static-vectors">Pre-allocate Static Vectors</h3>
+<p>For static values like gravity offsets or standard directions,
+allocate them outside the execution loop:</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Defined once in module or setup scope</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> ZERO_FORCE <span class="op">=</span> <span class="bu">Object</span><span class="op">.</span><span class="fu">freeze</span>({ <span class="dt">x</span><span class="op">:</span> <span class="dv">0</span><span class="op">,</span> <span class="dt">y</span><span class="op">:</span> <span class="dv">0</span> })<span class="op">;</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> UPWARD_FORCE <span class="op">=</span> { <span class="dt">x</span><span class="op">:</span> <span class="dv">0</span><span class="op">,</span> <span class="dt">y</span><span class="op">:</span> <span class="op">-</span><span class="fl">0.05</span> }<span class="op">;</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>Matter<span class="op">.</span><span class="at">Events</span><span class="op">.</span><span class="fu">on</span>(engine<span class="op">,</span> <span class="st">&#39;beforeUpdate&#39;</span><span class="op">,</span> () <span class="kw">=&gt;</span> {</span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>    Matter<span class="op">.</span><span class="at">Body</span><span class="op">.</span><span class="fu">applyForce</span>(playerBody<span class="op">,</span> playerBody<span class="op">.</span><span class="at">position</span><span class="op">,</span> UPWARD_FORCE)<span class="op">;</span></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div>
+<h3 id="implement-a-vector-pool">Implement a Vector Pool</h3>
+<p>For complex math requiring intermediary calculations, use an object
+pool:</p>
+<div class="sourceCode" id="cb4"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> VectorPool <span class="op">=</span> {</span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>    <span class="dt">pool</span><span class="op">:</span> []<span class="op">,</span></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>    <span class="fu">acquire</span>(x <span class="op">=</span> <span class="dv">0</span><span class="op">,</span> y <span class="op">=</span> <span class="dv">0</span>) {</span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>        <span class="kw">const</span> v <span class="op">=</span> <span class="kw">this</span><span class="op">.</span><span class="at">pool</span><span class="op">.</span><span class="fu">pop</span>() <span class="op">||</span> { <span class="dt">x</span><span class="op">:</span> <span class="dv">0</span><span class="op">,</span> <span class="dt">y</span><span class="op">:</span> <span class="dv">0</span> }<span class="op">;</span></span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>        v<span class="op">.</span><span class="at">x</span> <span class="op">=</span> x<span class="op">;</span></span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a>        v<span class="op">.</span><span class="at">y</span> <span class="op">=</span> y<span class="op">;</span></span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> v<span class="op">;</span></span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a>    }<span class="op">,</span></span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a>    <span class="fu">release</span>(v) {</span>
+<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a>        <span class="kw">this</span><span class="op">.</span><span class="at">pool</span><span class="op">.</span><span class="fu">push</span>(v)<span class="op">;</span></span>
+<span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb4-12"><a href="#cb4-12" aria-hidden="true" tabindex="-1"></a>}<span class="op">;</span></span>
+<span id="cb4-13"><a href="#cb4-13" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-14"><a href="#cb4-14" aria-hidden="true" tabindex="-1"></a><span class="co">// Usage inside the physics loop</span></span>
+<span id="cb4-15"><a href="#cb4-15" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> tempVec <span class="op">=</span> VectorPool<span class="op">.</span><span class="fu">acquire</span>(target<span class="op">.</span><span class="at">x</span><span class="op">,</span> target<span class="op">.</span><span class="at">y</span>)<span class="op">;</span></span>
+<span id="cb4-16"><a href="#cb4-16" aria-hidden="true" tabindex="-1"></a><span class="co">// ... compute physics ...</span></span>
+<span id="cb4-17"><a href="#cb4-17" aria-hidden="true" tabindex="-1"></a>VectorPool<span class="op">.</span><span class="fu">release</span>(tempVec)<span class="op">;</span></span></code></pre></div>
+<p>After implementing these modifications, run another
+<strong>Allocation instrumentation</strong> session to verify that
+vector allocations drop to zero during steady-state simulation.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/matter.js'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/matter.js/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/matter.js/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simulate Drumhead Acoustic Waves in Matter.js - matter.js</title>
+    <meta name="description" content="This article explains how to simulate drumhead acoustic surface waves using Matter.js by modeling a circular membrane as an interconnected lattice of constrained particles. By configuring a grid of point masses connected by elastic constraints, anchoring">
+    <link rel="canonical" href="https://salivity.github.io/matter.js/article/simulate-drumhead-acoustic-waves-in-matter-js">
+    <link rel="search" type="application/opensearchdescription+xml" title="matter.js" href="/matter.js/opensearch.xml">
+    <link rel="icon" href="/matter.js/favicon.ico">
+    <link rel="stylesheet" href="/matter.js/css/style.css">
+    <link media="print" rel="stylesheet" href="/matter.js/css/print.css">
+    <script src="/matter.js/js/fuse.min.js"></script>
+    <script src="/matter.js/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Simulate Drumhead Acoustic Waves in Matter.js - matter.js" />
+    <meta property="og:url" content="https://salivity.github.io/matter.js/article/simulate-drumhead-acoustic-waves-in-matter-js" />
+    <meta property="og:image" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article explains how to simulate drumhead acoustic surface waves using Matter.js by modeling a circular membrane as an interconnected lattice of constrained particles. By configuring a grid of point masses connected by elastic constraints, anchoring" />
+    <link rel="manifest" href="/matter.js/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/matter.js/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>matter.js</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/matter.js/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="simulate-drumhead-acoustic-waves-in-matterjs">Simulate Drumhead
+Acoustic Waves in Matter.js</h1>
+<p>This article explains how to simulate drumhead acoustic surface waves
+using Matter.js by modeling a circular membrane as an interconnected
+lattice of constrained particles. By configuring a grid of point masses
+connected by elastic constraints, anchoring the perimeter to represent a
+clamped rim, and applying a localized impulse, you can reproduce wave
+propagation, boundary reflections, and resonance patterns governed by
+the two-dimensional wave equation.</p>
+<h2 id="mechanics-of-the-mass-spring-membrane">Mechanics of the
+Mass-Spring Membrane</h2>
+<p>A traditional drumhead consists of a flexible membrane held under
+uniform tension along a fixed circular boundary. In continuous physics,
+its transverse motion is governed by the 2D wave equation:</p>
+<p><span class="math display">\[\frac{\partial^2 z}{\partial t^2} = c^2
+\nabla^2 z\]</span></p>
+<p>Where <span class="math inline">\(c = \sqrt{T/\sigma}\)</span>
+represents wave velocity determined by tension <span
+class="math inline">\(T\)</span> and surface mass density <span
+class="math inline">\(\sigma\)</span>.</p>
+<p>To simulate this discrete approximation in Matter.js, the continuous
+membrane is discretized into a polar or Cartesian mesh of point-mass
+bodies (<code>Matter.Bodies.circle</code>). Each particle acts as a node
+connected to adjacent neighbors via linear spring constraints
+(<code>Matter.Constraint</code>). Tension is represented by the resting
+stiffness of these constraints, while node masses represent local
+surface density.</p>
+<h2 id="constructing-the-particle-mesh">Constructing the Particle
+Mesh</h2>
+<p>The simulation space requires an array of dynamic particles bounded
+by static anchor nodes. A Cartesian grid clipped to a circular radius
+provides consistent spatial density across the drumhead.</p>
+<ol type="1">
+<li><strong>Node Generation</strong>: Iterate across a 2D coordinate
+space within a designated radius <span class="math inline">\(R\)</span>.
+For each grid coordinate <span class="math inline">\((x, y)\)</span>
+where <span class="math inline">\(\sqrt{(x - x_0)^2 + (y - y_0)^2} \le
+R\)</span>, instantiate a circular body with zero restitution,
+negligible friction, and a low radius (e.g., 2 to 4 pixels) to act as a
+point mass.</li>
+<li><strong>Clamping the Rim</strong>: Identify nodes near the boundary
+where the distance from the center exceeds <span class="math inline">\(R
+- \Delta r\)</span> (where <span class="math inline">\(\Delta r\)</span>
+is the grid spacing). Set <code>isStatic: true</code> on these edge
+nodes to emulate the rigid hoop of a drum.</li>
+</ol>
+<h2 id="linking-particles-with-constraints">Linking Particles with
+Constraints</h2>
+<p>Surface wave propagation depends on restoring forces applied across
+adjacent nodes. In Matter.js, these are established using distance
+constraints:</p>
+<ul>
+<li><strong>Orthogonal Connections</strong>: Connect each non-static
+node to its direct horizontal and vertical neighbors. The
+<code>length</code> of each constraint should match the grid spacing,
+with <code>stiffness</code> set to a high value (typically
+<code>0.8</code> to <code>1.0</code>) to emulate high surface
+tension.</li>
+<li><strong>Diagonal Cross-Bracing</strong>: Adding diagonal constraints
+(shear springs) prevents artificial grid anisotropy and ensures acoustic
+waves propagate with circular wavefronts rather than diamond-shaped
+artifacts. Set diagonal constraint lengths to <span
+class="math inline">\(\sqrt{2} \times \text{grid spacing}\)</span>.</li>
+<li><strong>Damping Configuration</strong>: Set the <code>damping</code>
+property on each constraint to a low non-zero value (e.g.,
+<code>0.001</code> to <code>0.01</code>). This parameter simulates
+internal material dissipation and structural losses within the membrane
+material.</li>
+</ul>
+<h2 id="inducing-impulses-and-wave-propagation">Inducing Impulses and
+Wave Propagation</h2>
+<p>Wave generation begins by perturbing the equilibrium state of the
+mesh:</p>
+<ul>
+<li><strong>Drumstick Strike Simulation</strong>: Select a cluster of
+nodes at the strike location (either at the center for fundamental modes
+or off-center for asymmetric harmonic modes).</li>
+<li><strong>Force Injection</strong>: Use
+<code>Matter.Body.applyForce</code> to apply an instantaneous planar
+vector to the selected bodies, or directly displace their positions
+prior to initiating the engine runner.</li>
+<li><strong>Propagation Dynamics</strong>: As displaced particles
+accelerate, the stretched constraints pull adjacent particles out of
+equilibrium. The disturbance travels radially outward at a speed
+proportional to constraint stiffness divided by node mass.</li>
+<li><strong>Boundary Reflections</strong>: When the wavefront contacts
+the static boundary particles, the fixed constraints force a phase
+inversion, reflecting the energy back toward the center and creating
+constructive and destructive interference patterns (standing nodal
+lines).</li>
+</ul>
+<h2 id="tuning-parameters-for-acoustic-fidelity">Tuning Parameters for
+Acoustic Fidelity</h2>
+<p>To achieve realistic wave behavior in the simulation, calibrate the
+following engine and body properties:</p>
+<ul>
+<li><strong>Engine Iterations</strong>: Increase
+<code>engine.positionIterations</code> and
+<code>engine.velocityIterations</code> to at least 10 or 16. Standard
+physics settings cause constraint stretching errors that artificially
+bleed energy from high-frequency acoustic waves.</li>
+<li><strong>Air Friction</strong>: Reduce <code>frictionAir</code> on
+all dynamic bodies to a near-zero value (e.g., <code>0.0005</code>).
+Excessive air drag prevents standing wave formation by prematurely
+attenuating high-frequency surface harmonics.</li>
+<li><strong>Mass Uniformity</strong>: Keep all dynamic body masses
+identical to prevent impedance mismatches, which cause unphysical
+internal reflections within the open drum surface.</li>
+</ul></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/matter.js'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/matter.js/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/matter.js/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

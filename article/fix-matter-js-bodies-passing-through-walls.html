@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fix Matter.js Bodies Passing Through Walls - matter.js</title>
+    <meta name="description" content="When physics bodies move at high velocities in Matter.js, they often pass through solid obstacles—a physics engine phenomenon known as "tunneling." This occurs because Matter.js utilizes discrete collision detection, checking for intersections only at">
+    <link rel="canonical" href="https://salivity.github.io/matter.js/article/fix-matter-js-bodies-passing-through-walls">
+    <link rel="search" type="application/opensearchdescription+xml" title="matter.js" href="/matter.js/opensearch.xml">
+    <link rel="icon" href="/matter.js/favicon.ico">
+    <link rel="stylesheet" href="/matter.js/css/style.css">
+    <link media="print" rel="stylesheet" href="/matter.js/css/print.css">
+    <script src="/matter.js/js/fuse.min.js"></script>
+    <script src="/matter.js/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Fix Matter.js Bodies Passing Through Walls - matter.js" />
+    <meta property="og:url" content="https://salivity.github.io/matter.js/article/fix-matter-js-bodies-passing-through-walls" />
+    <meta property="og:image" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="When physics bodies move at high velocities in Matter.js, they often pass through solid obstacles—a physics engine phenomenon known as "tunneling." This occurs because Matter.js utilizes discrete collision detection, checking for intersections only at" />
+    <link rel="manifest" href="/matter.js/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/matter.js/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>matter.js</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/matter.js/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="fix-matterjs-bodies-passing-through-walls">Fix Matter.js Bodies
+Passing Through Walls</h1>
+<p>When physics bodies move at high velocities in Matter.js, they often
+pass through solid obstacles—a physics engine phenomenon known as
+"tunneling." This occurs because Matter.js utilizes discrete collision
+detection, checking for intersections only at specific time intervals
+rather than continuously along a body's trajectory. If a body moves
+further than the thickness of a wall in a single frame, the engine never
+detects an overlap. Resolving this issue requires techniques such as
+increasing engine iterations, expanding wall thickness, clamping
+velocities, substepping the physics loop, or using raycasting.</p>
+<h3 id="increase-wall-thickness">Increase Wall Thickness</h3>
+<p>The simplest and most performant fix is to make your boundary bodies
+significantly thicker. If a wall is thin (e.g., 5 to 10 pixels), a
+fast-moving object can easily skip past it within one simulation
+step.</p>
+<p>Extend the thickness of static walls outward, away from the visible
+play area. For example, give walls a thickness of 100 pixels or more
+while positioning them so only their inner surface aligns with the
+screen edge. The visual rendering can remain thin, but the collision
+body itself should be substantial.</p>
+<h3 id="increase-engine-iterations">Increase Engine Iterations</h3>
+<p>Matter.js provides settings to improve calculation precision at the
+cost of some performance:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a>engine<span class="op">.</span><span class="at">positionIterations</span> <span class="op">=</span> <span class="dv">10</span><span class="op">;</span> <span class="co">// Default is 6</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>engine<span class="op">.</span><span class="at">velocityIterations</span> <span class="op">=</span> <span class="dv">8</span><span class="op">;</span>  <span class="co">// Default is 4</span></span></code></pre></div>
+<p>Higher iteration values allow the solver to resolve overlaps more
+accurately during constraint and contact phases, reducing soft
+collisions and boundary sinking.</p>
+<h3 id="implement-substepping-smaller-time-steps">Implement Substepping
+(Smaller Time Steps)</h3>
+<p>By default, the physics runner updates at a fixed rate (usually
+60Hz). If objects are moving extremely fast, updating the engine more
+frequently with smaller delta steps reduces the distance traveled per
+frame.</p>
+<p>Instead of running a single update per animation frame, run multiple
+substeps:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> substeps <span class="op">=</span> <span class="dv">4</span><span class="op">;</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> delta <span class="op">=</span> <span class="dv">1000</span> <span class="op">/</span> <span class="dv">60</span> <span class="op">/</span> substeps<span class="op">;</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">gameLoop</span>() {</span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> (<span class="kw">let</span> i <span class="op">=</span> <span class="dv">0</span><span class="op">;</span> i <span class="op">&lt;</span> substeps<span class="op">;</span> i<span class="op">++</span>) {</span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>        Matter<span class="op">.</span><span class="at">Engine</span><span class="op">.</span><span class="fu">update</span>(engine<span class="op">,</span> delta)<span class="op">;</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>    <span class="fu">requestAnimationFrame</span>(gameLoop)<span class="op">;</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<p>This ensures that the distance a body travels between collision
+checks remains smaller than the thickness of the obstacles it
+encounters.</p>
+<h3 id="clamp-maximum-velocity">Clamp Maximum Velocity</h3>
+<p>If your application allows it, prevent bodies from reaching speeds
+that exceed their own bounds or the thickness of the barriers. You can
+clamp the velocity directly inside an <code>update</code> or
+<code>beforeUpdate</code> event:</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a>Matter<span class="op">.</span><span class="at">Events</span><span class="op">.</span><span class="fu">on</span>(engine<span class="op">,</span> <span class="st">&#39;beforeUpdate&#39;</span><span class="op">,</span> () <span class="kw">=&gt;</span> {</span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> maxSpeed <span class="op">=</span> <span class="dv">20</span><span class="op">;</span> <span class="co">// Adjust based on your thinnest wall</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> speed <span class="op">=</span> Matter<span class="op">.</span><span class="at">Vector</span><span class="op">.</span><span class="fu">magnitude</span>(body<span class="op">.</span><span class="at">velocity</span>)<span class="op">;</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (speed <span class="op">&gt;</span> maxSpeed) {</span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>        Matter<span class="op">.</span><span class="at">Body</span><span class="op">.</span><span class="fu">setVelocity</span>(body<span class="op">,</span> {</span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>            <span class="dt">x</span><span class="op">:</span> (body<span class="op">.</span><span class="at">velocity</span><span class="op">.</span><span class="at">x</span> <span class="op">/</span> speed) <span class="op">*</span> maxSpeed<span class="op">,</span></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>            <span class="dt">y</span><span class="op">:</span> (body<span class="op">.</span><span class="at">velocity</span><span class="op">.</span><span class="at">y</span> <span class="op">/</span> speed) <span class="op">*</span> maxSpeed</span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a>        })<span class="op">;</span></span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div>
+<h3 id="use-raycasting-for-fast-projectiles">Use Raycasting for Fast
+Projectiles</h3>
+<p>For extremely fast objects like bullets, discrete physics checks will
+frequently fail regardless of configuration. In these scenarios, avoid
+relying on physics bodies for collision detection.</p>
+<p>Instead, perform a raycast along the trajectory using
+<code>Matter.Query.ray()</code> before advancing the projectile:</p>
+<div class="sourceCode" id="cb4"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> startPoint <span class="op">=</span> body<span class="op">.</span><span class="at">position</span><span class="op">;</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> endPoint <span class="op">=</span> {</span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>    <span class="dt">x</span><span class="op">:</span> body<span class="op">.</span><span class="at">position</span><span class="op">.</span><span class="at">x</span> <span class="op">+</span> body<span class="op">.</span><span class="at">velocity</span><span class="op">.</span><span class="at">x</span><span class="op">,</span></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>    <span class="dt">y</span><span class="op">:</span> body<span class="op">.</span><span class="at">position</span><span class="op">.</span><span class="at">y</span> <span class="op">+</span> body<span class="op">.</span><span class="at">velocity</span><span class="op">.</span><span class="at">y</span></span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>}<span class="op">;</span></span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> collisions <span class="op">=</span> Matter<span class="op">.</span><span class="at">Query</span><span class="op">.</span><span class="fu">ray</span>(allBodies<span class="op">,</span> startPoint<span class="op">,</span> endPoint)<span class="op">;</span></span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> (collisions<span class="op">.</span><span class="at">length</span> <span class="op">&gt;</span> <span class="dv">0</span>) {</span>
+<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Collision detected along path: handle impact, reposition, or destroy body</span></span>
+<span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<h3 id="avoid-direct-position-teleportation">Avoid Direct Position
+Teleportation</h3>
+<p>Ensure high speeds are generated via forces, impulses, or velocity
+setters rather than modifying <code>body.position</code> directly.
+Manually adjusting coordinates skips velocity-based calculations
+entirely, almost guaranteeing that the object will phase through
+obstacles. If teleportation is necessary, run manual collision checks
+prior to placing the body.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/matter.js'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/matter.js/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/matter.js/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

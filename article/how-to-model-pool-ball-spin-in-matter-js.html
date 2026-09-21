@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How to Model Pool Ball Spin in Matter.js - matter.js</title>
+    <meta name="description" content="Matter.js is a two-dimensional rigid-body physics engine that does not natively account for the three-dimensional rotational dynamics of cue sports, such as topspin, backspin, and sidespin. To simulate realistic billiard trajectories, developers must tra">
+    <link rel="canonical" href="https://salivity.github.io/matter.js/article/how-to-model-pool-ball-spin-in-matter-js">
+    <link rel="search" type="application/opensearchdescription+xml" title="matter.js" href="/matter.js/opensearch.xml">
+    <link rel="icon" href="/matter.js/favicon.ico">
+    <link rel="stylesheet" href="/matter.js/css/style.css">
+    <link media="print" rel="stylesheet" href="/matter.js/css/print.css">
+    <script src="/matter.js/js/fuse.min.js"></script>
+    <script src="/matter.js/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How to Model Pool Ball Spin in Matter.js - matter.js" />
+    <meta property="og:url" content="https://salivity.github.io/matter.js/article/how-to-model-pool-ball-spin-in-matter-js" />
+    <meta property="og:image" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Matter.js is a two-dimensional rigid-body physics engine that does not natively account for the three-dimensional rotational dynamics of cue sports, such as topspin, backspin, and sidespin. To simulate realistic billiard trajectories, developers must tra" />
+    <link rel="manifest" href="/matter.js/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/matter.js/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>matter.js</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/matter.js/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="how-to-model-pool-ball-spin-in-matterjs">How to Model Pool Ball
+Spin in Matter.js</h1>
+<p>Matter.js is a two-dimensional rigid-body physics engine that does
+not natively account for the three-dimensional rotational dynamics of
+cue sports, such as topspin, backspin, and sidespin. To simulate
+realistic billiard trajectories, developers must track an independent
+spin vector on each ball, calculate the frictional forces between the
+ball and the felt, and manually adjust velocities during cushion and
+ball-to-ball collisions. This article explains how to mathematically
+model these effects and implement them cleanly using Matter.js lifecycle
+events.</p>
+<h2 id="1-representing-3d-spin-in-a-2d-engine">1. Representing 3D Spin
+in a 2D Engine</h2>
+<p>Because Matter.js bodies only track 2D linear velocity
+(<code>body.velocity</code>) and a single axis of 2D angular velocity
+(<code>body.angularVelocity</code>), you must store 3D spin properties
+directly on the ball body object.</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> ball <span class="op">=</span> Matter<span class="op">.</span><span class="at">Bodies</span><span class="op">.</span><span class="fu">circle</span>(x<span class="op">,</span> y<span class="op">,</span> radius<span class="op">,</span> {</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>    <span class="dt">restitution</span><span class="op">:</span> <span class="fl">0.95</span><span class="op">,</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>    <span class="dt">friction</span><span class="op">:</span> <span class="fl">0.05</span><span class="op">,</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>    <span class="dt">frictionAir</span><span class="op">:</span> <span class="fl">0.01</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a><span class="co">// Custom spin state: normalized from -1 to 1 or in rad/s</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>ball<span class="op">.</span><span class="at">customSpin</span> <span class="op">=</span> {</span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>    <span class="dt">x</span><span class="op">:</span> <span class="dv">0</span><span class="op">,</span> <span class="co">// Side spin (English): positive = right, negative = left</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>    <span class="dt">y</span><span class="op">:</span> <span class="dv">0</span>  <span class="co">// Longitudinal spin: positive = topspin (follow), negative = backspin (draw)</span></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>}<span class="op">;</span></span></code></pre></div>
+<p>In this model, longitudinal spin (<span
+class="math inline">\(y\)</span>) controls follow and draw shots, while
+transverse spin (<span class="math inline">\(x\)</span>) controls side
+english.</p>
+<h2 id="2-simulating-felt-friction-and-longitudinal-spin">2. Simulating
+Felt Friction and Longitudinal Spin</h2>
+<p>When a ball is struck with backspin or topspin, it slides across the
+cloth. The relative velocity at the contact point between the ball and
+the table produces a frictional force that gradually converts sliding
+motion into pure rolling motion.</p>
+<p>Hook into the <code>beforeUpdate</code> event to calculate the
+sliding velocity and apply corrective forces:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a>Matter<span class="op">.</span><span class="at">Events</span><span class="op">.</span><span class="fu">on</span>(engine<span class="op">,</span> <span class="st">&#39;beforeUpdate&#39;</span><span class="op">,</span> () <span class="kw">=&gt;</span> {</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> balls <span class="op">=</span> [cueBall<span class="op">,</span> <span class="op">...</span>objectBalls]<span class="op">;</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>    balls<span class="op">.</span><span class="fu">forEach</span>(ball <span class="kw">=&gt;</span> {</span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> (<span class="op">!</span>ball<span class="op">.</span><span class="at">customSpin</span>) <span class="cf">return</span><span class="op">;</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>        <span class="kw">const</span> speed <span class="op">=</span> Matter<span class="op">.</span><span class="at">Vector</span><span class="op">.</span><span class="fu">magnitude</span>(ball<span class="op">.</span><span class="at">velocity</span>)<span class="op">;</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> (speed <span class="op">&lt;</span> <span class="fl">0.01</span>) <span class="cf">return</span><span class="op">;</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>        <span class="co">// Normalized direction vector of current travel</span></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>        <span class="kw">const</span> forward <span class="op">=</span> Matter<span class="op">.</span><span class="at">Vector</span><span class="op">.</span><span class="fu">normalise</span>(ball<span class="op">.</span><span class="at">velocity</span>)<span class="op">;</span></span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>        <span class="co">// Longitudinal friction: spin pushes the ball along its heading</span></span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a>        <span class="kw">const</span> longitudinalForce <span class="op">=</span> Matter<span class="op">.</span><span class="at">Vector</span><span class="op">.</span><span class="fu">mult</span>(forward<span class="op">,</span> ball<span class="op">.</span><span class="at">customSpin</span><span class="op">.</span><span class="at">y</span> <span class="op">*</span> <span class="fl">0.0005</span>)<span class="op">;</span></span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a>        Matter<span class="op">.</span><span class="at">Body</span><span class="op">.</span><span class="fu">applyForce</span>(ball<span class="op">,</span> ball<span class="op">.</span><span class="at">position</span><span class="op">,</span> longitudinalForce)<span class="op">;</span></span>
+<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a>        <span class="co">// Decay the spin toward pure rolling equilibrium</span></span>
+<span id="cb2-18"><a href="#cb2-18" aria-hidden="true" tabindex="-1"></a>        ball<span class="op">.</span><span class="at">customSpin</span><span class="op">.</span><span class="at">y</span> <span class="op">*=</span> <span class="fl">0.98</span><span class="op">;</span></span>
+<span id="cb2-19"><a href="#cb2-19" aria-hidden="true" tabindex="-1"></a>        ball<span class="op">.</span><span class="at">customSpin</span><span class="op">.</span><span class="at">x</span> <span class="op">*=</span> <span class="fl">0.98</span><span class="op">;</span></span>
+<span id="cb2-20"><a href="#cb2-20" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-21"><a href="#cb2-21" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> (<span class="bu">Math</span><span class="op">.</span><span class="fu">abs</span>(ball<span class="op">.</span><span class="at">customSpin</span><span class="op">.</span><span class="at">y</span>) <span class="op">&lt;</span> <span class="fl">0.001</span>) ball<span class="op">.</span><span class="at">customSpin</span><span class="op">.</span><span class="at">y</span> <span class="op">=</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb2-22"><a href="#cb2-22" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> (<span class="bu">Math</span><span class="op">.</span><span class="fu">abs</span>(ball<span class="op">.</span><span class="at">customSpin</span><span class="op">.</span><span class="at">x</span>) <span class="op">&lt;</span> <span class="fl">0.001</span>) ball<span class="op">.</span><span class="at">customSpin</span><span class="op">.</span><span class="at">x</span> <span class="op">=</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb2-23"><a href="#cb2-23" aria-hidden="true" tabindex="-1"></a>    })<span class="op">;</span></span>
+<span id="cb2-24"><a href="#cb2-24" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div>
+<p>When a cue ball with backspin hits an object ball, its linear
+velocity rapidly drops. However, <code>ball.customSpin.y</code> remains
+negative, causing the longitudinal friction force to reverse the cue
+ball's direction immediately after impact, creating the draw effect.</p>
+<h2 id="3-modeling-cushion-rebounds-with-sidespin">3. Modeling Cushion
+Rebounds with Sidespin</h2>
+<p>When a spinning ball contacts a rail, sidespin creates a tangential
+friction force that widens or narrows the rebound angle and alters
+post-cushion spin.</p>
+<p>Use the <code>collisionStart</code> event to detect cushion
+impacts:</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a>Matter<span class="op">.</span><span class="at">Events</span><span class="op">.</span><span class="fu">on</span>(engine<span class="op">,</span> <span class="st">&#39;collisionStart&#39;</span><span class="op">,</span> (<span class="bu">event</span>) <span class="kw">=&gt;</span> {</span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>    <span class="bu">event</span><span class="op">.</span><span class="at">pairs</span><span class="op">.</span><span class="fu">forEach</span>(pair <span class="kw">=&gt;</span> {</span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>        <span class="kw">const</span> { bodyA<span class="op">,</span> bodyB } <span class="op">=</span> pair<span class="op">;</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>        <span class="kw">const</span> ball <span class="op">=</span> bodyA<span class="op">.</span><span class="at">isBall</span> <span class="op">?</span> bodyA <span class="op">:</span> (bodyB<span class="op">.</span><span class="at">isBall</span> <span class="op">?</span> bodyB <span class="op">:</span> <span class="kw">null</span>)<span class="op">;</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>        <span class="kw">const</span> cushion <span class="op">=</span> bodyA<span class="op">.</span><span class="at">isCushion</span> <span class="op">?</span> bodyA <span class="op">:</span> (bodyB<span class="op">.</span><span class="at">isCushion</span> <span class="op">?</span> bodyB <span class="op">:</span> <span class="kw">null</span>)<span class="op">;</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> (ball <span class="op">&amp;&amp;</span> cushion <span class="op">&amp;&amp;</span> ball<span class="op">.</span><span class="at">customSpin</span>) {</span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>            <span class="co">// Determine collision normal</span></span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a>            <span class="kw">const</span> normal <span class="op">=</span> pair<span class="op">.</span><span class="at">collision</span><span class="op">.</span><span class="at">normal</span><span class="op">;</span></span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a>            </span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a>            <span class="co">// Tangent vector parallel to the cushion face</span></span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a>            <span class="kw">const</span> tangent <span class="op">=</span> { <span class="dt">x</span><span class="op">:</span> <span class="op">-</span>normal<span class="op">.</span><span class="at">y</span><span class="op">,</span> <span class="dt">y</span><span class="op">:</span> normal<span class="op">.</span><span class="at">x</span> }<span class="op">;</span></span>
+<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-14"><a href="#cb3-14" aria-hidden="true" tabindex="-1"></a>            <span class="co">// Apply tangential impulse based on sidespin</span></span>
+<span id="cb3-15"><a href="#cb3-15" aria-hidden="true" tabindex="-1"></a>            <span class="kw">const</span> spinImpulse <span class="op">=</span> Matter<span class="op">.</span><span class="at">Vector</span><span class="op">.</span><span class="fu">mult</span>(tangent<span class="op">,</span> ball<span class="op">.</span><span class="at">customSpin</span><span class="op">.</span><span class="at">x</span> <span class="op">*</span> <span class="fl">2.5</span>)<span class="op">;</span></span>
+<span id="cb3-16"><a href="#cb3-16" aria-hidden="true" tabindex="-1"></a>            Matter<span class="op">.</span><span class="at">Body</span><span class="op">.</span><span class="fu">setVelocity</span>(ball<span class="op">,</span> Matter<span class="op">.</span><span class="at">Vector</span><span class="op">.</span><span class="fu">add</span>(ball<span class="op">.</span><span class="at">velocity</span><span class="op">,</span> spinImpulse))<span class="op">;</span></span>
+<span id="cb3-17"><a href="#cb3-17" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-18"><a href="#cb3-18" aria-hidden="true" tabindex="-1"></a>            <span class="co">// Reduce sidespin due to cushion grip and invert slightly</span></span>
+<span id="cb3-19"><a href="#cb3-19" aria-hidden="true" tabindex="-1"></a>            ball<span class="op">.</span><span class="at">customSpin</span><span class="op">.</span><span class="at">x</span> <span class="op">*=</span> <span class="op">-</span><span class="fl">0.3</span><span class="op">;</span></span>
+<span id="cb3-20"><a href="#cb3-20" aria-hidden="true" tabindex="-1"></a>        }</span>
+<span id="cb3-21"><a href="#cb3-21" aria-hidden="true" tabindex="-1"></a>    })<span class="op">;</span></span>
+<span id="cb3-22"><a href="#cb3-22" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div>
+<p>A positive (right) english value applied to a ball hitting a
+horizontal top rail will impart an impulse to the right, widening the
+rebound angle relative to a standard geometric reflection.</p>
+<h2 id="4-modeling-ball-to-ball-spin-transfer-and-cut-induced-throw">4.
+Modeling Ball-to-Ball Spin Transfer and Cut-Induced Throw</h2>
+<p>When two balls collide at an angle, friction between the surfaces
+introduces two critical phenomena:</p>
+<ol type="1">
+<li><strong>Cut-Induced Throw (CIT):</strong> Friction pushes the object
+ball slightly away from the center-to-center impact line.</li>
+<li><strong>Spin Transfer:</strong> Sidespin on the cue ball is imparted
+onto the object ball in the opposite direction.</li>
+</ol>
+<p>To implement spin transfer during ball collisions:</p>
+<div class="sourceCode" id="cb4"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a>Matter<span class="op">.</span><span class="at">Events</span><span class="op">.</span><span class="fu">on</span>(engine<span class="op">,</span> <span class="st">&#39;collisionStart&#39;</span><span class="op">,</span> (<span class="bu">event</span>) <span class="kw">=&gt;</span> {</span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>    <span class="bu">event</span><span class="op">.</span><span class="at">pairs</span><span class="op">.</span><span class="fu">forEach</span>(pair <span class="kw">=&gt;</span> {</span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> (pair<span class="op">.</span><span class="at">bodyA</span><span class="op">.</span><span class="at">isBall</span> <span class="op">&amp;&amp;</span> pair<span class="op">.</span><span class="at">bodyB</span><span class="op">.</span><span class="at">isBall</span>) {</span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>            <span class="kw">const</span> ballA <span class="op">=</span> pair<span class="op">.</span><span class="at">bodyA</span><span class="op">;</span></span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>            <span class="kw">const</span> ballB <span class="op">=</span> pair<span class="op">.</span><span class="at">bodyB</span><span class="op">;</span></span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a>            <span class="co">// Transfer fraction of sidespin</span></span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a>            <span class="kw">const</span> transferRatio <span class="op">=</span> <span class="fl">0.05</span><span class="op">;</span></span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a>            <span class="kw">const</span> spinDifference <span class="op">=</span> ballA<span class="op">.</span><span class="at">customSpin</span><span class="op">.</span><span class="at">x</span> <span class="op">-</span> ballB<span class="op">.</span><span class="at">customSpin</span><span class="op">.</span><span class="at">x</span><span class="op">;</span></span>
+<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a>            ballA<span class="op">.</span><span class="at">customSpin</span><span class="op">.</span><span class="at">x</span> <span class="op">-=</span> spinDifference <span class="op">*</span> transferRatio<span class="op">;</span></span>
+<span id="cb4-12"><a href="#cb4-12" aria-hidden="true" tabindex="-1"></a>            ballB<span class="op">.</span><span class="at">customSpin</span><span class="op">.</span><span class="at">x</span> <span class="op">+=</span> spinDifference <span class="op">*</span> transferRatio<span class="op">;</span></span>
+<span id="cb4-13"><a href="#cb4-13" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-14"><a href="#cb4-14" aria-hidden="true" tabindex="-1"></a>            <span class="co">// Apply slight tangential throw force to both bodies</span></span>
+<span id="cb4-15"><a href="#cb4-15" aria-hidden="true" tabindex="-1"></a>            <span class="kw">const</span> normal <span class="op">=</span> pair<span class="op">.</span><span class="at">collision</span><span class="op">.</span><span class="at">normal</span><span class="op">;</span></span>
+<span id="cb4-16"><a href="#cb4-16" aria-hidden="true" tabindex="-1"></a>            <span class="kw">const</span> tangent <span class="op">=</span> { <span class="dt">x</span><span class="op">:</span> <span class="op">-</span>normal<span class="op">.</span><span class="at">y</span><span class="op">,</span> <span class="dt">y</span><span class="op">:</span> normal<span class="op">.</span><span class="at">x</span> }<span class="op">;</span></span>
+<span id="cb4-17"><a href="#cb4-17" aria-hidden="true" tabindex="-1"></a>            <span class="kw">const</span> throwVelocity <span class="op">=</span> Matter<span class="op">.</span><span class="at">Vector</span><span class="op">.</span><span class="fu">mult</span>(tangent<span class="op">,</span> spinDifference <span class="op">*</span> <span class="fl">0.1</span>)<span class="op">;</span></span>
+<span id="cb4-18"><a href="#cb4-18" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-19"><a href="#cb4-19" aria-hidden="true" tabindex="-1"></a>            Matter<span class="op">.</span><span class="at">Body</span><span class="op">.</span><span class="fu">setVelocity</span>(ballB<span class="op">,</span> Matter<span class="op">.</span><span class="at">Vector</span><span class="op">.</span><span class="fu">add</span>(ballB<span class="op">.</span><span class="at">velocity</span><span class="op">,</span> throwVelocity))<span class="op">;</span></span>
+<span id="cb4-20"><a href="#cb4-20" aria-hidden="true" tabindex="-1"></a>            Matter<span class="op">.</span><span class="at">Body</span><span class="op">.</span><span class="fu">setVelocity</span>(ballA<span class="op">,</span> Matter<span class="op">.</span><span class="at">Vector</span><span class="op">.</span><span class="fu">sub</span>(ballA<span class="op">.</span><span class="at">velocity</span><span class="op">,</span> throwVelocity))<span class="op">;</span></span>
+<span id="cb4-21"><a href="#cb4-21" aria-hidden="true" tabindex="-1"></a>        }</span>
+<span id="cb4-22"><a href="#cb4-22" aria-hidden="true" tabindex="-1"></a>    })<span class="op">;</span></span>
+<span id="cb4-23"><a href="#cb4-23" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div>
+<p>By decoupling 3D spin parameters from the 2D physics solver and
+modifying body velocities at key simulation steps, Matter.js can
+accurately replicate standard billiard physics.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/matter.js'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/matter.js/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/matter.js/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

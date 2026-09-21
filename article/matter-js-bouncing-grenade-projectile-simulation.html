@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Matter.js Bouncing Grenade Projectile Simulation - matter.js</title>
+    <meta name="description" content="Simulating a realistic bouncing grenade in Matter.js requires configuring the physical properties of both the projectile and the terrain, properly applying launch forces, and managing collision restitution. This guide covers how to set up the Matter.js p">
+    <link rel="canonical" href="https://salivity.github.io/matter.js/article/matter-js-bouncing-grenade-projectile-simulation">
+    <link rel="search" type="application/opensearchdescription+xml" title="matter.js" href="/matter.js/opensearch.xml">
+    <link rel="icon" href="/matter.js/favicon.ico">
+    <link rel="stylesheet" href="/matter.js/css/style.css">
+    <link media="print" rel="stylesheet" href="/matter.js/css/print.css">
+    <script src="/matter.js/js/fuse.min.js"></script>
+    <script src="/matter.js/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Matter.js Bouncing Grenade Projectile Simulation - matter.js" />
+    <meta property="og:url" content="https://salivity.github.io/matter.js/article/matter-js-bouncing-grenade-projectile-simulation" />
+    <meta property="og:image" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Simulating a realistic bouncing grenade in Matter.js requires configuring the physical properties of both the projectile and the terrain, properly applying launch forces, and managing collision restitution. This guide covers how to set up the Matter.js p" />
+    <link rel="manifest" href="/matter.js/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/matter.js/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>matter.js</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/matter.js/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="matterjs-bouncing-grenade-projectile-simulation">Matter.js
+Bouncing Grenade Projectile Simulation</h1>
+<p>Simulating a realistic bouncing grenade in Matter.js requires
+configuring the physical properties of both the projectile and the
+terrain, properly applying launch forces, and managing collision
+restitution. This guide covers how to set up the Matter.js physics
+engine, configure the <code>restitution</code> (bounciness) and friction
+values to mimic a heavy explosive canister, apply initial velocity and
+angular spin, and implement progressive damping so the grenade settles
+naturally rather than bouncing perpetually.</p>
+<h3 id="understanding-restitution-in-matterjs">Understanding Restitution
+in Matter.js</h3>
+<p>In Matter.js, the <code>restitution</code> property defines how much
+kinetic energy is retained after a collision, with values ranging from
+<code>0</code> (completely inelastic) to <code>1</code> (completely
+elastic).</p>
+<p>A critical detail of Matter.js is its collision resolution formula:
+by default, when two bodies collide, the engine resolves the bounce
+using <code>Math.max(bodyA.restitution, bodyB.restitution)</code>.
+Because of this, giving the ground a restitution of <code>0.8</code>
+will cause every object to bounce high, regardless of its own
+properties. For a realistic simulation, keep the ground's restitution
+low (between <code>0.1</code> and <code>0.3</code>) and define the
+primary bounce characteristics on the grenade itself.</p>
+<h3 id="configuring-the-grenade-body">Configuring the Grenade Body</h3>
+<p>A military fragmentation or smoke grenade is a dense, relatively
+heavy object. It should bounce significantly on its first impact but
+rapidly bleed kinetic energy due to metal deformation, ground friction,
+and mass.</p>
+<p>Set the grenade body with the following properties:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> grenade <span class="op">=</span> Matter<span class="op">.</span><span class="at">Bodies</span><span class="op">.</span><span class="fu">circle</span>(startX<span class="op">,</span> startY<span class="op">,</span> <span class="dv">10</span><span class="op">,</span> {</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>    <span class="dt">density</span><span class="op">:</span> <span class="fl">0.004</span><span class="op">,</span>        <span class="co">// Heavier than default to resist light forces</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>    <span class="dt">restitution</span><span class="op">:</span> <span class="fl">0.45</span><span class="op">,</span>     <span class="co">// Moderate bounce</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>    <span class="dt">friction</span><span class="op">:</span> <span class="fl">0.8</span><span class="op">,</span>         <span class="co">// High surface friction to induce rolling</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>    <span class="dt">frictionAir</span><span class="op">:</span> <span class="fl">0.005</span><span class="op">,</span>    <span class="co">// Low air resistance for a parabolic arc</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>    <span class="dt">frictionStatic</span><span class="op">:</span> <span class="fl">1.0</span><span class="op">,</span>   <span class="co">// Prevents sliding once settled</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>    <span class="dt">render</span><span class="op">:</span> {</span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>        <span class="dt">fillStyle</span><span class="op">:</span> <span class="st">&#39;#4B5320&#39;</span> <span class="co">// Military olive drab</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div>
+<h3 id="setting-up-the-ground">Setting Up the Ground</h3>
+<p>Define the ground as a static body with minimal bounciness to ensure
+the grenade controls the bounce dynamic:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> ground <span class="op">=</span> Matter<span class="op">.</span><span class="at">Bodies</span><span class="op">.</span><span class="fu">rectangle</span>(<span class="dv">400</span><span class="op">,</span> <span class="dv">590</span><span class="op">,</span> <span class="dv">810</span><span class="op">,</span> <span class="dv">30</span><span class="op">,</span> {</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>    <span class="dt">isStatic</span><span class="op">:</span> <span class="kw">true</span><span class="op">,</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>    <span class="dt">restitution</span><span class="op">:</span> <span class="fl">0.2</span><span class="op">,</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>    <span class="dt">friction</span><span class="op">:</span> <span class="fl">0.9</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div>
+<h3 id="launching-the-grenade">Launching the Grenade</h3>
+<p>Launch the grenade by applying an initial velocity vector combined
+with angular velocity (spin). Applying spin enhances realism because the
+grenade will kick forward or backward depending on the orientation of
+its collision with the terrain:</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Launch with an angle and power</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> launchAngle <span class="op">=</span> <span class="op">-</span><span class="bu">Math</span><span class="op">.</span><span class="cn">PI</span> <span class="op">/</span> <span class="dv">4</span><span class="op">;</span> <span class="co">// 45 degrees upward</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> launchSpeed <span class="op">=</span> <span class="dv">15</span><span class="op">;</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>Matter<span class="op">.</span><span class="at">Body</span><span class="op">.</span><span class="fu">setVelocity</span>(grenade<span class="op">,</span> {</span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>    <span class="dt">x</span><span class="op">:</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">cos</span>(launchAngle) <span class="op">*</span> launchSpeed<span class="op">,</span></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>    <span class="dt">y</span><span class="op">:</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">sin</span>(launchAngle) <span class="op">*</span> launchSpeed</span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a><span class="co">// Add rotational spin</span></span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a>Matter<span class="op">.</span><span class="at">Body</span><span class="op">.</span><span class="fu">setAngularVelocity</span>(grenade<span class="op">,</span> <span class="fl">0.15</span>)<span class="op">;</span></span></code></pre></div>
+<h3 id="simulating-realistic-energy-loss-on-impact">Simulating Realistic
+Energy Loss on Impact</h3>
+<p>Pure restitution calculations often leave projectiles feeling floaty
+or rubbery. Real grenades lose their bounciness exponentially after each
+hit. You can implement progressive energy loss using the
+<code>collisionStart</code> event:</p>
+<div class="sourceCode" id="cb4"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a>Matter<span class="op">.</span><span class="at">Events</span><span class="op">.</span><span class="fu">on</span>(engine<span class="op">,</span> <span class="st">&#39;collisionStart&#39;</span><span class="op">,</span> (<span class="bu">event</span>) <span class="kw">=&gt;</span> {</span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>    <span class="bu">event</span><span class="op">.</span><span class="at">pairs</span><span class="op">.</span><span class="fu">forEach</span>((pair) <span class="kw">=&gt;</span> {</span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>        <span class="kw">const</span> body <span class="op">=</span> pair<span class="op">.</span><span class="at">bodyA</span> <span class="op">===</span> grenade <span class="op">?</span> pair<span class="op">.</span><span class="at">bodyA</span> <span class="op">:</span> (pair<span class="op">.</span><span class="at">bodyB</span> <span class="op">===</span> grenade <span class="op">?</span> pair<span class="op">.</span><span class="at">bodyB</span> <span class="op">:</span> <span class="kw">null</span>)<span class="op">;</span></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> (body) {</span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a>            <span class="co">// Decay restitution with each bounce</span></span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a>            body<span class="op">.</span><span class="at">restitution</span> <span class="op">*=</span> <span class="fl">0.6</span><span class="op">;</span></span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a>            <span class="co">// Reduce horizontal slide on hard impacts</span></span>
+<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a>            Matter<span class="op">.</span><span class="at">Body</span><span class="op">.</span><span class="fu">setVelocity</span>(body<span class="op">,</span> {</span>
+<span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a>                <span class="dt">x</span><span class="op">:</span> body<span class="op">.</span><span class="at">velocity</span><span class="op">.</span><span class="at">x</span> <span class="op">*</span> <span class="fl">0.7</span><span class="op">,</span></span>
+<span id="cb4-12"><a href="#cb4-12" aria-hidden="true" tabindex="-1"></a>                <span class="dt">y</span><span class="op">:</span> body<span class="op">.</span><span class="at">velocity</span><span class="op">.</span><span class="at">y</span></span>
+<span id="cb4-13"><a href="#cb4-13" aria-hidden="true" tabindex="-1"></a>            })<span class="op">;</span></span>
+<span id="cb4-14"><a href="#cb4-14" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-15"><a href="#cb4-15" aria-hidden="true" tabindex="-1"></a>            <span class="co">// Cut off tiny micro-bounces to let the body sleep</span></span>
+<span id="cb4-16"><a href="#cb4-16" aria-hidden="true" tabindex="-1"></a>            <span class="cf">if</span> (<span class="bu">Math</span><span class="op">.</span><span class="fu">abs</span>(body<span class="op">.</span><span class="at">velocity</span><span class="op">.</span><span class="at">y</span>) <span class="op">&lt;</span> <span class="fl">1.5</span>) {</span>
+<span id="cb4-17"><a href="#cb4-17" aria-hidden="true" tabindex="-1"></a>                body<span class="op">.</span><span class="at">restitution</span> <span class="op">=</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb4-18"><a href="#cb4-18" aria-hidden="true" tabindex="-1"></a>            }</span>
+<span id="cb4-19"><a href="#cb4-19" aria-hidden="true" tabindex="-1"></a>        }</span>
+<span id="cb4-20"><a href="#cb4-20" aria-hidden="true" tabindex="-1"></a>    })<span class="op">;</span></span>
+<span id="cb4-21"><a href="#cb4-21" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div>
+<p>This progressive decay ensures the first impact absorbs the majority
+of the velocity, producing a short second hop and a quick transition
+into a roll, matching the real-world behavior of heavy ordnance.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/matter.js'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/matter.js/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/matter.js/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

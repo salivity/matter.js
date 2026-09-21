@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Matter.js Broad-Phase Collision Detection Explained - matter.js</title>
+    <meta name="description" content="In Matter.js, collision handling operates on a multi-stage pipeline designed to maintain high performance by eliminating non-colliding objects before running expensive geometry calculations. The Matter.Detector.collisions method serves as the core coordi">
+    <link rel="canonical" href="https://salivity.github.io/matter.js/article/matter-js-broad-phase-collision-detection-explained">
+    <link rel="search" type="application/opensearchdescription+xml" title="matter.js" href="/matter.js/opensearch.xml">
+    <link rel="icon" href="/matter.js/favicon.ico">
+    <link rel="stylesheet" href="/matter.js/css/style.css">
+    <link media="print" rel="stylesheet" href="/matter.js/css/print.css">
+    <script src="/matter.js/js/fuse.min.js"></script>
+    <script src="/matter.js/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Matter.js Broad-Phase Collision Detection Explained - matter.js" />
+    <meta property="og:url" content="https://salivity.github.io/matter.js/article/matter-js-broad-phase-collision-detection-explained" />
+    <meta property="og:image" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="In Matter.js, collision handling operates on a multi-stage pipeline designed to maintain high performance by eliminating non-colliding objects before running expensive geometry calculations. The Matter.Detector.collisions method serves as the core coordi" />
+    <link rel="manifest" href="/matter.js/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/matter.js/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>matter.js</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/matter.js/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="matterjs-broad-phase-collision-detection-explained">Matter.js
+Broad-Phase Collision Detection Explained</h1>
+<p>In Matter.js, collision handling operates on a multi-stage pipeline
+designed to maintain high performance by eliminating non-colliding
+objects before running expensive geometry calculations. The
+<code>Matter.Detector.collisions</code> method serves as the core
+coordinator for this broad-phase stage, scanning registered bodies to
+produce a list of active collision candidates. This article explains how
+<code>Matter.Detector.collisions</code> identifies these candidates
+through part flattening, spatial boundary evaluations, collision
+filtering rules, and state optimizations.</p>
+<h3 id="compound-part-extraction">Compound Part Extraction</h3>
+<p>Matter.js represents both simple and complex objects as bodies
+composed of one or more <code>parts</code>. When
+<code>Matter.Detector.collisions</code> begins its evaluation, it does
+not compare composite bodies as single monolithic entities. Instead, it
+accesses the flattened array of leaf parts for each body. The top-level
+parent body is ignored in geometric testing if it contains subordinate
+parts, ensuring that collision detection resolves at the primitive
+convex polygon or circle level.</p>
+<h3 id="fast-state-rejection">Fast State Rejection</h3>
+<p>Before running any spatial or geometric math, the detector skips
+pairs that cannot produce active physical responses:</p>
+<ul>
+<li><strong>Static and Sleeping Objects:</strong> Two bodies that are
+both static, or both sleeping, or a combination of static and sleeping,
+are immediately bypassed. Because neither body is moving, their
+collision state cannot change.</li>
+<li><strong>Self-Collision Hierarchy:</strong> Individual parts
+belonging to the same parent compound body are discarded immediately,
+preventing an entity from colliding with itself.</li>
+</ul>
+<h3 id="collision-filtering-masks-and-categories">Collision Filtering
+(Masks and Categories)</h3>
+<p>Candidates that pass state checks are evaluated using bitwise
+collision filters via <code>body.collisionFilter</code>. Each part
+contains <code>group</code>, <code>category</code>, and
+<code>mask</code> properties.</p>
+<ol type="1">
+<li><strong>Collision Groups:</strong> If both parts share the same
+non-zero <code>group</code> value, positive values force an automatic
+collision candidate match, while negative values force an immediate
+rejection.</li>
+<li><strong>Category and Mask Bitmasks:</strong> If the group values do
+not match or are zero, the detector performs a bitwise AND comparison:
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a>(filterA<span class="op">.</span><span class="at">mask</span> <span class="op">&amp;</span> filterB<span class="op">.</span><span class="at">category</span>) <span class="op">!==</span> <span class="dv">0</span> <span class="op">&amp;&amp;</span> (filterB<span class="op">.</span><span class="at">mask</span> <span class="op">&amp;</span> filterA<span class="op">.</span><span class="at">category</span>) <span class="op">!==</span> <span class="dv">0</span></span></code></pre></div>
+If either side of the bitwise comparison evaluates to zero, the pair is
+discarded.</li>
+</ol>
+<h3 id="axis-aligned-bounding-box-aabb-overlaps">Axis-Aligned Bounding
+Box (AABB) Overlaps</h3>
+<p>For all pairs that satisfy the logical and state criteria, the
+detector performs spatial checks using Axis-Aligned Bounding Boxes
+(<code>part.bounds</code>). Every part's bounding box is dynamically
+updated during engine updates to encompass its current position,
+rotation, and vertices.</p>
+<p>The detector checks for overlap along the X and Y axes using simple
+min-max comparisons via
+<code>Bounds.overlaps(boundsA, boundsB)</code>:</p>
+<ul>
+<li>The maximum X of Box A must be greater than or equal to the minimum
+X of Box B, and vice versa.</li>
+<li>The maximum Y of Box A must be greater than or equal to the minimum
+Y of Box B, and vice versa.</li>
+</ul>
+<p>If the bounding boxes do not overlap on both axes, the parts cannot
+possibly intersect, and the pair is rejected with minimal computational
+cost.</p>
+<h3 id="passing-candidates-to-the-narrow-phase">Passing Candidates to
+the Narrow Phase</h3>
+<p>When a pair of parts satisfies the hierarchy, sleep, bitmask, and
+AABB criteria, <code>Matter.Detector.collisions</code> marks them as an
+active collision candidate pair. The detector then forwards this
+candidate pair to the narrow phase—typically handled by
+<code>Matter.SAT.collides</code> (Separating Axis Theorem)—to determine
+true vertex-level intersection, contact points, penetration depth, and
+normal vectors.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/matter.js'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/matter.js/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/matter.js/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Structuring a Large Matter.js Project: Best Practices - matter.js</title>
+    <meta name="description" content="Structuring a large-scale project using Matter.js requires a disciplined architecture that decouples physical simulation from rendering, enforces clean lifecycle management, and handles collisions efficiently. This guide outlines community-recommended pr">
+    <link rel="canonical" href="https://salivity.github.io/matter.js/article/structuring-a-large-matter-js-project-best-practices">
+    <link rel="search" type="application/opensearchdescription+xml" title="matter.js" href="/matter.js/opensearch.xml">
+    <link rel="icon" href="/matter.js/favicon.ico">
+    <link rel="stylesheet" href="/matter.js/css/style.css">
+    <link media="print" rel="stylesheet" href="/matter.js/css/print.css">
+    <script src="/matter.js/js/fuse.min.js"></script>
+    <script src="/matter.js/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Structuring a Large Matter.js Project: Best Practices - matter.js" />
+    <meta property="og:url" content="https://salivity.github.io/matter.js/article/structuring-a-large-matter-js-project-best-practices" />
+    <meta property="og:image" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Structuring a large-scale project using Matter.js requires a disciplined architecture that decouples physical simulation from rendering, enforces clean lifecycle management, and handles collisions efficiently. This guide outlines community-recommended pr" />
+    <link rel="manifest" href="/matter.js/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/matter.js/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>matter.js</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/matter.js/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="structuring-a-large-matterjs-project-best-practices">Structuring
+a Large Matter.js Project: Best Practices</h1>
+<p>Structuring a large-scale project using Matter.js requires a
+disciplined architecture that decouples physical simulation from
+rendering, enforces clean lifecycle management, and handles collisions
+efficiently. This guide outlines community-recommended practices for
+organizing complex Matter.js codebases, focusing on modular entity
+design, custom collision dispatchers, synchronized rendering loops, and
+performance optimizations essential for maintainability and
+scalability.</p>
+<h2 id="decouple-physics-from-rendering">Decouple Physics from
+Rendering</h2>
+<p>In small prototypes, it is common to attach rendering directly to
+Matter.js bodies or rely on the built-in <code>Matter.Render</code>
+utility. In large projects, you must completely separate the physics
+simulation (model) from the visual representation (view), whether you
+are using Canvas, WebGL (Pixi.js, Three.js), or DOM elements.</p>
+<ul>
+<li><strong>The Physics Layer:</strong> Responsible solely for
+<code>Engine</code>, <code>World</code>, <code>Bodies</code>,
+<code>Constraints</code>, and time stepping. It should have no knowledge
+of textures, sprites, or cameras.</li>
+<li><strong>The Presentation Layer:</strong> Owns visual assets,
+animations, and particle systems.</li>
+<li><strong>The Synchronization Layer:</strong> A dedicated update loop
+that reads the <code>position</code> and <code>angle</code> from
+Matter.js bodies each tick and maps them to the corresponding visual
+entities.</li>
+</ul>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Example sync logic</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">updatePresentation</span>(entities) {</span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>  <span class="cf">for</span> (<span class="kw">const</span> entity <span class="kw">of</span> entities) {</span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>    entity<span class="op">.</span><span class="at">view</span><span class="op">.</span><span class="at">x</span> <span class="op">=</span> entity<span class="op">.</span><span class="at">body</span><span class="op">.</span><span class="at">position</span><span class="op">.</span><span class="at">x</span><span class="op">;</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>    entity<span class="op">.</span><span class="at">view</span><span class="op">.</span><span class="at">y</span> <span class="op">=</span> entity<span class="op">.</span><span class="at">body</span><span class="op">.</span><span class="at">position</span><span class="op">.</span><span class="at">y</span><span class="op">;</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>    entity<span class="op">.</span><span class="at">view</span><span class="op">.</span><span class="at">rotation</span> <span class="op">=</span> entity<span class="op">.</span><span class="at">body</span><span class="op">.</span><span class="at">angle</span><span class="op">;</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<h2 id="entity-component-pattern-and-composite-organization">Entity
+Component Pattern and Composite Organization</h2>
+<p>Avoid managing individual <code>Body</code> instances globally.
+Instead, use an object-oriented or Entity-Component-System (ECS) pattern
+to bundle physics bodies, constraints, and business logic into modular
+components.</p>
+<ul>
+<li><strong>Encapsulate Bodies in Entity Classes:</strong> Create
+classes or factories (e.g., <code>PlayerEntity</code>,
+<code>VehicleEntity</code>) that instantiate their own Matter.js bodies
+and handle internal state.</li>
+<li><strong>Use Composites for Complex Objects:</strong> Group compound
+bodies, constraints, and sub-parts using <code>Matter.Composite</code>.
+This allows you to add, remove, scale, or translate an entire entity in
+a single call via <code>Composite.add(world, entity.composite)</code>
+and <code>Composite.remove(world, entity.composite)</code>.</li>
+<li><strong>Explicit Lifecycle Methods:</strong> Ensure every entity
+implements dedicated <code>init()</code>, <code>update()</code>, and
+<code>destroy()</code> methods. The <code>destroy()</code> method must
+remove all internal bodies and constraints from the world to prevent
+memory leaks.</li>
+</ul>
+<h2 id="scalable-collision-management">Scalable Collision
+Management</h2>
+<p>As the number of bodies grows, handling collisions inside a single
+global listener becomes unmaintainable. Structure your collisions using
+bitmasks and a centralized event dispatcher.</p>
+<h3 id="1-centralize-collision-categories">1. Centralize Collision
+Categories</h3>
+<p>Define all collision layers in a centralized configuration using
+32-bit bitmasks:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="im">export</span> <span class="kw">const</span> CollisionCategory <span class="op">=</span> {</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>  <span class="dt">DEFAULT</span><span class="op">:</span> <span class="bn">0x0001</span><span class="op">,</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>  <span class="dt">PLAYER</span><span class="op">:</span>  <span class="bn">0x0002</span><span class="op">,</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>  <span class="dt">ENEMY</span><span class="op">:</span>   <span class="bn">0x0004</span><span class="op">,</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>  <span class="dt">TERRAIN</span><span class="op">:</span> <span class="bn">0x0008</span><span class="op">,</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>  <span class="dt">SENSOR</span><span class="op">:</span>  <span class="bn">0x0010</span><span class="op">,</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>}<span class="op">;</span></span></code></pre></div>
+<p>Apply these categories and masks to bodies during creation to let the
+broadphase solver discard irrelevant interactions automatically.</p>
+<h3 id="2-implement-a-collision-dispatcher">2. Implement a Collision
+Dispatcher</h3>
+<p>Rather than evaluating pairs with nested <code>if-else</code> blocks
+inside <code>Events.on(engine, 'collisionStart')</code>, map custom
+handlers using a collision dispatcher:</p>
+<ul>
+<li>Store an entity reference on the body:
+<code>body.userData = { entity: this }</code>.</li>
+<li>Iterate through <code>event.pairs</code> in the collision
+event.</li>
+<li>Extract the <code>userData</code> from <code>pair.bodyA</code> and
+<code>pair.bodyB</code>.</li>
+<li>Route the collision event to specific handler functions based on the
+types involved (e.g.,
+<code>handlePlayerEnemyCollision(player, enemy)</code>).</li>
+</ul>
+<h2 id="fixed-timestep-and-game-loop-control">Fixed Timestep and Game
+Loop Control</h2>
+<p>While <code>Matter.Runner</code> is convenient, production
+applications often require a deterministic loop to prevent physics
+anomalies across different refresh-rate monitors (e.g., 60Hz vs. 144Hz
+displays).</p>
+<ul>
+<li><strong>Manual Stepping:</strong> Disable the default runner and
+control the step manually inside your main game loop using
+<code>Matter.Engine.update(engine, fixedDelta)</code>.</li>
+<li><strong>Accumulator Pattern:</strong> Accumulate elapsed time from
+<code>requestAnimationFrame</code> and consume it in fixed chunks (e.g.,
+<code>1000 / 60</code> ms). This prevents "tunneling" (objects passing
+through walls) and ensures consistent gravity and velocity calculations
+across devices.</li>
+</ul>
+<h2 id="spatial-partitioning-and-performance-tuning">Spatial
+Partitioning and Performance Tuning</h2>
+<p>Large-scale worlds require optimization to maintain high
+framerates:</p>
+<ul>
+<li><strong>Enable Sleeping:</strong> Set
+<code>enableSleeping: true</code> on the engine options. This suspends
+physics calculations for bodies that have come to a complete rest until
+an external force acts upon them.</li>
+<li><strong>Culling and Chunking:</strong> For expansive worlds,
+implement spatial chunking. Only add bodies to the
+<code>Matter.World</code> if they are within or near the active
+viewport, and remove them when they move out of range.</li>
+<li><strong>Optimize Constraints and Iterations:</strong> Reduce
+<code>engine.positionIterations</code> and
+<code>engine.velocityIterations</code> to the lowest acceptable values
+that prevent jitter in your specific use case. The default values (6 and
+4, respectively) can often be tuned down for simpler physics
+interactions.</li>
+</ul></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/matter.js'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/matter.js/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/matter.js/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

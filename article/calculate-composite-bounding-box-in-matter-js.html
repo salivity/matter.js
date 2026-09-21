@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Calculate Composite Bounding Box in Matter.js - matter.js</title>
+    <meta name="description" content="This article explains how to determine the total axis-aligned bounding box (AABB) for a Composite in the Matter.js physics engine. While individual physics bodies have pre-calculated bounds properties, composites act as containers and do not track an agg">
+    <link rel="canonical" href="https://salivity.github.io/matter.js/article/calculate-composite-bounding-box-in-matter-js">
+    <link rel="search" type="application/opensearchdescription+xml" title="matter.js" href="/matter.js/opensearch.xml">
+    <link rel="icon" href="/matter.js/favicon.ico">
+    <link rel="stylesheet" href="/matter.js/css/style.css">
+    <link media="print" rel="stylesheet" href="/matter.js/css/print.css">
+    <script src="/matter.js/js/fuse.min.js"></script>
+    <script src="/matter.js/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Calculate Composite Bounding Box in Matter.js - matter.js" />
+    <meta property="og:url" content="https://salivity.github.io/matter.js/article/calculate-composite-bounding-box-in-matter-js" />
+    <meta property="og:image" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article explains how to determine the total axis-aligned bounding box (AABB) for a Composite in the Matter.js physics engine. While individual physics bodies have pre-calculated bounds properties, composites act as containers and do not track an agg" />
+    <link rel="manifest" href="/matter.js/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/matter.js/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>matter.js</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/matter.js/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="calculate-composite-bounding-box-in-matterjs">Calculate
+Composite Bounding Box in Matter.js</h1>
+<p>This article explains how to determine the total axis-aligned
+bounding box (AABB) for a <code>Composite</code> in the Matter.js
+physics engine. While individual physics bodies have pre-calculated
+<code>bounds</code> properties, composites act as containers and do not
+track an aggregate boundary automatically. By retrieving all nested
+bodies within the composite and calculating the extremes of their
+individual bounds, you can reliably derive the total encompassing
+bounding box.</p>
+<h3 id="why-composites-lack-built-in-bounds">Why Composites Lack
+Built-In Bounds</h3>
+<p>A Matter.js <code>Composite</code> can contain bodies, constraints,
+and other nested composites. Because the positions of these child
+objects are dynamic and can change on every engine update, Matter.js
+does not maintain a cached, overall boundary for composites to conserve
+computational performance. To find the total boundary, you must
+aggregate the <code>bounds</code> of every individual body inside the
+composite hierarchy.</p>
+<h3 id="step-by-step-implementation">Step-by-Step Implementation</h3>
+<p>To compute the total bounding box, retrieve all descendant bodies
+using <code>Matter.Composite.allBodies()</code> and iterate through them
+to find the minimum and maximum X and Y coordinates.</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">getCompositeBounds</span>(composite) {</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> bodies <span class="op">=</span> Matter<span class="op">.</span><span class="at">Composite</span><span class="op">.</span><span class="fu">allBodies</span>(composite)<span class="op">;</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (bodies<span class="op">.</span><span class="at">length</span> <span class="op">===</span> <span class="dv">0</span>) {</span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> {</span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>            <span class="dt">min</span><span class="op">:</span> { <span class="dt">x</span><span class="op">:</span> <span class="dv">0</span><span class="op">,</span> <span class="dt">y</span><span class="op">:</span> <span class="dv">0</span> }<span class="op">,</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>            <span class="dt">max</span><span class="op">:</span> { <span class="dt">x</span><span class="op">:</span> <span class="dv">0</span><span class="op">,</span> <span class="dt">y</span><span class="op">:</span> <span class="dv">0</span> }</span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>        }<span class="op">;</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>    <span class="kw">let</span> minX <span class="op">=</span> <span class="kw">Infinity</span><span class="op">;</span></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>    <span class="kw">let</span> minY <span class="op">=</span> <span class="kw">Infinity</span><span class="op">;</span></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>    <span class="kw">let</span> maxX <span class="op">=</span> <span class="op">-</span><span class="kw">Infinity</span><span class="op">;</span></span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>    <span class="kw">let</span> maxY <span class="op">=</span> <span class="op">-</span><span class="kw">Infinity</span><span class="op">;</span></span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> (<span class="kw">let</span> i <span class="op">=</span> <span class="dv">0</span><span class="op">;</span> i <span class="op">&lt;</span> bodies<span class="op">.</span><span class="at">length</span><span class="op">;</span> i<span class="op">++</span>) {</span>
+<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a>        <span class="kw">const</span> bounds <span class="op">=</span> bodies[i]<span class="op">.</span><span class="at">bounds</span><span class="op">;</span></span>
+<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-19"><a href="#cb1-19" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> (bounds<span class="op">.</span><span class="at">min</span><span class="op">.</span><span class="at">x</span> <span class="op">&lt;</span> minX) minX <span class="op">=</span> bounds<span class="op">.</span><span class="at">min</span><span class="op">.</span><span class="at">x</span><span class="op">;</span></span>
+<span id="cb1-20"><a href="#cb1-20" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> (bounds<span class="op">.</span><span class="at">min</span><span class="op">.</span><span class="at">y</span> <span class="op">&lt;</span> minY) minY <span class="op">=</span> bounds<span class="op">.</span><span class="at">min</span><span class="op">.</span><span class="at">y</span><span class="op">;</span></span>
+<span id="cb1-21"><a href="#cb1-21" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> (bounds<span class="op">.</span><span class="at">max</span><span class="op">.</span><span class="at">x</span> <span class="op">&gt;</span> maxX) maxX <span class="op">=</span> bounds<span class="op">.</span><span class="at">max</span><span class="op">.</span><span class="at">x</span><span class="op">;</span></span>
+<span id="cb1-22"><a href="#cb1-22" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> (bounds<span class="op">.</span><span class="at">max</span><span class="op">.</span><span class="at">y</span> <span class="op">&gt;</span> maxY) maxY <span class="op">=</span> bounds<span class="op">.</span><span class="at">max</span><span class="op">.</span><span class="at">y</span><span class="op">;</span></span>
+<span id="cb1-23"><a href="#cb1-23" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb1-24"><a href="#cb1-24" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-25"><a href="#cb1-25" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> {</span>
+<span id="cb1-26"><a href="#cb1-26" aria-hidden="true" tabindex="-1"></a>        <span class="dt">min</span><span class="op">:</span> { <span class="dt">x</span><span class="op">:</span> minX<span class="op">,</span> <span class="dt">y</span><span class="op">:</span> minY }<span class="op">,</span></span>
+<span id="cb1-27"><a href="#cb1-27" aria-hidden="true" tabindex="-1"></a>        <span class="dt">max</span><span class="op">:</span> { <span class="dt">x</span><span class="op">:</span> maxX<span class="op">,</span> <span class="dt">y</span><span class="op">:</span> maxY }</span>
+<span id="cb1-28"><a href="#cb1-28" aria-hidden="true" tabindex="-1"></a>    }<span class="op">;</span></span>
+<span id="cb1-29"><a href="#cb1-29" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<h3 id="how-the-calculation-works">How the Calculation Works</h3>
+<ol type="1">
+<li><strong>Retrieve Bodies Recursively</strong>:
+<code>Matter.Composite.allBodies(composite)</code> traverses the given
+composite and any child composites, returning a flat array of all
+contained <code>Body</code> objects.</li>
+<li><strong>Handle Empty Containers</strong>: If the composite contains
+no bodies, the function safely returns a zero-sized boundary.</li>
+<li><strong>Compare Coordinates</strong>: Each <code>Body</code> in
+Matter.js maintains a <code>bounds</code> property containing
+<code>min</code> and <code>max</code> vectors (<code>{ x, y }</code>).
+Iterating through the array finds the lowest <code>min</code> values and
+highest <code>max</code> values across all elements.</li>
+<li><strong>Derive Dimensions</strong>: With the returned
+<code>{ min, max }</code> object, you can easily calculate the total
+width and height of the composite:
+<ul>
+<li><code>width = bounds.max.x - bounds.min.x</code></li>
+<li><code>height = bounds.max.y - bounds.min.y</code></li>
+</ul></li>
+</ol>
+<p>This calculation should be executed after
+<code>Matter.Engine.update()</code> whenever current, physics-accurate
+bounds are required.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/matter.js'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/matter.js/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/matter.js/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

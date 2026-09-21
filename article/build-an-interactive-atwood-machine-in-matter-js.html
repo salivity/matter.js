@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Build an Interactive Atwood Machine in Matter.js - matter.js</title>
+    <meta name="description" content="This article explains how to build an interactive Atwood machine simulation using the Matter.js 2D physics engine to demonstrate classical mechanics principles such as acceleration and tension. You will learn how to initialize the simulation environment,">
+    <link rel="canonical" href="https://salivity.github.io/matter.js/article/build-an-interactive-atwood-machine-in-matter-js">
+    <link rel="search" type="application/opensearchdescription+xml" title="matter.js" href="/matter.js/opensearch.xml">
+    <link rel="icon" href="/matter.js/favicon.ico">
+    <link rel="stylesheet" href="/matter.js/css/style.css">
+    <link media="print" rel="stylesheet" href="/matter.js/css/print.css">
+    <script src="/matter.js/js/fuse.min.js"></script>
+    <script src="/matter.js/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Build an Interactive Atwood Machine in Matter.js - matter.js" />
+    <meta property="og:url" content="https://salivity.github.io/matter.js/article/build-an-interactive-atwood-machine-in-matter-js" />
+    <meta property="og:image" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article explains how to build an interactive Atwood machine simulation using the Matter.js 2D physics engine to demonstrate classical mechanics principles such as acceleration and tension. You will learn how to initialize the simulation environment," />
+    <link rel="manifest" href="/matter.js/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/matter.js/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>matter.js</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/matter.js/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="build-an-interactive-atwood-machine-in-matterjs">Build an
+Interactive Atwood Machine in Matter.js</h1>
+<p>This article explains how to build an interactive Atwood machine
+simulation using the Matter.js 2D physics engine to demonstrate
+classical mechanics principles such as acceleration and tension. You
+will learn how to initialize the simulation environment, model two
+hanging masses connected over a pulley, handle physical constraints, and
+display real-time readouts for tension and system acceleration.</p>
+<h3 id="understanding-the-physics">Understanding the Physics</h3>
+<p>An ideal Atwood machine consists of two masses, <span
+class="math inline">\(m_1\)</span> and <span
+class="math inline">\(m_2\)</span>, connected by an inextensible,
+massless string over a frictionless pulley. When released, gravitational
+force acts upon both masses, creating net acceleration (<span
+class="math inline">\(a\)</span>) and tension (<span
+class="math inline">\(T\)</span>) throughout the string according to
+Newton’s second law:</p>
+<ul>
+<li><strong>Net Acceleration (<span
+class="math inline">\(a\)</span>):</strong> <span
+class="math display">\[a = \frac{|m_1 - m_2|}{m_1 + m_2} g\]</span></li>
+<li><strong>Tension (<span class="math inline">\(T\)</span>):</strong>
+<span class="math display">\[T = \frac{2 m_1 m_2}{m_1 + m_2}
+g\]</span></li>
+</ul>
+<p>In a dynamic simulation, you can either let the physics engine
+resolve these forces using interconnected rigid bodies and constraints
+or apply these equations explicitly within the engine loop to manipulate
+body velocities directly.</p>
+<h3 id="initializing-the-matterjs-environment">Initializing the
+Matter.js Environment</h3>
+<p>Begin by setting up standard Matter.js modules: <code>Engine</code>,
+<code>Render</code>, <code>Runner</code>, <code>Bodies</code>,
+<code>Composite</code>, and <code>Constraint</code>.</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> { Engine<span class="op">,</span> Render<span class="op">,</span> Runner<span class="op">,</span> Bodies<span class="op">,</span> Composite<span class="op">,</span> Constraint } <span class="op">=</span> Matter<span class="op">;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> engine <span class="op">=</span> Engine<span class="op">.</span><span class="fu">create</span>()<span class="op">;</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> world <span class="op">=</span> engine<span class="op">.</span><span class="at">world</span><span class="op">;</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> render <span class="op">=</span> Render<span class="op">.</span><span class="fu">create</span>({</span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>  <span class="dt">element</span><span class="op">:</span> <span class="bu">document</span><span class="op">.</span><span class="at">body</span><span class="op">,</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>  <span class="dt">engine</span><span class="op">:</span> engine<span class="op">,</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>  <span class="dt">options</span><span class="op">:</span> {</span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>    <span class="dt">width</span><span class="op">:</span> <span class="dv">800</span><span class="op">,</span></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>    <span class="dt">height</span><span class="op">:</span> <span class="dv">600</span><span class="op">,</span></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>    <span class="dt">wireframes</span><span class="op">:</span> <span class="kw">false</span></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a>Render<span class="op">.</span><span class="fu">run</span>(render)<span class="op">;</span></span>
+<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a>Runner<span class="op">.</span><span class="fu">run</span>(Runner<span class="op">.</span><span class="fu">create</span>()<span class="op">,</span> engine)<span class="op">;</span></span></code></pre></div>
+<h3 id="creating-the-pulley-and-masses">Creating the Pulley and
+Masses</h3>
+<p>To build the machine, create a fixed pivot point representing the
+pulley, along with two movable rectangular bodies representing <span
+class="math inline">\(m_1\)</span> and <span
+class="math inline">\(m_2\)</span>.</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> pulleyCenter <span class="op">=</span> { <span class="dt">x</span><span class="op">:</span> <span class="dv">400</span><span class="op">,</span> <span class="dt">y</span><span class="op">:</span> <span class="dv">150</span> }<span class="op">;</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> pulleyRadius <span class="op">=</span> <span class="dv">40</span><span class="op">;</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a><span class="co">// Visual pulley body (static)</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> pulley <span class="op">=</span> Bodies<span class="op">.</span><span class="fu">circle</span>(pulleyCenter<span class="op">.</span><span class="at">x</span><span class="op">,</span> pulleyCenter<span class="op">.</span><span class="at">y</span><span class="op">,</span> pulleyRadius<span class="op">,</span> {</span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>  <span class="dt">isStatic</span><span class="op">:</span> <span class="kw">true</span><span class="op">,</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>  <span class="dt">render</span><span class="op">:</span> { <span class="dt">fillStyle</span><span class="op">:</span> <span class="st">&#39;#4B5563&#39;</span> }</span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a><span class="co">// Mass 1 (Left)</span></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> mass1 <span class="op">=</span> Bodies<span class="op">.</span><span class="fu">rectangle</span>(pulleyCenter<span class="op">.</span><span class="at">x</span> <span class="op">-</span> pulleyRadius<span class="op">,</span> <span class="dv">350</span><span class="op">,</span> <span class="dv">50</span><span class="op">,</span> <span class="dv">50</span><span class="op">,</span> {</span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>  <span class="dt">mass</span><span class="op">:</span> <span class="dv">10</span><span class="op">,</span></span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>  <span class="dt">inverseMass</span><span class="op">:</span> <span class="dv">1</span> <span class="op">/</span> <span class="dv">10</span><span class="op">,</span></span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a>  <span class="dt">frictionAir</span><span class="op">:</span> <span class="fl">0.001</span><span class="op">,</span></span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a>  <span class="dt">render</span><span class="op">:</span> { <span class="dt">fillStyle</span><span class="op">:</span> <span class="st">&#39;#3B82F6&#39;</span> }</span>
+<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span>
+<span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-18"><a href="#cb2-18" aria-hidden="true" tabindex="-1"></a><span class="co">// Mass 2 (Right)</span></span>
+<span id="cb2-19"><a href="#cb2-19" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> mass2 <span class="op">=</span> Bodies<span class="op">.</span><span class="fu">rectangle</span>(pulleyCenter<span class="op">.</span><span class="at">x</span> <span class="op">+</span> pulleyRadius<span class="op">,</span> <span class="dv">350</span><span class="op">,</span> <span class="dv">60</span><span class="op">,</span> <span class="dv">60</span><span class="op">,</span> {</span>
+<span id="cb2-20"><a href="#cb2-20" aria-hidden="true" tabindex="-1"></a>  <span class="dt">mass</span><span class="op">:</span> <span class="dv">15</span><span class="op">,</span></span>
+<span id="cb2-21"><a href="#cb2-21" aria-hidden="true" tabindex="-1"></a>  <span class="dt">inverseMass</span><span class="op">:</span> <span class="dv">1</span> <span class="op">/</span> <span class="dv">15</span><span class="op">,</span></span>
+<span id="cb2-22"><a href="#cb2-22" aria-hidden="true" tabindex="-1"></a>  <span class="dt">frictionAir</span><span class="op">:</span> <span class="fl">0.001</span><span class="op">,</span></span>
+<span id="cb2-23"><a href="#cb2-23" aria-hidden="true" tabindex="-1"></a>  <span class="dt">render</span><span class="op">:</span> { <span class="dt">fillStyle</span><span class="op">:</span> <span class="st">&#39;#EF4444&#39;</span> }</span>
+<span id="cb2-24"><a href="#cb2-24" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span>
+<span id="cb2-25"><a href="#cb2-25" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-26"><a href="#cb2-26" aria-hidden="true" tabindex="-1"></a>Composite<span class="op">.</span><span class="fu">add</span>(world<span class="op">,</span> [pulley<span class="op">,</span> mass1<span class="op">,</span> mass2])<span class="op">;</span></span></code></pre></div>
+<h3 id="simulating-string-mechanics-and-constrained-motion">Simulating
+String Mechanics and Constrained Motion</h3>
+<p>Matter.js constraints represent fixed-length or spring-like rods
+rather than continuous ropes moving over circular surfaces. To simulate
+the Atwood string accurately, constrain both masses to vertical motion
+and link their positions so that the total string length remains
+constant:</p>
+<p><span class="math display">\[y_1 + y_2 = \text{Constant}\]</span></p>
+<p>You can enforce this relationship by hooking into Matter.js's
+<code>beforeUpdate</code> event:</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> totalLength <span class="op">=</span> <span class="dv">500</span><span class="op">;</span> <span class="co">// Combined vertical string drop</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>Matter<span class="op">.</span><span class="at">Events</span><span class="op">.</span><span class="fu">on</span>(engine<span class="op">,</span> <span class="st">&#39;beforeUpdate&#39;</span><span class="op">,</span> () <span class="kw">=&gt;</span> {</span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>  <span class="co">// Lock horizontal drift to simulate vertical guide tracks</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>  Matter<span class="op">.</span><span class="at">Body</span><span class="op">.</span><span class="fu">setPosition</span>(mass1<span class="op">,</span> { <span class="dt">x</span><span class="op">:</span> pulleyCenter<span class="op">.</span><span class="at">x</span> <span class="op">-</span> pulleyRadius<span class="op">,</span> <span class="dt">y</span><span class="op">:</span> mass1<span class="op">.</span><span class="at">position</span><span class="op">.</span><span class="at">y</span> })<span class="op">;</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>  Matter<span class="op">.</span><span class="at">Body</span><span class="op">.</span><span class="fu">setPosition</span>(mass2<span class="op">,</span> { <span class="dt">x</span><span class="op">:</span> pulleyCenter<span class="op">.</span><span class="at">x</span> <span class="op">+</span> pulleyRadius<span class="op">,</span> <span class="dt">y</span><span class="op">:</span> mass2<span class="op">.</span><span class="at">position</span><span class="op">.</span><span class="at">y</span> })<span class="op">;</span></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>  <span class="co">// Calculate Atwood acceleration based on gravity</span></span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> g <span class="op">=</span> engine<span class="op">.</span><span class="at">gravity</span><span class="op">.</span><span class="at">y</span> <span class="op">*</span> engine<span class="op">.</span><span class="at">gravity</span><span class="op">.</span><span class="at">scale</span> <span class="op">*</span> <span class="dv">1000</span><span class="op">;</span> <span class="co">// Scaled acceleration</span></span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> netAcceleration <span class="op">=</span> ((mass2<span class="op">.</span><span class="at">mass</span> <span class="op">-</span> mass1<span class="op">.</span><span class="at">mass</span>) <span class="op">/</span> (mass1<span class="op">.</span><span class="at">mass</span> <span class="op">+</span> mass2<span class="op">.</span><span class="at">mass</span>)) <span class="op">*</span> g<span class="op">;</span></span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a>  <span class="co">// Apply acceleration directly to vertical velocities</span></span>
+<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a>  Matter<span class="op">.</span><span class="at">Body</span><span class="op">.</span><span class="fu">setVelocity</span>(mass1<span class="op">,</span> { <span class="dt">x</span><span class="op">:</span> <span class="dv">0</span><span class="op">,</span> <span class="dt">y</span><span class="op">:</span> mass1<span class="op">.</span><span class="at">velocity</span><span class="op">.</span><span class="at">y</span> <span class="op">-</span> netAcceleration <span class="op">*</span> <span class="fl">0.016</span> })<span class="op">;</span></span>
+<span id="cb3-14"><a href="#cb3-14" aria-hidden="true" tabindex="-1"></a>  Matter<span class="op">.</span><span class="at">Body</span><span class="op">.</span><span class="fu">setVelocity</span>(mass2<span class="op">,</span> { <span class="dt">x</span><span class="op">:</span> <span class="dv">0</span><span class="op">,</span> <span class="dt">y</span><span class="op">:</span> mass2<span class="op">.</span><span class="at">velocity</span><span class="op">.</span><span class="at">y</span> <span class="op">+</span> netAcceleration <span class="op">*</span> <span class="fl">0.016</span> })<span class="op">;</span></span>
+<span id="cb3-15"><a href="#cb3-15" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-16"><a href="#cb3-16" aria-hidden="true" tabindex="-1"></a>  <span class="co">// Prevent string overextension</span></span>
+<span id="cb3-17"><a href="#cb3-17" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (mass1<span class="op">.</span><span class="at">position</span><span class="op">.</span><span class="at">y</span> <span class="op">&lt;</span> pulleyCenter<span class="op">.</span><span class="at">y</span> <span class="op">+</span> <span class="dv">40</span>) {</span>
+<span id="cb3-18"><a href="#cb3-18" aria-hidden="true" tabindex="-1"></a>    Matter<span class="op">.</span><span class="at">Body</span><span class="op">.</span><span class="fu">setPosition</span>(mass1<span class="op">,</span> { <span class="dt">x</span><span class="op">:</span> mass1<span class="op">.</span><span class="at">position</span><span class="op">.</span><span class="at">x</span><span class="op">,</span> <span class="dt">y</span><span class="op">:</span> pulleyCenter<span class="op">.</span><span class="at">y</span> <span class="op">+</span> <span class="dv">40</span> })<span class="op">;</span></span>
+<span id="cb3-19"><a href="#cb3-19" aria-hidden="true" tabindex="-1"></a>    Matter<span class="op">.</span><span class="at">Body</span><span class="op">.</span><span class="fu">setVelocity</span>(mass1<span class="op">,</span> { <span class="dt">x</span><span class="op">:</span> <span class="dv">0</span><span class="op">,</span> <span class="dt">y</span><span class="op">:</span> <span class="dv">0</span> })<span class="op">;</span></span>
+<span id="cb3-20"><a href="#cb3-20" aria-hidden="true" tabindex="-1"></a>    Matter<span class="op">.</span><span class="at">Body</span><span class="op">.</span><span class="fu">setVelocity</span>(mass2<span class="op">,</span> { <span class="dt">x</span><span class="op">:</span> <span class="dv">0</span><span class="op">,</span> <span class="dt">y</span><span class="op">:</span> <span class="dv">0</span> })<span class="op">;</span></span>
+<span id="cb3-21"><a href="#cb3-21" aria-hidden="true" tabindex="-1"></a>  } <span class="cf">else</span> <span class="cf">if</span> (mass2<span class="op">.</span><span class="at">position</span><span class="op">.</span><span class="at">y</span> <span class="op">&lt;</span> pulleyCenter<span class="op">.</span><span class="at">y</span> <span class="op">+</span> <span class="dv">40</span>) {</span>
+<span id="cb3-22"><a href="#cb3-22" aria-hidden="true" tabindex="-1"></a>    Matter<span class="op">.</span><span class="at">Body</span><span class="op">.</span><span class="fu">setPosition</span>(mass2<span class="op">,</span> { <span class="dt">x</span><span class="op">:</span> mass2<span class="op">.</span><span class="at">position</span><span class="op">.</span><span class="at">x</span><span class="op">,</span> <span class="dt">y</span><span class="op">:</span> pulleyCenter<span class="op">.</span><span class="at">y</span> <span class="op">+</span> <span class="dv">40</span> })<span class="op">;</span></span>
+<span id="cb3-23"><a href="#cb3-23" aria-hidden="true" tabindex="-1"></a>    Matter<span class="op">.</span><span class="at">Body</span><span class="op">.</span><span class="fu">setVelocity</span>(mass1<span class="op">,</span> { <span class="dt">x</span><span class="op">:</span> <span class="dv">0</span><span class="op">,</span> <span class="dt">y</span><span class="op">:</span> <span class="dv">0</span> })<span class="op">;</span></span>
+<span id="cb3-24"><a href="#cb3-24" aria-hidden="true" tabindex="-1"></a>    Matter<span class="op">.</span><span class="at">Body</span><span class="op">.</span><span class="fu">setVelocity</span>(mass2<span class="op">,</span> { <span class="dt">x</span><span class="op">:</span> <span class="dv">0</span><span class="op">,</span> <span class="dt">y</span><span class="op">:</span> <span class="dv">0</span> })<span class="op">;</span></span>
+<span id="cb3-25"><a href="#cb3-25" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb3-26"><a href="#cb3-26" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div>
+<h3 id="visualizing-strings-and-dynamic-values">Visualizing Strings and
+Dynamic Values</h3>
+<p>To make the demonstration interactive and analytical, render custom
+string lines and dynamic text for calculated values (acceleration <span
+class="math inline">\(a\)</span> and tension <span
+class="math inline">\(T\)</span>) during the <code>afterRender</code>
+event:</p>
+<div class="sourceCode" id="cb4"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a>Matter<span class="op">.</span><span class="at">Events</span><span class="op">.</span><span class="fu">on</span>(render<span class="op">,</span> <span class="st">&#39;afterRender&#39;</span><span class="op">,</span> () <span class="kw">=&gt;</span> {</span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> ctx <span class="op">=</span> render<span class="op">.</span><span class="at">context</span><span class="op">;</span></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>  <span class="co">// Draw rope over pulley</span></span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>  ctx<span class="op">.</span><span class="fu">beginPath</span>()<span class="op">;</span></span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a>  ctx<span class="op">.</span><span class="fu">moveTo</span>(mass1<span class="op">.</span><span class="at">position</span><span class="op">.</span><span class="at">x</span><span class="op">,</span> mass1<span class="op">.</span><span class="at">position</span><span class="op">.</span><span class="at">y</span>)<span class="op">;</span></span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a>  ctx<span class="op">.</span><span class="fu">lineTo</span>(pulleyCenter<span class="op">.</span><span class="at">x</span> <span class="op">-</span> pulleyRadius<span class="op">,</span> pulleyCenter<span class="op">.</span><span class="at">y</span>)<span class="op">;</span></span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a>  ctx<span class="op">.</span><span class="fu">arc</span>(pulleyCenter<span class="op">.</span><span class="at">x</span><span class="op">,</span> pulleyCenter<span class="op">.</span><span class="at">y</span><span class="op">,</span> pulleyRadius<span class="op">,</span> <span class="bu">Math</span><span class="op">.</span><span class="cn">PI</span><span class="op">,</span> <span class="dv">0</span><span class="op">,</span> <span class="kw">false</span>)<span class="op">;</span></span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a>  ctx<span class="op">.</span><span class="fu">lineTo</span>(mass2<span class="op">.</span><span class="at">position</span><span class="op">.</span><span class="at">x</span><span class="op">,</span> mass2<span class="op">.</span><span class="at">position</span><span class="op">.</span><span class="at">y</span>)<span class="op">;</span></span>
+<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a>  ctx<span class="op">.</span><span class="at">strokeStyle</span> <span class="op">=</span> <span class="st">&#39;#1F2937&#39;</span><span class="op">;</span></span>
+<span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a>  ctx<span class="op">.</span><span class="at">lineWidth</span> <span class="op">=</span> <span class="dv">4</span><span class="op">;</span></span>
+<span id="cb4-12"><a href="#cb4-12" aria-hidden="true" tabindex="-1"></a>  ctx<span class="op">.</span><span class="fu">stroke</span>()<span class="op">;</span></span>
+<span id="cb4-13"><a href="#cb4-13" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-14"><a href="#cb4-14" aria-hidden="true" tabindex="-1"></a>  <span class="co">// Theoretical physics calculations</span></span>
+<span id="cb4-15"><a href="#cb4-15" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> g <span class="op">=</span> <span class="fl">9.81</span><span class="op">;</span></span>
+<span id="cb4-16"><a href="#cb4-16" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> m1 <span class="op">=</span> mass1<span class="op">.</span><span class="at">mass</span><span class="op">;</span></span>
+<span id="cb4-17"><a href="#cb4-17" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> m2 <span class="op">=</span> mass2<span class="op">.</span><span class="at">mass</span><span class="op">;</span></span>
+<span id="cb4-18"><a href="#cb4-18" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> theoreticalAcc <span class="op">=</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">abs</span>((m1 <span class="op">-</span> m2) <span class="op">/</span> (m1 <span class="op">+</span> m2) <span class="op">*</span> g)<span class="op">.</span><span class="fu">toFixed</span>(<span class="dv">2</span>)<span class="op">;</span></span>
+<span id="cb4-19"><a href="#cb4-19" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> theoreticalTension <span class="op">=</span> ((<span class="dv">2</span> <span class="op">*</span> m1 <span class="op">*</span> m2) <span class="op">/</span> (m1 <span class="op">+</span> m2) <span class="op">*</span> g)<span class="op">.</span><span class="fu">toFixed</span>(<span class="dv">2</span>)<span class="op">;</span></span>
+<span id="cb4-20"><a href="#cb4-20" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-21"><a href="#cb4-21" aria-hidden="true" tabindex="-1"></a>  <span class="co">// HUD Readout</span></span>
+<span id="cb4-22"><a href="#cb4-22" aria-hidden="true" tabindex="-1"></a>  ctx<span class="op">.</span><span class="at">fillStyle</span> <span class="op">=</span> <span class="st">&#39;#111827&#39;</span><span class="op">;</span></span>
+<span id="cb4-23"><a href="#cb4-23" aria-hidden="true" tabindex="-1"></a>  ctx<span class="op">.</span><span class="at">font</span> <span class="op">=</span> <span class="st">&#39;16px monospace&#39;</span><span class="op">;</span></span>
+<span id="cb4-24"><a href="#cb4-24" aria-hidden="true" tabindex="-1"></a>  ctx<span class="op">.</span><span class="fu">fillText</span>(<span class="vs">`Mass 1: </span><span class="sc">${</span>m1<span class="op">.</span><span class="fu">toFixed</span>(<span class="dv">1</span>)<span class="sc">}</span><span class="vs"> kg`</span><span class="op">,</span> <span class="dv">20</span><span class="op">,</span> <span class="dv">30</span>)<span class="op">;</span></span>
+<span id="cb4-25"><a href="#cb4-25" aria-hidden="true" tabindex="-1"></a>  ctx<span class="op">.</span><span class="fu">fillText</span>(<span class="vs">`Mass 2: </span><span class="sc">${</span>m2<span class="op">.</span><span class="fu">toFixed</span>(<span class="dv">1</span>)<span class="sc">}</span><span class="vs"> kg`</span><span class="op">,</span> <span class="dv">20</span><span class="op">,</span> <span class="dv">55</span>)<span class="op">;</span></span>
+<span id="cb4-26"><a href="#cb4-26" aria-hidden="true" tabindex="-1"></a>  ctx<span class="op">.</span><span class="fu">fillText</span>(<span class="vs">`System Acceleration: </span><span class="sc">${</span>theoreticalAcc<span class="sc">}</span><span class="vs"> m/s²`</span><span class="op">,</span> <span class="dv">20</span><span class="op">,</span> <span class="dv">80</span>)<span class="op">;</span></span>
+<span id="cb4-27"><a href="#cb4-27" aria-hidden="true" tabindex="-1"></a>  ctx<span class="op">.</span><span class="fu">fillText</span>(<span class="vs">`Rope Tension: </span><span class="sc">${</span>theoreticalTension<span class="sc">}</span><span class="vs"> N`</span><span class="op">,</span> <span class="dv">20</span><span class="op">,</span> <span class="dv">105</span>)<span class="op">;</span></span>
+<span id="cb4-28"><a href="#cb4-28" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div>
+<h3 id="adding-interactivity">Adding Interactivity</h3>
+<p>Allow users to alter parameters dynamically by linking standard HTML
+input ranges directly to <code>mass1.mass</code> and
+<code>mass2.mass</code>. Updating these properties immediately alters
+the force distribution and modifies the visual motion and calculation
+readouts in the real-time loop.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/matter.js'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/matter.js/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/matter.js/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

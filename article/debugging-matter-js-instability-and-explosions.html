@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Debugging Matter.js Instability and Explosions - matter.js</title>
+    <meta name="description" content="Numerical instability and constraint explosions in Matter.js occur when physics solver calculations produce extreme forces, causing bodies to jitter wildly, tunnel through barriers, or fling across the canvas at infinite velocities. This article outlines">
+    <link rel="canonical" href="https://salivity.github.io/matter.js/article/debugging-matter-js-instability-and-explosions">
+    <link rel="search" type="application/opensearchdescription+xml" title="matter.js" href="/matter.js/opensearch.xml">
+    <link rel="icon" href="/matter.js/favicon.ico">
+    <link rel="stylesheet" href="/matter.js/css/style.css">
+    <link media="print" rel="stylesheet" href="/matter.js/css/print.css">
+    <script src="/matter.js/js/fuse.min.js"></script>
+    <script src="/matter.js/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Debugging Matter.js Instability and Explosions - matter.js" />
+    <meta property="og:url" content="https://salivity.github.io/matter.js/article/debugging-matter-js-instability-and-explosions" />
+    <meta property="og:image" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Numerical instability and constraint explosions in Matter.js occur when physics solver calculations produce extreme forces, causing bodies to jitter wildly, tunnel through barriers, or fling across the canvas at infinite velocities. This article outlines" />
+    <link rel="manifest" href="/matter.js/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/matter.js/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>matter.js</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/matter.js/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="debugging-matterjs-instability-and-explosions">Debugging
+Matter.js Instability and Explosions</h1>
+<p>Numerical instability and constraint explosions in Matter.js occur
+when physics solver calculations produce extreme forces, causing bodies
+to jitter wildly, tunnel through barriers, or fling across the canvas at
+infinite velocities. This article outlines systematic debugging
+workflows to diagnose, isolate, and resolve these divergence issues. By
+methodically auditing simulation time steps, visual telemetry, mass
+ratios, constraint parameters, solver iterations, and velocity
+thresholds, developers can stabilize chaotic physics simulations.</p>
+<h3 id="1-enable-visual-debugging-and-state-logging">1. Enable Visual
+Debugging and State Logging</h3>
+<p>The first step in resolving instability is visualizing the hidden
+vectors that drive the simulation. Configure the default Matter.js
+renderer to show internal solver states:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> render <span class="op">=</span> Render<span class="op">.</span><span class="fu">create</span>({</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>  <span class="dt">element</span><span class="op">:</span> <span class="bu">document</span><span class="op">.</span><span class="at">body</span><span class="op">,</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>  <span class="dt">engine</span><span class="op">:</span> engine<span class="op">,</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>  <span class="dt">options</span><span class="op">:</span> {</span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>    <span class="dt">wireframes</span><span class="op">:</span> <span class="kw">true</span><span class="op">,</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>    <span class="dt">showVelocity</span><span class="op">:</span> <span class="kw">true</span><span class="op">,</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>    <span class="dt">showCollisions</span><span class="op">:</span> <span class="kw">true</span><span class="op">,</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>    <span class="dt">showPositions</span><span class="op">:</span> <span class="kw">true</span><span class="op">,</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>    <span class="dt">showAngleIndicator</span><span class="op">:</span> <span class="kw">true</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div>
+<p>Pair this visual feedback with state logging. Listen to the
+<code>beforeUpdate</code> and <code>afterUpdate</code> events to track
+when bodies exceed realistic operational bounds:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a>Events<span class="op">.</span><span class="fu">on</span>(engine<span class="op">,</span> <span class="st">&#39;afterUpdate&#39;</span><span class="op">,</span> () <span class="kw">=&gt;</span> {</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>  <span class="cf">for</span> (<span class="kw">const</span> body <span class="kw">of</span> Composite<span class="op">.</span><span class="fu">allBodies</span>(engine<span class="op">.</span><span class="at">world</span>)) {</span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> speed <span class="op">=</span> Body<span class="op">.</span><span class="fu">getSpeed</span>(body)<span class="op">;</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (speed <span class="op">&gt;</span> <span class="dv">50</span> <span class="op">||</span> <span class="bu">Number</span><span class="op">.</span><span class="fu">isNaN</span>(speed)) {</span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>      <span class="bu">console</span><span class="op">.</span><span class="fu">warn</span>(<span class="vs">`Instability detected on Body ID </span><span class="sc">${</span>body<span class="op">.</span><span class="at">id</span><span class="sc">}</span><span class="vs">: Speed=</span><span class="sc">${</span>speed<span class="sc">}</span><span class="vs">`</span>)<span class="op">;</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>      <span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(<span class="st">&#39;Position:&#39;</span><span class="op">,</span> body<span class="op">.</span><span class="at">position</span><span class="op">,</span> <span class="st">&#39;Forces:&#39;</span><span class="op">,</span> body<span class="op">.</span><span class="at">force</span>)<span class="op">;</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>      <span class="co">// Optional: Pause runner to inspect state</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>      Runner<span class="op">.</span><span class="fu">stop</span>(runner)<span class="op">;</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>      <span class="cf">break</span><span class="op">;</span></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div>
+<h3 id="2-standardize-the-time-step">2. Standardize the Time Step</h3>
+<p>Variable frame rates cause the iterative solver to experience sudden
+delta spikes, which inject artificial energy into rigid body systems.
+Ensure the simulation relies on a deterministic, fixed time step:</p>
+<ul>
+<li>Explicitly set <code>engine.timing.isFixed = true</code>.</li>
+<li>Avoid feeding raw, unconstrained <code>requestAnimationFrame</code>
+deltas directly into <code>Engine.update()</code>.</li>
+<li>When using a custom loop, cap delta inputs or use an accumulator to
+advance the engine in fixed increments (e.g., exactly
+<code>16.666ms</code> per tick).</li>
+</ul>
+<h3 id="3-normalize-extreme-mass-and-size-ratios">3. Normalize Extreme
+Mass and Size Ratios</h3>
+<p>Matter.js employs a sequential impulse solver. When two bodies with
+massively disparate masses collide or are linked via a constraint, the
+solver produces unstable impulses that blow the smaller body away:</p>
+<ul>
+<li><strong>Keep mass ratios within a 1:10 range:</strong> Avoid placing
+a body of mass <code>0.1</code> directly against a dynamic body of mass
+<code>1000</code>.</li>
+<li><strong>Avoid extremely small or thin geometries:</strong> Thin
+polygons (less than 10–15 pixels wide) allow fast-moving bodies to
+overlap too deeply within a single frame, resulting in massive
+separation impulses.</li>
+<li><strong>Audit custom densities:</strong> If setting density manually
+via <code>Body.setDensity()</code>, verify it does not inadvertently
+produce zero or near-infinite mass or moment of inertia.</li>
+</ul>
+<h3 id="4-tune-constraint-stiffness-and-damping">4. Tune Constraint
+Stiffness and Damping</h3>
+<p>Constraint explosions are frequently caused by stiff springs
+operating in under-sampled environments. When a constraint tries to
+correct a displacement faster than the engine can solve for it, it
+overshoots, feeding perpetual energy into the system.</p>
+<ul>
+<li><strong>Lower constraint stiffness:</strong> Reduce
+<code>constraint.stiffness</code> from <code>1</code> to
+<code>0.1</code>–<code>0.5</code>.</li>
+<li><strong>Increase damping:</strong> Set
+<code>constraint.damping</code> between <code>0.05</code> and
+<code>0.2</code> to absorb resonant vibrations.</li>
+<li><strong>Inspect constraint length:</strong> Setting
+<code>length: 0</code> can lead to divide-by-zero or undefined
+directional vectors when both anchor points align precisely. Use a
+nominal length or offset anchor points.</li>
+</ul>
+<h3 id="5-increase-solver-iterations">5. Increase Solver Iterations</h3>
+<p>When bodies penetrate deeply or complex chains of constraints pull
+against one another, the default solver iteration count may fail to
+converge on a valid mathematical equilibrium:</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Default is typically 6 position and 4 velocity iterations</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>engine<span class="op">.</span><span class="at">positionIterations</span> <span class="op">=</span> <span class="dv">12</span><span class="op">;</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>engine<span class="op">.</span><span class="at">velocityIterations</span> <span class="op">=</span> <span class="dv">10</span><span class="op">;</span></span></code></pre></div>
+<p>Increasing position and velocity iterations forces the constraint
+solver to calculate multiple stabilization passes per step. This dampens
+jitter and resolves constraint conflicts before they amplify into
+explosive impulses.</p>
+<h3 id="6-isolate-components-iteratively">6. Isolate Components
+Iteratively</h3>
+<p>If the root cause remains ambiguous, systematically disable
+simulation components using an elimination strategy:</p>
+<ol type="1">
+<li><strong>Static Pinning:</strong> Set suspected bodies to
+<code>Body.setStatic(body, true)</code> one by one to see if fixing them
+eliminates the explosion.</li>
+<li><strong>Remove Collision Filters:</strong> Set
+<code>body.collisionFilter.mask = 0</code> to disable collision
+resolution entirely while leaving constraints active. If the explosion
+stops, the issue stems from body overlap or collision penetration rather
+than the constraints.</li>
+<li><strong>Strip Constraints:</strong> Temporarily clear all
+constraints via <code>Composite.clear(engine.world, false, true)</code>
+to confirm whether collisions alone remain stable.</li>
+</ol>
+<h3 id="7-enforce-defensive-clamping">7. Enforce Defensive Clamping</h3>
+<p>As a fail-safe against runaway numerical drift, place explicit safety
+clamps on forces and velocities during simulation updates:</p>
+<div class="sourceCode" id="cb4"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a>Events<span class="op">.</span><span class="fu">on</span>(engine<span class="op">,</span> <span class="st">&#39;beforeUpdate&#39;</span><span class="op">,</span> () <span class="kw">=&gt;</span> {</span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> MAX_VELOCITY <span class="op">=</span> <span class="dv">40</span><span class="op">;</span></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> bodies <span class="op">=</span> Composite<span class="op">.</span><span class="fu">allBodies</span>(engine<span class="op">.</span><span class="at">world</span>)<span class="op">;</span></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>  <span class="cf">for</span> (<span class="kw">const</span> body <span class="kw">of</span> bodies) {</span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (body<span class="op">.</span><span class="at">isStatic</span>) <span class="cf">continue</span><span class="op">;</span></span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> speed <span class="op">=</span> Body<span class="op">.</span><span class="fu">getSpeed</span>(body)<span class="op">;</span></span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (speed <span class="op">&gt;</span> MAX_VELOCITY) {</span>
+<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a>      <span class="kw">const</span> ratio <span class="op">=</span> MAX_VELOCITY <span class="op">/</span> speed<span class="op">;</span></span>
+<span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a>      Body<span class="op">.</span><span class="fu">setVelocity</span>(body<span class="op">,</span> {</span>
+<span id="cb4-12"><a href="#cb4-12" aria-hidden="true" tabindex="-1"></a>        <span class="dt">x</span><span class="op">:</span> body<span class="op">.</span><span class="at">velocity</span><span class="op">.</span><span class="at">x</span> <span class="op">*</span> ratio<span class="op">,</span></span>
+<span id="cb4-13"><a href="#cb4-13" aria-hidden="true" tabindex="-1"></a>        <span class="dt">y</span><span class="op">:</span> body<span class="op">.</span><span class="at">velocity</span><span class="op">.</span><span class="at">y</span> <span class="op">*</span> ratio</span>
+<span id="cb4-14"><a href="#cb4-14" aria-hidden="true" tabindex="-1"></a>      })<span class="op">;</span></span>
+<span id="cb4-15"><a href="#cb4-15" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb4-16"><a href="#cb4-16" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-17"><a href="#cb4-17" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Clear runaway forces or NaNs</span></span>
+<span id="cb4-18"><a href="#cb4-18" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (<span class="bu">Number</span><span class="op">.</span><span class="fu">isNaN</span>(body<span class="op">.</span><span class="at">force</span><span class="op">.</span><span class="at">x</span>) <span class="op">||</span> <span class="bu">Number</span><span class="op">.</span><span class="fu">isNaN</span>(body<span class="op">.</span><span class="at">force</span><span class="op">.</span><span class="at">y</span>)) {</span>
+<span id="cb4-19"><a href="#cb4-19" aria-hidden="true" tabindex="-1"></a>      Body<span class="op">.</span><span class="fu">set</span>(body<span class="op">,</span> <span class="st">&#39;force&#39;</span><span class="op">,</span> { <span class="dt">x</span><span class="op">:</span> <span class="dv">0</span><span class="op">,</span> <span class="dt">y</span><span class="op">:</span> <span class="dv">0</span> })<span class="op">;</span></span>
+<span id="cb4-20"><a href="#cb4-20" aria-hidden="true" tabindex="-1"></a>      Body<span class="op">.</span><span class="fu">setVelocity</span>(body<span class="op">,</span> { <span class="dt">x</span><span class="op">:</span> <span class="dv">0</span><span class="op">,</span> <span class="dt">y</span><span class="op">:</span> <span class="dv">0</span> })<span class="op">;</span></span>
+<span id="cb4-21"><a href="#cb4-21" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb4-22"><a href="#cb4-22" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb4-23"><a href="#cb4-23" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div>
+<p>This clamping logic acts as an emergency circuit breaker, preventing
+temporary numerical spikes from permanently ejecting bodies outside the
+playable bounds.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/matter.js'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/matter.js/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/matter.js/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

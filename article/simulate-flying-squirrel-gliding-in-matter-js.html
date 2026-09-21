@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simulate Flying Squirrel Gliding in Matter.js - matter.js</title>
+    <meta name="description" content="This article explains how to simulate the aerodynamic gliding descent of a flying squirrel using the Matter.js 2D physics engine. You will learn how to calculate custom aerodynamic lift and drag vectors based on velocity and angle of attack, implement an">
+    <link rel="canonical" href="https://salivity.github.io/matter.js/article/simulate-flying-squirrel-gliding-in-matter-js">
+    <link rel="search" type="application/opensearchdescription+xml" title="matter.js" href="/matter.js/opensearch.xml">
+    <link rel="icon" href="/matter.js/favicon.ico">
+    <link rel="stylesheet" href="/matter.js/css/style.css">
+    <link media="print" rel="stylesheet" href="/matter.js/css/print.css">
+    <script src="/matter.js/js/fuse.min.js"></script>
+    <script src="/matter.js/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Simulate Flying Squirrel Gliding in Matter.js - matter.js" />
+    <meta property="og:url" content="https://salivity.github.io/matter.js/article/simulate-flying-squirrel-gliding-in-matter-js" />
+    <meta property="og:image" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article explains how to simulate the aerodynamic gliding descent of a flying squirrel using the Matter.js 2D physics engine. You will learn how to calculate custom aerodynamic lift and drag vectors based on velocity and angle of attack, implement an" />
+    <link rel="manifest" href="/matter.js/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/matter.js/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>matter.js</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/matter.js/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="simulate-flying-squirrel-gliding-in-matterjs">Simulate Flying
+Squirrel Gliding in Matter.js</h1>
+<p>This article explains how to simulate the aerodynamic gliding descent
+of a flying squirrel using the Matter.js 2D physics engine. You will
+learn how to calculate custom aerodynamic lift and drag vectors based on
+velocity and angle of attack, implement an adjustable membrane area
+(patagium) parameter, and apply these forces dynamically within the
+engine's update loop to produce realistic gliding trajectories.</p>
+<hr />
+<h3 id="core-aerodynamic-concepts">Core Aerodynamic Concepts</h3>
+<p>Matter.js handles basic rigid-body dynamics and gravity, but it does
+not simulate aerodynamics by default. Gliding flight relies on two
+primary aerodynamic forces opposing gravity:</p>
+<ol type="1">
+<li><strong>Drag (<span class="math inline">\(F_D\)</span>):</strong>
+Acts parallel and opposite to the direction of motion. <span
+class="math display">\[F_D = \frac{1}{2} \rho v^2 C_D A\]</span></li>
+<li><strong>Lift (<span class="math inline">\(F_L\)</span>):</strong>
+Acts perpendicular to the direction of motion. <span
+class="math display">\[F_L = \frac{1}{2} \rho v^2 C_L A\]</span></li>
+</ol>
+<p>Where:</p>
+<ul>
+<li><span class="math inline">\(\rho\)</span> is air density.</li>
+<li><span class="math inline">\(v\)</span> is the current speed.</li>
+<li><span class="math inline">\(A\)</span> is the variable membrane
+surface area.</li>
+<li><span class="math inline">\(C_D\)</span> and <span
+class="math inline">\(C_L\)</span> are drag and lift coefficients, which
+vary based on the squirrel's angle of attack (<span
+class="math inline">\(\alpha\)</span>).</li>
+</ul>
+<hr />
+<h3 id="implementing-the-simulation">Implementing the Simulation</h3>
+<h4 id="1-define-physics-and-squirrel-state">1. Define Physics and
+Squirrel State</h4>
+<p>Set up standard Matter.js modules and track the squirrel's flight
+properties, including the adjustable membrane area.</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> { Engine<span class="op">,</span> Render<span class="op">,</span> Runner<span class="op">,</span> Bodies<span class="op">,</span> Composite<span class="op">,</span> Body<span class="op">,</span> Vector<span class="op">,</span> Events } <span class="op">=</span> Matter<span class="op">;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> engine <span class="op">=</span> Engine<span class="op">.</span><span class="fu">create</span>()<span class="op">;</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> world <span class="op">=</span> engine<span class="op">.</span><span class="at">world</span><span class="op">;</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a><span class="co">// Create the squirrel body</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> squirrel <span class="op">=</span> Bodies<span class="op">.</span><span class="fu">rectangle</span>(<span class="dv">100</span><span class="op">,</span> <span class="dv">100</span><span class="op">,</span> <span class="dv">60</span><span class="op">,</span> <span class="dv">20</span><span class="op">,</span> {</span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>    <span class="dt">mass</span><span class="op">:</span> <span class="fl">1.5</span><span class="op">,</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>    <span class="dt">frictionAir</span><span class="op">:</span> <span class="dv">0</span> <span class="co">// Disable default air friction to use custom equations</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>Composite<span class="op">.</span><span class="fu">add</span>(world<span class="op">,</span> squirrel)<span class="op">;</span></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a><span class="co">// Aerodynamic parameters</span></span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> flightState <span class="op">=</span> {</span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a>    <span class="dt">membraneArea</span><span class="op">:</span> <span class="fl">1.0</span><span class="op">,</span>  <span class="co">// Scale factor (e.g., 0.2 retracted, 1.0 fully deployed)</span></span>
+<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a>    <span class="dt">airDensity</span><span class="op">:</span> <span class="fl">0.0012</span><span class="op">,</span> <span class="co">// Scaled for simulation canvas</span></span>
+<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a>    <span class="dt">maxLiftCoeff</span><span class="op">:</span> <span class="fl">1.2</span><span class="op">,</span></span>
+<span id="cb1-19"><a href="#cb1-19" aria-hidden="true" tabindex="-1"></a>    <span class="dt">baseDragCoeff</span><span class="op">:</span> <span class="fl">0.1</span></span>
+<span id="cb1-20"><a href="#cb1-20" aria-hidden="true" tabindex="-1"></a>}<span class="op">;</span></span></code></pre></div>
+<hr />
+<h4 id="2-calculate-angle-of-attack-and-coefficients">2. Calculate Angle
+of Attack and Coefficients</h4>
+<p>The angle of attack is the difference between the squirrel body's
+pitch angle and its velocity vector.</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">getAerodynamicCoefficients</span>(angleOfAttack) {</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Lift rises with angle of attack, peaks around 15-20 degrees (~0.3 rad), then stalls</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> cl <span class="op">=</span> flightState<span class="op">.</span><span class="at">maxLiftCoeff</span> <span class="op">*</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">sin</span>(<span class="dv">2</span> <span class="op">*</span> angleOfAttack)<span class="op">;</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Drag increases as angle of attack departs from zero</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> cd <span class="op">=</span> flightState<span class="op">.</span><span class="at">baseDragCoeff</span> <span class="op">+</span> (<span class="dv">1</span> <span class="op">-</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">cos</span>(angleOfAttack)) <span class="op">*</span> <span class="fl">1.5</span><span class="op">;</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> { cl<span class="op">,</span> cd }<span class="op">;</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<hr />
+<h4 id="3-compute-and-apply-aerodynamic-forces">3. Compute and Apply
+Aerodynamic Forces</h4>
+<p>Hook into <code>Events.on(engine, 'beforeUpdate', ...)</code> to
+compute and apply the forces at each time step.</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a>Events<span class="op">.</span><span class="fu">on</span>(engine<span class="op">,</span> <span class="st">&#39;beforeUpdate&#39;</span><span class="op">,</span> () <span class="kw">=&gt;</span> {</span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> velocity <span class="op">=</span> squirrel<span class="op">.</span><span class="at">velocity</span><span class="op">;</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> speed <span class="op">=</span> Vector<span class="op">.</span><span class="fu">magnitude</span>(velocity)<span class="op">;</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Skip calculations if stationary</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (speed <span class="op">&lt;</span> <span class="fl">0.1</span>) <span class="cf">return</span><span class="op">;</span></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Direction of motion</span></span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> velocityAngle <span class="op">=</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">atan2</span>(velocity<span class="op">.</span><span class="at">y</span><span class="op">,</span> velocity<span class="op">.</span><span class="at">x</span>)<span class="op">;</span></span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Angle of Attack (body rotation relative to trajectory)</span></span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> angleOfAttack <span class="op">=</span> squirrel<span class="op">.</span><span class="at">angle</span> <span class="op">-</span> velocityAngle<span class="op">;</span></span>
+<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-14"><a href="#cb3-14" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> { cl<span class="op">,</span> cd } <span class="op">=</span> <span class="fu">getAerodynamicCoefficients</span>(angleOfAttack)<span class="op">;</span></span>
+<span id="cb3-15"><a href="#cb3-15" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-16"><a href="#cb3-16" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Dynamic pressure dynamic scaling: 0.5 * rho * v^2 * Area</span></span>
+<span id="cb3-17"><a href="#cb3-17" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> dynamicPressure <span class="op">=</span> <span class="fl">0.5</span> <span class="op">*</span> flightState<span class="op">.</span><span class="at">airDensity</span> <span class="op">*</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">pow</span>(speed<span class="op">,</span> <span class="dv">2</span>) <span class="op">*</span> flightState<span class="op">.</span><span class="at">membraneArea</span><span class="op">;</span></span>
+<span id="cb3-18"><a href="#cb3-18" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-19"><a href="#cb3-19" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> liftMagnitude <span class="op">=</span> dynamicPressure <span class="op">*</span> cl<span class="op">;</span></span>
+<span id="cb3-20"><a href="#cb3-20" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> dragMagnitude <span class="op">=</span> dynamicPressure <span class="op">*</span> cd<span class="op">;</span></span>
+<span id="cb3-21"><a href="#cb3-21" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-22"><a href="#cb3-22" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Drag vector: opposite to velocity vector</span></span>
+<span id="cb3-23"><a href="#cb3-23" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> dragAngle <span class="op">=</span> velocityAngle <span class="op">+</span> <span class="bu">Math</span><span class="op">.</span><span class="cn">PI</span><span class="op">;</span></span>
+<span id="cb3-24"><a href="#cb3-24" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> dragForce <span class="op">=</span> {</span>
+<span id="cb3-25"><a href="#cb3-25" aria-hidden="true" tabindex="-1"></a>        <span class="dt">x</span><span class="op">:</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">cos</span>(dragAngle) <span class="op">*</span> dragMagnitude<span class="op">,</span></span>
+<span id="cb3-26"><a href="#cb3-26" aria-hidden="true" tabindex="-1"></a>        <span class="dt">y</span><span class="op">:</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">sin</span>(dragAngle) <span class="op">*</span> dragMagnitude</span>
+<span id="cb3-27"><a href="#cb3-27" aria-hidden="true" tabindex="-1"></a>    }<span class="op">;</span></span>
+<span id="cb3-28"><a href="#cb3-28" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-29"><a href="#cb3-29" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Lift vector: perpendicular to velocity vector (upward relative to path)</span></span>
+<span id="cb3-30"><a href="#cb3-30" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> liftAngle <span class="op">=</span> velocityAngle <span class="op">-</span> <span class="bu">Math</span><span class="op">.</span><span class="cn">PI</span> <span class="op">/</span> <span class="dv">2</span><span class="op">;</span></span>
+<span id="cb3-31"><a href="#cb3-31" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> liftForce <span class="op">=</span> {</span>
+<span id="cb3-32"><a href="#cb3-32" aria-hidden="true" tabindex="-1"></a>        <span class="dt">x</span><span class="op">:</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">cos</span>(liftAngle) <span class="op">*</span> liftMagnitude<span class="op">,</span></span>
+<span id="cb3-33"><a href="#cb3-33" aria-hidden="true" tabindex="-1"></a>        <span class="dt">y</span><span class="op">:</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">sin</span>(liftAngle) <span class="op">*</span> liftMagnitude</span>
+<span id="cb3-34"><a href="#cb3-34" aria-hidden="true" tabindex="-1"></a>    }<span class="op">;</span></span>
+<span id="cb3-35"><a href="#cb3-35" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-36"><a href="#cb3-36" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Total aerodynamic force</span></span>
+<span id="cb3-37"><a href="#cb3-37" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> totalForce <span class="op">=</span> Vector<span class="op">.</span><span class="fu">add</span>(dragForce<span class="op">,</span> liftForce)<span class="op">;</span></span>
+<span id="cb3-38"><a href="#cb3-38" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-39"><a href="#cb3-39" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Apply force at the center of mass</span></span>
+<span id="cb3-40"><a href="#cb3-40" aria-hidden="true" tabindex="-1"></a>    Body<span class="op">.</span><span class="fu">applyForce</span>(squirrel<span class="op">,</span> squirrel<span class="op">.</span><span class="at">position</span><span class="op">,</span> totalForce)<span class="op">;</span></span>
+<span id="cb3-41"><a href="#cb3-41" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div>
+<hr />
+<h3 id="modulating-membrane-area-in-real-time">Modulating Membrane Area
+in Real Time</h3>
+<p>To simulate a flying squirrel extending or retracting its patagium,
+adjust <code>flightState.membraneArea</code>:</p>
+<ul>
+<li><strong>Expanded Membrane (<code>area = 1.0</code>):</strong>
+Increases lift, allowing shallow gliding descents and horizontal
+distance gains.</li>
+<li><strong>Tucked Limbs (<code>area = 0.2</code>):</strong> Drastically
+reduces lift and drag, leading to a steep, accelerating dive.</li>
+</ul>
+<div class="sourceCode" id="cb4"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Example UI or Input bindings:</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a><span class="bu">window</span><span class="op">.</span><span class="fu">addEventListener</span>(<span class="st">&#39;keydown&#39;</span><span class="op">,</span> (e) <span class="kw">=&gt;</span> {</span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (e<span class="op">.</span><span class="at">key</span> <span class="op">===</span> <span class="st">&#39;ArrowUp&#39;</span>) {</span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>        <span class="co">// Extend membrane</span></span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>        flightState<span class="op">.</span><span class="at">membraneArea</span> <span class="op">=</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">min</span>(<span class="fl">1.5</span><span class="op">,</span> flightState<span class="op">.</span><span class="at">membraneArea</span> <span class="op">+</span> <span class="fl">0.1</span>)<span class="op">;</span></span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a>    } <span class="cf">else</span> <span class="cf">if</span> (e<span class="op">.</span><span class="at">key</span> <span class="op">===</span> <span class="st">&#39;ArrowDown&#39;</span>) {</span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a>        <span class="co">// Retract membrane</span></span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a>        flightState<span class="op">.</span><span class="at">membraneArea</span> <span class="op">=</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">max</span>(<span class="fl">0.1</span><span class="op">,</span> flightState<span class="op">.</span><span class="at">membraneArea</span> <span class="op">-</span> <span class="fl">0.1</span>)<span class="op">;</span></span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div>
+<h3 id="controlling-pitch">Controlling Pitch</h3>
+<p>Glide trajectory depends directly on body rotation. Apply small
+amounts of torque using
+<code>Body.setAngularVelocity(squirrel, value)</code> or direct rotation
+updates to simulate the squirrel using its tail and arms to pitch up or
+down, allowing transitions between high-speed dives and flared
+landings.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/matter.js'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/matter.js/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/matter.js/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

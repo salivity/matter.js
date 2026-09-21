@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Why Concave Polygons Are Expensive in Matter.js - matter.js</title>
+    <meta name="description" content="Complex concave polygons are computationally demanding in Matter.js primarily because 2D physics engines cannot directly resolve collisions on non-convex shapes. To handle a concave shape, Matter.js must automatically decompose it into multiple smaller c">
+    <link rel="canonical" href="https://salivity.github.io/matter.js/article/why-concave-polygons-are-expensive-in-matter-js">
+    <link rel="search" type="application/opensearchdescription+xml" title="matter.js" href="/matter.js/opensearch.xml">
+    <link rel="icon" href="/matter.js/favicon.ico">
+    <link rel="stylesheet" href="/matter.js/css/style.css">
+    <link media="print" rel="stylesheet" href="/matter.js/css/print.css">
+    <script src="/matter.js/js/fuse.min.js"></script>
+    <script src="/matter.js/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Why Concave Polygons Are Expensive in Matter.js - matter.js" />
+    <meta property="og:url" content="https://salivity.github.io/matter.js/article/why-concave-polygons-are-expensive-in-matter-js" />
+    <meta property="og:image" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Complex concave polygons are computationally demanding in Matter.js primarily because 2D physics engines cannot directly resolve collisions on non-convex shapes. To handle a concave shape, Matter.js must automatically decompose it into multiple smaller c" />
+    <link rel="manifest" href="/matter.js/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/matter.js/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>matter.js</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/matter.js/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="why-concave-polygons-are-expensive-in-matterjs">Why Concave
+Polygons Are Expensive in Matter.js</h1>
+<p>Complex concave polygons are computationally demanding in Matter.js
+primarily because 2D physics engines cannot directly resolve collisions
+on non-convex shapes. To handle a concave shape, Matter.js must
+automatically decompose it into multiple smaller convex sub-polygons.
+This decomposition drastically increases the number of collision checks,
+normal axes calculations, and contact constraints that the engine must
+resolve in every single physics frame, leading to severe performance
+bottlenecks.</p>
+<h3 id="the-separating-axis-theorem-limitation">The Separating Axis
+Theorem Limitation</h3>
+<p>Matter.js relies on the Separating Axis Theorem (SAT) for
+narrow-phase collision detection. SAT functions by projecting shapes
+onto various perpendicular axes to check for gaps; if an axis with no
+overlap exists, the shapes are not colliding. However, SAT fundamentally
+only works on convex shapes—polygons where all interior angles are less
+than 180 degrees.</p>
+<p>When applied to concave shapes, SAT fails because an interior indent
+can cause the projection algorithm to report false collisions or miss
+genuine contacts entirely.</p>
+<h3 id="mandatory-convex-decomposition">Mandatory Convex
+Decomposition</h3>
+<p>Because SAT cannot natively process concave forms, Matter.js uses
+convex decomposition algorithms (typically via integrated tools like
+<code>poly-decomp.js</code>) to break the shape down.</p>
+<p>A single complex concave polygon is converted into a compound body
+composed of dozens or even hundreds of smaller convex polygons. What
+appeared to be a single rigid body to the developer becomes an array of
+individual child parts linked together inside the physics engine.</p>
+<h3 id="exponential-narrowphase-collision-checks">Exponential
+Narrowphase Collision Checks</h3>
+<p>The computational cost spikes immediately following decomposition due
+to how collision pairs are evaluated:</p>
+<ul>
+<li><strong>Increased Part Multipliers:</strong> If Object A (a compound
+body with 20 parts) approaches Object B (a compound body with 20 parts),
+Matter.js no longer performs a single check. In the worst-case
+narrowphase, it may evaluate up to 400 potential polygon-to-polygon
+collision pairs.</li>
+<li><strong>More SAT Projection Axes:</strong> Every convex sub-part
+introduces its own unique vertices and edges. The engine must project
+all vertices onto the normal axes of every edge involved in the test.
+Higher vertex density directly multiplies the mathematical dot products
+required per frame.</li>
+</ul>
+<h3 id="broadphase-and-cache-inefficiencies">Broadphase and Cache
+Inefficiencies</h3>
+<p>Even before narrowphase SAT calculations occur, compound bodies
+stress the broadphase stage. While a compound body has a single overall
+axis-aligned bounding box (AABB), the engine must also maintain, update,
+and query the individual AABBs for every child sub-part as the body
+moves and rotates. This causes memory fragmentation and thrashes the
+internal bounding volume hierarchy, preventing the engine from quickly
+skipping non-colliding objects.</p>
+<h3 id="contact-point-resolution-overhead">Contact Point Resolution
+Overhead</h3>
+<p>When complex concave shapes interact, they frequently generate
+numerous simultaneous contact points across their various decomposed
+parts. Matter.js utilizes an iterative impulse solver to resolve
+overlaps and calculate forces like friction, restitution, and momentum
+transfer.</p>
+<p>Having dozens of simultaneous contact manifolds requires the solver
+to run through significantly more iterations to stabilize the objects.
+If the solver cannot converge quickly, it leads either to performance
+drops (frame rate stuttering) or physics instability, such as objects
+vibrating, clipping through each other, or exploding apart.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/matter.js'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/matter.js/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/matter.js/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

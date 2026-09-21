@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Build a Rube Goldberg Machine in Matter.js - matter.js</title>
+    <meta name="description" content="This article explains how to design and build a multi-stage Rube Goldberg machine using the Matter.js 2D physics engine. You will learn how to configure the physics environment, build diverse mechanical components such as domino runs, pendulums, seesaws,">
+    <link rel="canonical" href="https://salivity.github.io/matter.js/article/build-a-rube-goldberg-machine-in-matter-js">
+    <link rel="search" type="application/opensearchdescription+xml" title="matter.js" href="/matter.js/opensearch.xml">
+    <link rel="icon" href="/matter.js/favicon.ico">
+    <link rel="stylesheet" href="/matter.js/css/style.css">
+    <link media="print" rel="stylesheet" href="/matter.js/css/print.css">
+    <script src="/matter.js/js/fuse.min.js"></script>
+    <script src="/matter.js/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Build a Rube Goldberg Machine in Matter.js - matter.js" />
+    <meta property="og:url" content="https://salivity.github.io/matter.js/article/build-a-rube-goldberg-machine-in-matter-js" />
+    <meta property="og:image" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article explains how to design and build a multi-stage Rube Goldberg machine using the Matter.js 2D physics engine. You will learn how to configure the physics environment, build diverse mechanical components such as domino runs, pendulums, seesaws," />
+    <link rel="manifest" href="/matter.js/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/matter.js/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>matter.js</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/matter.js/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="build-a-rube-goldberg-machine-in-matterjs">Build a Rube Goldberg
+Machine in Matter.js</h1>
+<p>This article explains how to design and build a multi-stage Rube
+Goldberg machine using the Matter.js 2D physics engine. You will learn
+how to configure the physics environment, build diverse mechanical
+components such as domino runs, pendulums, seesaws, and release latches,
+and chain them together sequentially. The guide also covers crucial
+physics-tuning techniques—including mass ratios, collision filtering,
+constraints, and solver iterations—to ensure each mechanical trigger
+activates reliably.</p>
+<h3 id="setting-up-the-environment">Setting Up the Environment</h3>
+<p>To start, initialize the Matter.js engine, world, renderer, and
+runner. A Rube Goldberg machine relies on consistent gravity and
+deterministic physical updates to ensure chain reactions behave
+identically on each run.</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> { Engine<span class="op">,</span> Render<span class="op">,</span> Runner<span class="op">,</span> Bodies<span class="op">,</span> Composite<span class="op">,</span> Constraint<span class="op">,</span> Events } <span class="op">=</span> Matter<span class="op">;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> engine <span class="op">=</span> Engine<span class="op">.</span><span class="fu">create</span>({</span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>  <span class="dt">positionIterations</span><span class="op">:</span> <span class="dv">10</span><span class="op">,</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>  <span class="dt">velocityIterations</span><span class="op">:</span> <span class="dv">10</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> render <span class="op">=</span> Render<span class="op">.</span><span class="fu">create</span>({</span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>  <span class="dt">element</span><span class="op">:</span> <span class="bu">document</span><span class="op">.</span><span class="at">body</span><span class="op">,</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>  <span class="dt">engine</span><span class="op">:</span> engine<span class="op">,</span></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>  <span class="dt">options</span><span class="op">:</span> {</span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>    <span class="dt">width</span><span class="op">:</span> <span class="dv">1200</span><span class="op">,</span></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>    <span class="dt">height</span><span class="op">:</span> <span class="dv">800</span><span class="op">,</span></span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>    <span class="dt">wireframes</span><span class="op">:</span> <span class="kw">false</span></span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span>
+<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a>Render<span class="op">.</span><span class="fu">run</span>(render)<span class="op">;</span></span>
+<span id="cb1-19"><a href="#cb1-19" aria-hidden="true" tabindex="-1"></a>Runner<span class="op">.</span><span class="fu">run</span>(Runner<span class="op">.</span><span class="fu">create</span>()<span class="op">,</span> engine)<span class="op">;</span></span></code></pre></div>
+<p>Increasing <code>positionIterations</code> and
+<code>velocityIterations</code> prevents fast-moving objects from
+clipping through tracks or thin walls (tunneling).</p>
+<hr />
+<h3 id="constructing-distinct-mechanical-actions">Constructing Distinct
+Mechanical Actions</h3>
+<p>A compelling Rube Goldberg machine chains fundamentally different
+types of physics interactions. Below are the key mechanisms to
+build.</p>
+<h4 id="1-the-domino-run">1. The Domino Run</h4>
+<p>Dominoes convert small lateral impulses into sequential tipping
+motions.</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">createDominoes</span>(startX<span class="op">,</span> startY<span class="op">,</span> count<span class="op">,</span> spacing) {</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> dominoes <span class="op">=</span> []<span class="op">;</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>  <span class="cf">for</span> (<span class="kw">let</span> i <span class="op">=</span> <span class="dv">0</span><span class="op">;</span> i <span class="op">&lt;</span> count<span class="op">;</span> i<span class="op">++</span>) {</span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> domino <span class="op">=</span> Bodies<span class="op">.</span><span class="fu">rectangle</span>(startX <span class="op">+</span> i <span class="op">*</span> spacing<span class="op">,</span> startY<span class="op">,</span> <span class="dv">10</span><span class="op">,</span> <span class="dv">60</span><span class="op">,</span> {</span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>      <span class="dt">friction</span><span class="op">:</span> <span class="fl">0.4</span><span class="op">,</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>      <span class="dt">restitution</span><span class="op">:</span> <span class="fl">0.1</span><span class="op">,</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>      <span class="dt">density</span><span class="op">:</span> <span class="fl">0.002</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>    })<span class="op">;</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>    dominoes<span class="op">.</span><span class="fu">push</span>(domino)<span class="op">;</span></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>  Composite<span class="op">.</span><span class="fu">add</span>(engine<span class="op">.</span><span class="at">world</span><span class="op">,</span> dominoes)<span class="op">;</span></span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<p><em>Tip:</em> Keep <code>restitution</code> (bounciness) low so
+dominoes don't bounce backward, and keep <code>friction</code> moderate
+so the base pivots rather than slips.</p>
+<h4 id="2-the-seesaw-first-class-lever">2. The Seesaw (First-Class
+Lever)</h4>
+<p>A seesaw transfers a downward impact on one side into an upward
+launch or trigger on the other.</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> plank <span class="op">=</span> Bodies<span class="op">.</span><span class="fu">rectangle</span>(<span class="dv">400</span><span class="op">,</span> <span class="dv">500</span><span class="op">,</span> <span class="dv">200</span><span class="op">,</span> <span class="dv">15</span><span class="op">,</span> { <span class="dt">density</span><span class="op">:</span> <span class="fl">0.003</span> })<span class="op">;</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> fulcrum <span class="op">=</span> Constraint<span class="op">.</span><span class="fu">create</span>({</span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>  <span class="dt">pointA</span><span class="op">:</span> { <span class="dt">x</span><span class="op">:</span> <span class="dv">400</span><span class="op">,</span> <span class="dt">y</span><span class="op">:</span> <span class="dv">500</span> }<span class="op">,</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>  <span class="dt">bodyB</span><span class="op">:</span> plank<span class="op">,</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>  <span class="dt">pointB</span><span class="op">:</span> { <span class="dt">x</span><span class="op">:</span> <span class="dv">0</span><span class="op">,</span> <span class="dt">y</span><span class="op">:</span> <span class="dv">0</span> }<span class="op">,</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>  <span class="dt">stiffness</span><span class="op">:</span> <span class="dv">1</span><span class="op">,</span></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>  <span class="dt">length</span><span class="op">:</span> <span class="dv">0</span></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a>Composite<span class="op">.</span><span class="fu">add</span>(engine<span class="op">.</span><span class="at">world</span><span class="op">,</span> [plank<span class="op">,</span> fulcrum])<span class="op">;</span></span></code></pre></div>
+<h4 id="3-the-newtons-pendulum--wrecking-ball">3. The Newton's Pendulum
+/ Wrecking Ball</h4>
+<p>A pendulum gathers potential energy and releases kinetic energy upon
+collision to bridge large physical gaps.</p>
+<div class="sourceCode" id="cb4"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> pendulumBob <span class="op">=</span> Bodies<span class="op">.</span><span class="fu">circle</span>(<span class="dv">600</span><span class="op">,</span> <span class="dv">300</span><span class="op">,</span> <span class="dv">25</span><span class="op">,</span> { <span class="dt">density</span><span class="op">:</span> <span class="fl">0.05</span> })<span class="op">;</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> pendulumRope <span class="op">=</span> Constraint<span class="op">.</span><span class="fu">create</span>({</span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>  <span class="dt">pointA</span><span class="op">:</span> { <span class="dt">x</span><span class="op">:</span> <span class="dv">550</span><span class="op">,</span> <span class="dt">y</span><span class="op">:</span> <span class="dv">150</span> }<span class="op">,</span></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>  <span class="dt">bodyB</span><span class="op">:</span> pendulumBob<span class="op">,</span></span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>  <span class="dt">stiffness</span><span class="op">:</span> <span class="fl">0.9</span><span class="op">,</span></span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a>  <span class="dt">length</span><span class="op">:</span> <span class="dv">150</span></span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a>Composite<span class="op">.</span><span class="fu">add</span>(engine<span class="op">.</span><span class="at">world</span><span class="op">,</span> [pendulumBob<span class="op">,</span> pendulumRope])<span class="op">;</span></span></code></pre></div>
+<h4 id="4-triggered-trapdoors-and-dynamic-releases">4. Triggered
+Trapdoors and Dynamic Releases</h4>
+<p>Not all chains rely solely on raw momentum transfer. You can use
+Matter.js collision events to act as electronic or mechanical tripwires
+that dissolve constraints or drop gates.</p>
+<div class="sourceCode" id="cb5"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> trapdoor <span class="op">=</span> Bodies<span class="op">.</span><span class="fu">rectangle</span>(<span class="dv">800</span><span class="op">,</span> <span class="dv">400</span><span class="op">,</span> <span class="dv">120</span><span class="op">,</span> <span class="dv">10</span><span class="op">,</span> { <span class="dt">isStatic</span><span class="op">:</span> <span class="kw">true</span> })<span class="op">;</span></span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> sensor <span class="op">=</span> Bodies<span class="op">.</span><span class="fu">rectangle</span>(<span class="dv">750</span><span class="op">,</span> <span class="dv">380</span><span class="op">,</span> <span class="dv">20</span><span class="op">,</span> <span class="dv">20</span><span class="op">,</span> { </span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a>  <span class="dt">isSensor</span><span class="op">:</span> <span class="kw">true</span><span class="op">,</span> </span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a>  <span class="dt">isStatic</span><span class="op">:</span> <span class="kw">true</span> </span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span>
+<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a>Composite<span class="op">.</span><span class="fu">add</span>(engine<span class="op">.</span><span class="at">world</span><span class="op">,</span> [trapdoor<span class="op">,</span> sensor])<span class="op">;</span></span>
+<span id="cb5-8"><a href="#cb5-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-9"><a href="#cb5-9" aria-hidden="true" tabindex="-1"></a>Events<span class="op">.</span><span class="fu">on</span>(engine<span class="op">,</span> <span class="st">&#39;collisionStart&#39;</span><span class="op">,</span> (<span class="bu">event</span>) <span class="kw">=&gt;</span> {</span>
+<span id="cb5-10"><a href="#cb5-10" aria-hidden="true" tabindex="-1"></a>  <span class="bu">event</span><span class="op">.</span><span class="at">pairs</span><span class="op">.</span><span class="fu">forEach</span>((pair) <span class="kw">=&gt;</span> {</span>
+<span id="cb5-11"><a href="#cb5-11" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (pair<span class="op">.</span><span class="at">bodyA</span> <span class="op">===</span> sensor <span class="op">||</span> pair<span class="op">.</span><span class="at">bodyB</span> <span class="op">===</span> sensor) {</span>
+<span id="cb5-12"><a href="#cb5-12" aria-hidden="true" tabindex="-1"></a>      <span class="co">// Release the trapdoor</span></span>
+<span id="cb5-13"><a href="#cb5-13" aria-hidden="true" tabindex="-1"></a>      Matter<span class="op">.</span><span class="at">Body</span><span class="op">.</span><span class="fu">setStatic</span>(trapdoor<span class="op">,</span> <span class="kw">false</span>)<span class="op">;</span></span>
+<span id="cb5-14"><a href="#cb5-14" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb5-15"><a href="#cb5-15" aria-hidden="true" tabindex="-1"></a>  })<span class="op">;</span></span>
+<span id="cb5-16"><a href="#cb5-16" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div>
+<hr />
+<h3 id="chaining-diverse-actions-sequentially">Chaining Diverse Actions
+Sequentially</h3>
+<p>To successfully pass energy from one module to the next, layout and
+momentum budgeting are critical:</p>
+<ol type="1">
+<li><strong>Stage 1 (Initial Release):</strong> A heavy ball drops onto
+an inclined plane and accelerates toward the domino chain.</li>
+<li><strong>Stage 2 (Momentum Transfer):</strong> The ball strikes the
+first domino. The final domino falls off its platform onto the high side
+of the seesaw.</li>
+<li><strong>Stage 3 (Leverage):</strong> The falling domino drives the
+seesaw down, catapulting a light payload upward into the pendulum
+bob.</li>
+<li><strong>Stage 4 (Swing &amp; Trip):</strong> The pendulum swings
+forward, contacting the sensor block.</li>
+<li><strong>Stage 5 (Trapdoor Finale):</strong> The sensor event removes
+the static property of the trapdoor, allowing a heavy weight to drop
+onto the final objective button.</li>
+</ol>
+<hr />
+<h3 id="fine-tuning-for-deterministic-execution">Fine-Tuning for
+Deterministic Execution</h3>
+<ul>
+<li><strong>Mass Balancing:</strong> If a falling object fails to push a
+lever, increase its <code>density</code> rather than its scale to
+maintain layout proportions.</li>
+<li><strong>Friction Air:</strong> Set <code>frictionAir: 0</code> or a
+very low value on rolling spheres to preserve rolling distance along
+long ramps.</li>
+<li><strong>Sleeping Bodies:</strong> For complex machines with dozens
+of elements, enable <code>enableSleeping: true</code> on the engine so
+inactive downstream mechanisms do not drift or jitter before they are
+triggered.</li>
+<li><strong>Chamfering Edges:</strong> Use
+<code>chamfer: { radius: 2 }</code> on sliding components or domino
+edges to prevent sharp visual corners from snagging on flat
+surfaces.</li>
+</ul></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/matter.js'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/matter.js/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/matter.js/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

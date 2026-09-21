@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Customize Spacing in Matter.js Composites.stack - matter.js</title>
+    <meta name="description" content="Adjusting the spacing between bodies in a Matter.Composites.stack in Matter.js is accomplished using the columnGap and rowGap parameters built directly into the stack factory method. By configuring these parameters, you can precisely control the horizont">
+    <link rel="canonical" href="https://salivity.github.io/matter.js/article/customize-spacing-in-matter-js-composites-stack">
+    <link rel="search" type="application/opensearchdescription+xml" title="matter.js" href="/matter.js/opensearch.xml">
+    <link rel="icon" href="/matter.js/favicon.ico">
+    <link rel="stylesheet" href="/matter.js/css/style.css">
+    <link media="print" rel="stylesheet" href="/matter.js/css/print.css">
+    <script src="/matter.js/js/fuse.min.js"></script>
+    <script src="/matter.js/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Customize Spacing in Matter.js Composites.stack - matter.js" />
+    <meta property="og:url" content="https://salivity.github.io/matter.js/article/customize-spacing-in-matter-js-composites-stack" />
+    <meta property="og:image" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Adjusting the spacing between bodies in a Matter.Composites.stack in Matter.js is accomplished using the columnGap and rowGap parameters built directly into the stack factory method. By configuring these parameters, you can precisely control the horizont" />
+    <link rel="manifest" href="/matter.js/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/matter.js/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>matter.js</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/matter.js/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="customize-spacing-in-matterjs-compositesstack">Customize Spacing
+in Matter.js Composites.stack</h1>
+<p>Adjusting the spacing between bodies in a
+<code>Matter.Composites.stack</code> in Matter.js is accomplished using
+the <code>columnGap</code> and <code>rowGap</code> parameters built
+directly into the stack factory method. By configuring these parameters,
+you can precisely control the horizontal and vertical intervals
+separating bodies without having to manually calculate coordinates
+inside the element creation callback.</p>
+<h2 id="understanding-the-stack-method-signature">Understanding the
+Stack Method Signature</h2>
+<p>The <code>Matter.Composites.stack</code> function accepts parameters
+in the following order:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a>Matter<span class="op">.</span><span class="at">Composites</span><span class="op">.</span><span class="fu">stack</span>(xx<span class="op">,</span> yy<span class="op">,</span> columns<span class="op">,</span> rows<span class="op">,</span> columnGap<span class="op">,</span> rowGap<span class="op">,</span> callback)<span class="op">;</span></span></code></pre></div>
+<ul>
+<li><strong><code>xx</code></strong>: The initial horizontal coordinate
+for the top-left of the entire grid.</li>
+<li><strong><code>yy</code></strong>: The initial vertical coordinate
+for the top-left of the entire grid.</li>
+<li><strong><code>columns</code></strong>: The total number of columns
+to generate.</li>
+<li><strong><code>rows</code></strong>: The total number of rows to
+generate.</li>
+<li><strong><code>columnGap</code></strong>: The horizontal space (in
+pixels) added between adjacent columns.</li>
+<li><strong><code>rowGap</code></strong>: The vertical space (in pixels)
+added between adjacent rows.</li>
+<li><strong><code>callback</code></strong>: A function returning the
+body to place at each calculated <code>(x, y)</code> coordinate.</li>
+</ul>
+<h2 id="implementation-example">Implementation Example</h2>
+<p>To create a 5x5 grid of 40x40 pixel boxes with a 15-pixel horizontal
+gap and a 20-pixel vertical gap:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> { Composites<span class="op">,</span> Bodies<span class="op">,</span> World } <span class="op">=</span> Matter<span class="op">;</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> boxWidth <span class="op">=</span> <span class="dv">40</span><span class="op">;</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> boxHeight <span class="op">=</span> <span class="dv">40</span><span class="op">;</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> columnGap <span class="op">=</span> <span class="dv">15</span><span class="op">;</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> rowGap <span class="op">=</span> <span class="dv">20</span><span class="op">;</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> stack <span class="op">=</span> Composites<span class="op">.</span><span class="fu">stack</span>(</span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>  <span class="dv">100</span><span class="op">,</span> <span class="co">// xx: Starting X</span></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>  <span class="dv">100</span><span class="op">,</span> <span class="co">// yy: Starting Y</span></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>  <span class="dv">5</span><span class="op">,</span>   <span class="co">// columns</span></span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>  <span class="dv">5</span><span class="op">,</span>   <span class="co">// rows</span></span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>  columnGap<span class="op">,</span></span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a>  rowGap<span class="op">,</span></span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a>  <span class="kw">function</span>(x<span class="op">,</span> y) {</span>
+<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> Bodies<span class="op">.</span><span class="fu">rectangle</span>(x<span class="op">,</span> y<span class="op">,</span> boxWidth<span class="op">,</span> boxHeight)<span class="op">;</span></span>
+<span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb2-18"><a href="#cb2-18" aria-hidden="true" tabindex="-1"></a>)<span class="op">;</span></span>
+<span id="cb2-19"><a href="#cb2-19" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-20"><a href="#cb2-20" aria-hidden="true" tabindex="-1"></a>World<span class="op">.</span><span class="fu">add</span>(engine<span class="op">.</span><span class="at">world</span><span class="op">,</span> stack)<span class="op">;</span></span></code></pre></div>
+<h2 id="how-the-spacing-calculation-works">How the Spacing Calculation
+Works</h2>
+<p>Matter.js automatically computes the <code>x</code> and
+<code>y</code> coordinates passed into the callback based on the body
+dimensions returned during generation:</p>
+<ol type="1">
+<li>For the first item, <code>x</code> and <code>y</code> start at
+<code>xx</code> and <code>yy</code>.</li>
+<li>For subsequent columns, Matter.js measures the width of the
+previously returned body, adds the specified <code>columnGap</code>, and
+offsets the <code>x</code> position accordingly.</li>
+<li>For subsequent rows, Matter.js uses the height of the bodies plus
+the <code>rowGap</code> to shift the <code>y</code> position
+downward.</li>
+</ol>
+<h2 id="using-negative-and-zero-gaps">Using Negative and Zero Gaps</h2>
+<ul>
+<li><strong>Zero Spacing (<code>0</code>)</strong>: Setting
+<code>columnGap</code> or <code>rowGap</code> to <code>0</code> places
+adjacent bodies directly in contact edge-to-edge.</li>
+<li><strong>Negative Values</strong>: Using negative values causes
+bodies to overlap, which is useful when assembling interlocking geometry
+or welded composite structures with constraints.</li>
+</ul></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/matter.js'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/matter.js/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/matter.js/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

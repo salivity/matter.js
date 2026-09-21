@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Build a Matter.js Ferris Wheel with Hanging Cars - matter.js</title>
+    <meta name="description" content="This article demonstrates how to construct an interactive, physics-driven Ferris wheel using the Matter.js 2D physics engine. By combining a central revolving wheel, revolute constraints, and top-mounted pivot points on passenger cabins, you will learn h">
+    <link rel="canonical" href="https://salivity.github.io/matter.js/article/build-a-matter-js-ferris-wheel-with-hanging-cars">
+    <link rel="search" type="application/opensearchdescription+xml" title="matter.js" href="/matter.js/opensearch.xml">
+    <link rel="icon" href="/matter.js/favicon.ico">
+    <link rel="stylesheet" href="/matter.js/css/style.css">
+    <link media="print" rel="stylesheet" href="/matter.js/css/print.css">
+    <script src="/matter.js/js/fuse.min.js"></script>
+    <script src="/matter.js/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Build a Matter.js Ferris Wheel with Hanging Cars - matter.js" />
+    <meta property="og:url" content="https://salivity.github.io/matter.js/article/build-a-matter-js-ferris-wheel-with-hanging-cars" />
+    <meta property="og:image" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article demonstrates how to construct an interactive, physics-driven Ferris wheel using the Matter.js 2D physics engine. By combining a central revolving wheel, revolute constraints, and top-mounted pivot points on passenger cabins, you will learn h" />
+    <link rel="manifest" href="/matter.js/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/matter.js/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>matter.js</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/matter.js/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="build-a-matterjs-ferris-wheel-with-hanging-cars">Build a
+Matter.js Ferris Wheel with Hanging Cars</h1>
+<p>This article demonstrates how to construct an interactive,
+physics-driven Ferris wheel using the Matter.js 2D physics engine. By
+combining a central revolving wheel, revolute constraints, and
+top-mounted pivot points on passenger cabins, you will learn how to
+assemble a continuously rotating structure where the cars naturally
+stabilize and remain upright due to gravity.</p>
+<h3 id="core-mechanics-of-the-ferris-wheel">Core Mechanics of the Ferris
+Wheel</h3>
+<p>To create a realistic Ferris wheel, the simulation requires three
+primary components:</p>
+<ol type="1">
+<li><strong>A central wheel or rotor:</strong> A body pinned to a fixed
+coordinate in the world so it can rotate around its center.</li>
+<li><strong>Passenger cars (cabins):</strong> Individual bodies attached
+to the outer rim of the wheel.</li>
+<li><strong>Revolute constraints:</strong> Pivot connections that allow
+free rotation between the cabins and the wheel rim. Placing the pivot
+connection near the top edge of each cabin ensures that gravity
+naturally pulls the cabin's center of mass downward, keeping it upright
+as the wheel turns.</li>
+</ol>
+<h3 id="step-1-setting-up-the-wheel-and-axle">Step 1: Setting Up the
+Wheel and Axle</h3>
+<p>First, initialize your standard Matter.js modules
+(<code>Engine</code>, <code>Render</code>, <code>Runner</code>,
+<code>Bodies</code>, <code>Composite</code>, <code>Constraint</code>,
+<code>Body</code>).</p>
+<p>Create a circular body or multi-spoke frame for the main wheel and
+secure it to a static coordinate in the world using a rigid
+constraint.</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> wheelRadius <span class="op">=</span> <span class="dv">180</span><span class="op">;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> centerX <span class="op">=</span> <span class="dv">400</span><span class="op">;</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> centerY <span class="op">=</span> <span class="dv">300</span><span class="op">;</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="co">// Central wheel body (non-colliding)</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> wheel <span class="op">=</span> Bodies<span class="op">.</span><span class="fu">circle</span>(centerX<span class="op">,</span> centerY<span class="op">,</span> wheelRadius<span class="op">,</span> {</span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>    <span class="dt">collisionFilter</span><span class="op">:</span> { <span class="dt">group</span><span class="op">:</span> <span class="op">-</span><span class="dv">1</span> }</span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a><span class="co">// Fixed axle constraint</span></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> axle <span class="op">=</span> Constraint<span class="op">.</span><span class="fu">create</span>({</span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>    <span class="dt">pointA</span><span class="op">:</span> { <span class="dt">x</span><span class="op">:</span> centerX<span class="op">,</span> <span class="dt">y</span><span class="op">:</span> centerY }<span class="op">,</span></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>    <span class="dt">bodyB</span><span class="op">:</span> wheel<span class="op">,</span></span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>    <span class="dt">pointB</span><span class="op">:</span> { <span class="dt">x</span><span class="op">:</span> <span class="dv">0</span><span class="op">,</span> <span class="dt">y</span><span class="op">:</span> <span class="dv">0</span> }<span class="op">,</span></span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a>    <span class="dt">stiffness</span><span class="op">:</span> <span class="dv">1</span><span class="op">,</span></span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a>    <span class="dt">length</span><span class="op">:</span> <span class="dv">0</span></span>
+<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div>
+<p>Setting a negative <code>collisionFilter.group</code> prevents parts
+of the wheel assembly from colliding with one another.</p>
+<h3 id="step-2-creating-and-attaching-the-passenger-cars">Step 2:
+Creating and Attaching the Passenger Cars</h3>
+<p>Calculate the positions of the cabins around the perimeter using
+basic trigonometry. For each cabin:</p>
+<ol type="1">
+<li>Create a rectangular body representing the cabin.</li>
+<li>Connect the cabin to the wheel rim using a
+<code>Constraint</code>.</li>
+<li>Set the constraint's connection point on the cabin
+(<code>pointB</code>) near its top edge (a negative Y offset relative to
+the cabin's center). This creates a pendulum effect, allowing gravity to
+stabilize the cabin without requiring manual angle corrections.</li>
+</ol>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> cabinCount <span class="op">=</span> <span class="dv">8</span><span class="op">;</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> cabins <span class="op">=</span> []<span class="op">;</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> cabinConstraints <span class="op">=</span> []<span class="op">;</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> (<span class="kw">let</span> i <span class="op">=</span> <span class="dv">0</span><span class="op">;</span> i <span class="op">&lt;</span> cabinCount<span class="op">;</span> i<span class="op">++</span>) {</span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> angle <span class="op">=</span> (i <span class="op">/</span> cabinCount) <span class="op">*</span> <span class="bu">Math</span><span class="op">.</span><span class="cn">PI</span> <span class="op">*</span> <span class="dv">2</span><span class="op">;</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> rimX <span class="op">=</span> centerX <span class="op">+</span> wheelRadius <span class="op">*</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">cos</span>(angle)<span class="op">;</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> rimY <span class="op">=</span> centerY <span class="op">+</span> wheelRadius <span class="op">*</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">sin</span>(angle)<span class="op">;</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> cabinWidth <span class="op">=</span> <span class="dv">40</span><span class="op">;</span></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> cabinHeight <span class="op">=</span> <span class="dv">50</span><span class="op">;</span></span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Create the cabin body</span></span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> cabin <span class="op">=</span> Bodies<span class="op">.</span><span class="fu">rectangle</span>(rimX<span class="op">,</span> rimY <span class="op">+</span> <span class="dv">15</span><span class="op">,</span> cabinWidth<span class="op">,</span> cabinHeight<span class="op">,</span> {</span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a>        <span class="dt">collisionFilter</span><span class="op">:</span> { <span class="dt">group</span><span class="op">:</span> <span class="op">-</span><span class="dv">1</span> }<span class="op">,</span></span>
+<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a>        <span class="dt">frictionAir</span><span class="op">:</span> <span class="fl">0.05</span><span class="op">,</span> <span class="co">// Dampens swinging motion</span></span>
+<span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a>        <span class="dt">density</span><span class="op">:</span> <span class="fl">0.002</span></span>
+<span id="cb2-18"><a href="#cb2-18" aria-hidden="true" tabindex="-1"></a>    })<span class="op">;</span></span>
+<span id="cb2-19"><a href="#cb2-19" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-20"><a href="#cb2-20" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Pin the top of the cabin to the rim of the wheel</span></span>
+<span id="cb2-21"><a href="#cb2-21" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> cabinPin <span class="op">=</span> Constraint<span class="op">.</span><span class="fu">create</span>({</span>
+<span id="cb2-22"><a href="#cb2-22" aria-hidden="true" tabindex="-1"></a>        <span class="dt">bodyA</span><span class="op">:</span> wheel<span class="op">,</span></span>
+<span id="cb2-23"><a href="#cb2-23" aria-hidden="true" tabindex="-1"></a>        <span class="dt">pointA</span><span class="op">:</span> { </span>
+<span id="cb2-24"><a href="#cb2-24" aria-hidden="true" tabindex="-1"></a>            <span class="dt">x</span><span class="op">:</span> wheelRadius <span class="op">*</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">cos</span>(angle)<span class="op">,</span> </span>
+<span id="cb2-25"><a href="#cb2-25" aria-hidden="true" tabindex="-1"></a>            <span class="dt">y</span><span class="op">:</span> wheelRadius <span class="op">*</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">sin</span>(angle) </span>
+<span id="cb2-26"><a href="#cb2-26" aria-hidden="true" tabindex="-1"></a>        }<span class="op">,</span></span>
+<span id="cb2-27"><a href="#cb2-27" aria-hidden="true" tabindex="-1"></a>        <span class="dt">bodyB</span><span class="op">:</span> cabin<span class="op">,</span></span>
+<span id="cb2-28"><a href="#cb2-28" aria-hidden="true" tabindex="-1"></a>        <span class="dt">pointB</span><span class="op">:</span> { <span class="dt">x</span><span class="op">:</span> <span class="dv">0</span><span class="op">,</span> <span class="dt">y</span><span class="op">:</span> <span class="op">-</span>cabinHeight <span class="op">/</span> <span class="dv">2</span> }<span class="op">,</span></span>
+<span id="cb2-29"><a href="#cb2-29" aria-hidden="true" tabindex="-1"></a>        <span class="dt">stiffness</span><span class="op">:</span> <span class="dv">1</span><span class="op">,</span></span>
+<span id="cb2-30"><a href="#cb2-30" aria-hidden="true" tabindex="-1"></a>        <span class="dt">length</span><span class="op">:</span> <span class="dv">0</span></span>
+<span id="cb2-31"><a href="#cb2-31" aria-hidden="true" tabindex="-1"></a>    })<span class="op">;</span></span>
+<span id="cb2-32"><a href="#cb2-32" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-33"><a href="#cb2-33" aria-hidden="true" tabindex="-1"></a>    cabins<span class="op">.</span><span class="fu">push</span>(cabin)<span class="op">;</span></span>
+<span id="cb2-34"><a href="#cb2-34" aria-hidden="true" tabindex="-1"></a>    cabinConstraints<span class="op">.</span><span class="fu">push</span>(cabinPin)<span class="op">;</span></span>
+<span id="cb2-35"><a href="#cb2-35" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<h3 id="step-3-motorizing-the-wheel">Step 3: Motorizing the Wheel</h3>
+<p>To rotate the wheel, enforce a steady angular velocity on the central
+wheel body within the engine's update loop. Listening to the
+<code>beforeUpdate</code> event provides smooth, constant motion.</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a>Matter<span class="op">.</span><span class="at">Events</span><span class="op">.</span><span class="fu">on</span>(engine<span class="op">,</span> <span class="st">&#39;beforeUpdate&#39;</span><span class="op">,</span> () <span class="kw">=&gt;</span> {</span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>    Matter<span class="op">.</span><span class="at">Body</span><span class="op">.</span><span class="fu">setAngularVelocity</span>(wheel<span class="op">,</span> <span class="fl">0.008</span>)<span class="op">;</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div>
+<h3 id="step-4-adding-everything-to-the-world">Step 4: Adding Everything
+to the World</h3>
+<p>Finally, add the wheel, axle, cabins, and constraints to the
+Matter.js composite:</p>
+<div class="sourceCode" id="cb4"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a>Composite<span class="op">.</span><span class="fu">add</span>(engine<span class="op">.</span><span class="at">world</span><span class="op">,</span> [</span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>    wheel<span class="op">,</span></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>    axle<span class="op">,</span></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>    <span class="op">...</span>cabins<span class="op">,</span></span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>    <span class="op">...</span>cabinConstraints</span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a>])<span class="op">;</span></span></code></pre></div>
+<p>By adjusting the <code>frictionAir</code> property of the cabins, you
+can control how much they sway as the wheel turns. The top-mounted
+constraint guarantees that gravity keeps the passenger cabins oriented
+right-side up throughout the entire rotation cycle.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/matter.js'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/matter.js/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/matter.js/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Understanding Matter.Engine.clear in Matter.js - matter.js</title>
+    <meta name="description" content="Matter.Engine.clear is a core utility method in Matter.js designed to reset an engine's internal simulation state without requiring developers to instantiate a new Engine object. This article examines the exact mechanics behind how this method flushes ac">
+    <link rel="canonical" href="https://salivity.github.io/matter.js/article/understanding-matter-engine-clear-in-matter-js">
+    <link rel="search" type="application/opensearchdescription+xml" title="matter.js" href="/matter.js/opensearch.xml">
+    <link rel="icon" href="/matter.js/favicon.ico">
+    <link rel="stylesheet" href="/matter.js/css/style.css">
+    <link media="print" rel="stylesheet" href="/matter.js/css/print.css">
+    <script src="/matter.js/js/fuse.min.js"></script>
+    <script src="/matter.js/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Understanding Matter.Engine.clear in Matter.js - matter.js" />
+    <meta property="og:url" content="https://salivity.github.io/matter.js/article/understanding-matter-engine-clear-in-matter-js" />
+    <meta property="og:image" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Matter.Engine.clear is a core utility method in Matter.js designed to reset an engine's internal simulation state without requiring developers to instantiate a new Engine object. This article examines the exact mechanics behind how this method flushes ac" />
+    <link rel="manifest" href="/matter.js/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/matter.js/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>matter.js</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/matter.js/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="understanding-matterengineclear-in-matterjs">Understanding
+Matter.Engine.clear in Matter.js</h1>
+<p><code>Matter.Engine.clear</code> is a core utility method in
+Matter.js designed to reset an engine's internal simulation state
+without requiring developers to instantiate a new <code>Engine</code>
+object. This article examines the exact mechanics behind how this method
+flushes active collision pairs, purges broadphase and narrowphase
+structures, clears the composite world tree, and severs dangling object
+references to prevent memory leaks during scene transitions or
+simulation restarts.</p>
+<h3 id="clearing-the-world-composite">Clearing the World Composite</h3>
+<p>The clearance process begins at the root container of the simulation:
+<code>engine.world</code>. Under the hood,
+<code>Matter.Engine.clear</code> invokes
+<code>Matter.Composite.clear(engine.world, false)</code>.</p>
+<p>This operation recursively traverses the composite hierarchy:</p>
+<ul>
+<li><strong>Bodies Array:</strong> All physical bodies inside
+<code>engine.world.bodies</code> are removed, detaching their geometry,
+motion vectors, and force accumulators.</li>
+<li><strong>Constraints Array:</strong> All joint linkages, springs, and
+pin constraints in <code>engine.world.constraints</code> are
+emptied.</li>
+<li><strong>Nested Composites:</strong> Any sub-composites grouped
+within the root world are cleared recursively down to leaf nodes.</li>
+</ul>
+<p>By passing <code>false</code> as the second argument, the root
+composite itself is preserved while its contents are completely
+evacuated.</p>
+<h3 id="flushing-collision-pairs">Flushing Collision Pairs</h3>
+<p>During execution, Matter.js tracks persistent contact points across
+frames using a dedicated collision pair manager located at
+<code>engine.pairs</code>. This cache stores active collision pairs
+(<code>Pair</code> objects), separation vectors, friction data, and
+penetration depths to solve impulses efficiently over time.</p>
+<p><code>Matter.Engine.clear</code> calls
+<code>Matter.Pairs.clear(engine.pairs)</code>. This operation:</p>
+<ol type="1">
+<li>Empties the <code>pairs.table</code> hash map, which indexes
+collisions using unique body pair keys (e.g.,
+<code>idA_idB</code>).</li>
+<li>Clears the <code>pairs.list</code> array, which holds active contact
+manifolds scheduled for resolution.</li>
+<li>Resets internal collision metrics, including active collision counts
+and collision lifecycle states (<code>collisionStart</code>,
+<code>collisionActive</code>, <code>collisionEnd</code>).</li>
+</ol>
+<p>Purging the pairs table ensures that newly spawned bodies in
+subsequent frames do not inherit outdated impulse values or phantom
+collision responses from previous objects.</p>
+<h3 id="resetting-broadphase-spatial-structures">Resetting Broadphase
+Spatial Structures</h3>
+<p>Before calculating detailed vertex-level intersections, Matter.js
+uses a broadphase collision detector (such as a spatial grid or bounding
+box tree) to filter out distant bodies.</p>
+<p><code>Matter.Engine.clear</code> resets this system by:</p>
+<ul>
+<li>Wiping spatial partitioning buckets or grid cells containing
+references to body bounding boxes (<code>AABB</code>).</li>
+<li>Resetting the internal pair candidate list generated by
+<code>Detector.collisions()</code>.</li>
+<li>Ensuring that dead spatial nodes no longer reference body
+identifiers.</li>
+</ul>
+<p>This prevents the narrowphase collision solver from receiving stale
+body pairs that no longer exist in the physics world.</p>
+<h3 id="resetting-engine-timing-and-metrics">Resetting Engine Timing and
+Metrics</h3>
+<p>The engine's internal step pipeline relies on frame delta
+accumulation to maintain deterministic updates. When cleared:</p>
+<ul>
+<li><strong>Timers:</strong> The accumulator tracking fractional frame
+times is zeroed out.</li>
+<li><strong>Metrics:</strong> Simulation metrics, such as frame counter,
+broadphase time, narrowphase time, and solver duration, are
+re-initialized.</li>
+<li><strong>Event Queues:</strong> Internal event hooks registered
+directly on engine update loops are cleared of pending tick
+payloads.</li>
+</ul>
+<h3 id="facilitating-garbage-collection">Facilitating Garbage
+Collection</h3>
+<p>JavaScript utilizes reference-counting and mark-and-sweep garbage
+collection. By systematically emptying arrays (<code>bodies</code>,
+<code>constraints</code>, <code>composites</code>,
+<code>pairs.list</code>) and setting hash table entries
+(<code>pairs.table</code>) to empty structures,
+<code>Matter.Engine.clear</code> breaks circular references between
+collision pairs and body definitions.</p>
+<p>Once these references are severed from the root <code>engine</code>
+instance, the JavaScript runtime's garbage collector can safely reclaim
+the memory allocated for body vertices, collision caches, parts arrays,
+and render bindings.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/matter.js'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/matter.js/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/matter.js/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Matter.js Velocity Iterations: Speed vs Accuracy - matter.js</title>
+    <meta name="description" content="In Matter.js, the physics engine relies on an iterative solver to calculate how rigid bodies interact, bounce, and transfer momentum. Tuning the engine.velocityIterations property creates a direct trade-off between execution speed and physical realism: l">
+    <link rel="canonical" href="https://salivity.github.io/matter.js/article/matter-js-velocity-iterations-speed-vs-accuracy">
+    <link rel="search" type="application/opensearchdescription+xml" title="matter.js" href="/matter.js/opensearch.xml">
+    <link rel="icon" href="/matter.js/favicon.ico">
+    <link rel="stylesheet" href="/matter.js/css/style.css">
+    <link media="print" rel="stylesheet" href="/matter.js/css/print.css">
+    <script src="/matter.js/js/fuse.min.js"></script>
+    <script src="/matter.js/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Matter.js Velocity Iterations: Speed vs Accuracy - matter.js" />
+    <meta property="og:url" content="https://salivity.github.io/matter.js/article/matter-js-velocity-iterations-speed-vs-accuracy" />
+    <meta property="og:image" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="In Matter.js, the physics engine relies on an iterative solver to calculate how rigid bodies interact, bounce, and transfer momentum. Tuning the engine.velocityIterations property creates a direct trade-off between execution speed and physical realism: l" />
+    <link rel="manifest" href="/matter.js/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/matter.js/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>matter.js</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/matter.js/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="matterjs-velocity-iterations-speed-vs-accuracy">Matter.js
+Velocity Iterations: Speed vs Accuracy</h1>
+<p>In Matter.js, the physics engine relies on an iterative solver to
+calculate how rigid bodies interact, bounce, and transfer momentum.
+Tuning the <code>engine.velocityIterations</code> property creates a
+direct trade-off between execution speed and physical realism: lowering
+the number of iterations reduces the computational workload per frame to
+achieve higher performance, but it also causes incomplete velocity
+resolution, leading to physical artifacts like jittering, incorrect
+bounces, and object overlap.</p>
+<h3 id="how-velocity-iterations-work">How Velocity Iterations Work</h3>
+<p>Matter.js uses an iterative impulse solver to calculate realistic
+motion during collisions. When multiple rigid bodies collide or connect
+through constraints, their ideal outgoing velocities cannot be solved
+instantly in a single pass because resolving one collision inevitably
+affects another.</p>
+<p>To solve this, the engine applies multiple passes—known as velocity
+iterations—within each update cycle:</p>
+<ol type="1">
+<li>The engine detects all active collisions and contact points.</li>
+<li>It calculates impulses to correct the relative velocities along
+collision normals.</li>
+<li>It repeats this process sequentially for the number of times defined
+by <code>velocityIterations</code>.</li>
+</ol>
+<p>With each pass, the simulation gets closer to mathematical
+equilibrium, ensuring all interacting bodies receive proper momentum
+adjustments.</p>
+<h3 id="why-limiting-iterations-increases-speed">Why Limiting Iterations
+Increases Speed</h3>
+<p>The primary cost in a 2D physics simulation is solving collisions and
+constraints. The mathematical complexity per tick scales directly with
+the number of iterations:</p>
+<p><span class="math display">\[\text{Total Calculations} \approx
+\text{Active Collisions} \times \text{Iterations}\]</span></p>
+<p>Reducing <code>velocityIterations</code> directly cuts the number of
+CPU cycles spent inside the solver loops for every frame. On devices
+with limited processing power or in scenes with hundreds of simultaneous
+dynamic bodies, decreasing this value frees up execution time on the
+main JavaScript thread. This prevents frame drops, reduces simulation
+lag, and preserves smooth rendering performance.</p>
+<h3 id="why-limiting-iterations-reduces-accuracy">Why Limiting
+Iterations Reduces Accuracy</h3>
+<p>Physics engines approximate real-world behavior through convergence.
+When you prematurely stop the solver by setting low velocity iterations,
+the equations never fully converge, resulting in physical
+inaccuracies:</p>
+<ul>
+<li><strong>Unstable Stacking:</strong> In stacks of objects, forces
+must propagate from the bottom body to the top. Low iterations prevent
+impulses from traveling all the way through the stack within a single
+frame, causing towers to wobble, sink into one another, or collapse
+spontaneously.</li>
+<li><strong>Inaccurate Rebound and Momentum:</strong> Colliding bodies
+may not bounce with the correct restitution. Kinetic energy can either
+be inadvertently lost or artificially introduced, making collisions feel
+sluggish or unpredictably explosive.</li>
+<li><strong>Tunneling and Ghost Collisions:</strong> Fast-moving bodies
+depend on accurate velocity calculations to avoid passing through other
+surfaces. With insufficient iterations, bodies can clip through
+boundaries or trigger collision responses too late.</li>
+<li><strong>Joint and Constraint Stretching:</strong> Springs, ropes,
+and stiff constraints depend on velocity solving to maintain their
+target distances. Fewer iterations cause constraints to act rubbery or
+fail to hold attached bodies in place.</li>
+</ul>
+<h3 id="striking-the-right-balance">Striking the Right Balance</h3>
+<p>Matter.js sets <code>velocityIterations</code> to a default value of
+4 (alongside a default of 6 for <code>positionIterations</code>).</p>
+<ul>
+<li><strong>Decrease iterations (e.g., 1 to 3)</strong> if you are
+building mobile-friendly games, ambient particle systems, or games with
+fast-moving, non-stacking entities where frame rate takes priority over
+strict realism.</li>
+<li><strong>Increase iterations (e.g., 6 to 10+)</strong> if your
+simulation relies on structural stability, precise physical puzzles, or
+complex systems of interconnected constraints and joints where any
+physical error ruins the user experience.</li>
+</ul></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/matter.js'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/matter.js/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/matter.js/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

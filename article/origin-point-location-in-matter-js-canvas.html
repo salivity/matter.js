@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Origin Point Location in Matter.js Canvas - matter.js</title>
+    <meta name="description" content="In Matter.js, the origin point (0, 0) is located at the top-left corner of the canvas. This coordinate system follows the standard HTML5 Canvas convention, where the horizontal X-axis increases to the right and the vertical Y-axis increases downward. Und">
+    <link rel="canonical" href="https://salivity.github.io/matter.js/article/origin-point-location-in-matter-js-canvas">
+    <link rel="search" type="application/opensearchdescription+xml" title="matter.js" href="/matter.js/opensearch.xml">
+    <link rel="icon" href="/matter.js/favicon.ico">
+    <link rel="stylesheet" href="/matter.js/css/style.css">
+    <link media="print" rel="stylesheet" href="/matter.js/css/print.css">
+    <script src="/matter.js/js/fuse.min.js"></script>
+    <script src="/matter.js/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Origin Point Location in Matter.js Canvas - matter.js" />
+    <meta property="og:url" content="https://salivity.github.io/matter.js/article/origin-point-location-in-matter-js-canvas" />
+    <meta property="og:image" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="In Matter.js, the origin point (0, 0) is located at the top-left corner of the canvas. This coordinate system follows the standard HTML5 Canvas convention, where the horizontal X-axis increases to the right and the vertical Y-axis increases downward. Und" />
+    <link rel="manifest" href="/matter.js/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/matter.js/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>matter.js</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/matter.js/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="origin-point-location-in-matterjs-canvas">Origin Point Location
+in Matter.js Canvas</h1>
+<p>In Matter.js, the origin point <code>(0, 0)</code> is located at the
+top-left corner of the canvas. This coordinate system follows the
+standard HTML5 Canvas convention, where the horizontal X-axis increases
+to the right and the vertical Y-axis increases downward. Understanding
+this layout is essential for positioning bodies, applying forces, and
+configuring constraints accurately within your 2D physics world.</p>
+<h3 id="the-matterjs-coordinate-system">The Matter.js Coordinate
+System</h3>
+<p>Matter.js relies on the standard computer graphics screen coordinate
+system rather than a Cartesian coordinate plane:</p>
+<ul>
+<li><strong>Origin <code>(0, 0)</code>:</strong> Positioned at the
+extreme top-left corner of the rendered view.</li>
+<li><strong>X-Axis:</strong> Values increase as you move horizontally to
+the right across the screen.</li>
+<li><strong>Y-Axis:</strong> Values increase as you move vertically
+downward toward the bottom of the screen.</li>
+</ul>
+<p>Because the Y-axis points downward, gravity in Matter.js is defined
+as a positive vertical value by default (usually
+<code>engine.gravity.y = 1</code>). This pulls objects toward the bottom
+of the screen.</p>
+<h3 id="how-rigid-body-positions-work">How Rigid Body Positions
+Work</h3>
+<p>While the canvas origin is at the top-left, the <code>position</code>
+vector of a rigid body (<code>body.position</code>) does not refer to
+the body's top-left corner. Instead, a body's position represents its
+<strong>center of mass</strong> (typically its geometric center).</p>
+<p>For example, if you create a rectangle with a width of 100 pixels and
+a height of 100 pixels at coordinates <code>(50, 50)</code>:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> box <span class="op">=</span> Bodies<span class="op">.</span><span class="fu">rectangle</span>(<span class="dv">50</span><span class="op">,</span> <span class="dv">50</span><span class="op">,</span> <span class="dv">100</span><span class="op">,</span> <span class="dv">100</span>)<span class="op">;</span></span></code></pre></div>
+<p>The center of the box will sit at <code>(50, 50)</code>, causing the
+top-left corner of the box to align directly with the canvas origin at
+<code>(0, 0)</code>.</p>
+<h3 id="viewport-and-render-bounds">Viewport and Render Bounds</h3>
+<p>If you use the built-in <code>Matter.Render</code> module, the
+visible origin might appear to move if you adjust camera bounds using
+<code>Render.lookAt</code> or modify <code>render.bounds</code>.
+However, this only alters the viewport perspective. The underlying
+physics engine retains its absolute origin at <code>(0, 0)</code> in
+world space.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/matter.js'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/matter.js/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/matter.js/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

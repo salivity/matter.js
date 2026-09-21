@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simulating Vocal Cord Mucosal Waves in Matter.js - matter.js</title>
+    <meta name="description" content="This article explains how to simulate the biomechanical mucosal wave of vocal fold vibration using Matter.js, a 2D physics engine. By combining a multi-mass spring-damper model with dynamic aerodynamic forces derived from the myoelastic-aerodynamic theor">
+    <link rel="canonical" href="https://salivity.github.io/matter.js/article/simulating-vocal-cord-mucosal-waves-in-matter-js">
+    <link rel="search" type="application/opensearchdescription+xml" title="matter.js" href="/matter.js/opensearch.xml">
+    <link rel="icon" href="/matter.js/favicon.ico">
+    <link rel="stylesheet" href="/matter.js/css/style.css">
+    <link media="print" rel="stylesheet" href="/matter.js/css/print.css">
+    <script src="/matter.js/js/fuse.min.js"></script>
+    <script src="/matter.js/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Simulating Vocal Cord Mucosal Waves in Matter.js - matter.js" />
+    <meta property="og:url" content="https://salivity.github.io/matter.js/article/simulating-vocal-cord-mucosal-waves-in-matter-js" />
+    <meta property="og:image" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article explains how to simulate the biomechanical mucosal wave of vocal fold vibration using Matter.js, a 2D physics engine. By combining a multi-mass spring-damper model with dynamic aerodynamic forces derived from the myoelastic-aerodynamic theor" />
+    <link rel="manifest" href="/matter.js/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/matter.js/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>matter.js</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/matter.js/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="simulating-vocal-cord-mucosal-waves-in-matterjs">Simulating
+Vocal Cord Mucosal Waves in Matter.js</h1>
+<p>This article explains how to simulate the biomechanical mucosal wave
+of vocal fold vibration using Matter.js, a 2D physics engine. By
+combining a multi-mass spring-damper model with dynamic aerodynamic
+forces derived from the myoelastic-aerodynamic theory of phonation,
+developers can recreate the phase-delayed, self-oscillating vertical
+wave motion characteristic of human vocal folds.</p>
+<h2 id="the-biomechanics-of-the-mucosal-wave">The Biomechanics of the
+Mucosal Wave</h2>
+<p>The mucosal wave is a surface wave that travels vertically from the
+inferior (bottom) margin to the superior (top) margin of the vocal folds
+during phonation. It is driven by two interdependent forces:</p>
+<ol type="1">
+<li><strong>Tissue Elasticity:</strong> The viscoelastic tissue layers
+(cover, transition, body) that resist displacement and return the vocal
+folds to equilibrium.</li>
+<li><strong>Aerodynamics (The Bernoulli Effect):</strong> Subglottic
+pressure forces the folds apart from bottom to top. As air rushes
+through the narrow glottal constriction, pressure drops, pulling the
+lower margins back together while the upper margins are still
+opening.</li>
+</ol>
+<p>Because Matter.js is a rigid-body physics engine rather than a
+fluid-structure interaction simulator, this mechanism is approximated
+using a discretized <strong>two-mass or multi-mass model</strong> driven
+by custom force calculations applied per frame.</p>
+<hr />
+<h2 id="1-setting-up-the-multi-mass-model">1. Setting Up the Multi-Mass
+Model</h2>
+<p>To capture the out-of-phase vertical motion, each vocal fold (left
+and right) must be split into at least two vertically stacked horizontal
+masses: a <strong>lower mass</strong> (<span
+class="math inline">\(m_1\)</span>) and an <strong>upper mass</strong>
+(<span class="math inline">\(m_2\)</span>).</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> { Engine<span class="op">,</span> World<span class="op">,</span> Bodies<span class="op">,</span> Constraint<span class="op">,</span> Body<span class="op">,</span> Vector } <span class="op">=</span> Matter<span class="op">;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> engine <span class="op">=</span> Engine<span class="op">.</span><span class="fu">create</span>()<span class="op">;</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>engine<span class="op">.</span><span class="at">gravity</span><span class="op">.</span><span class="at">scale</span> <span class="op">=</span> <span class="dv">0</span><span class="op">;</span> <span class="co">// Disable default gravity to isolate aerodynamic forces</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a><span class="co">// Geometry parameters</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> massWidth <span class="op">=</span> <span class="dv">40</span><span class="op">;</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> massHeight <span class="op">=</span> <span class="dv">15</span><span class="op">;</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> foldSeparation <span class="op">=</span> <span class="dv">10</span><span class="op">;</span> <span class="co">// Neutral glottal gap</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a><span class="co">// Left vocal fold masses</span></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> leftLower <span class="op">=</span> Bodies<span class="op">.</span><span class="fu">rectangle</span>(<span class="dv">180</span><span class="op">,</span> <span class="dv">215</span><span class="op">,</span> massWidth<span class="op">,</span> massHeight<span class="op">,</span> { <span class="dt">frictionAir</span><span class="op">:</span> <span class="fl">0.05</span> })<span class="op">;</span></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> leftUpper <span class="op">=</span> Bodies<span class="op">.</span><span class="fu">rectangle</span>(<span class="dv">180</span><span class="op">,</span> <span class="dv">195</span><span class="op">,</span> massWidth<span class="op">,</span> massHeight<span class="op">,</span> { <span class="dt">frictionAir</span><span class="op">:</span> <span class="fl">0.05</span> })<span class="op">;</span></span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a><span class="co">// Right vocal fold masses</span></span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> rightLower <span class="op">=</span> Bodies<span class="op">.</span><span class="fu">rectangle</span>(<span class="dv">220</span> <span class="op">+</span> foldSeparation<span class="op">,</span> <span class="dv">215</span><span class="op">,</span> massWidth<span class="op">,</span> massHeight<span class="op">,</span> { <span class="dt">frictionAir</span><span class="op">:</span> <span class="fl">0.05</span> })<span class="op">;</span></span>
+<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> rightUpper <span class="op">=</span> Bodies<span class="op">.</span><span class="fu">rectangle</span>(<span class="dv">220</span> <span class="op">+</span> foldSeparation<span class="op">,</span> <span class="dv">195</span><span class="op">,</span> massWidth<span class="op">,</span> massHeight<span class="op">,</span> { <span class="dt">frictionAir</span><span class="op">:</span> <span class="fl">0.05</span> })<span class="op">;</span></span>
+<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-19"><a href="#cb1-19" aria-hidden="true" tabindex="-1"></a>World<span class="op">.</span><span class="fu">add</span>(engine<span class="op">.</span><span class="at">world</span><span class="op">,</span> [leftLower<span class="op">,</span> leftUpper<span class="op">,</span> rightLower<span class="op">,</span> rightUpper])<span class="op">;</span></span></code></pre></div>
+<hr />
+<h2 id="2-defining-viscoelastic-tissue-constraints">2. Defining
+Viscoelastic Tissue Constraints</h2>
+<p>Link each mass to an anatomical anchor point (representing cartilage)
+with lateral spring-dampers. Crucially, connect the lower mass to the
+upper mass using a vertical shear spring. This shear constraint
+propagates energy and creates the vertical phase lag responsible for the
+mucosal wave.</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Anchor coordinates</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> leftAnchorX <span class="op">=</span> <span class="dv">120</span><span class="op">;</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> rightAnchorX <span class="op">=</span> <span class="dv">300</span><span class="op">;</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a><span class="co">// Lateral tissue elasticity</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> leftLowerSpring <span class="op">=</span> Constraint<span class="op">.</span><span class="fu">create</span>({</span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>    <span class="dt">pointA</span><span class="op">:</span> { <span class="dt">x</span><span class="op">:</span> leftAnchorX<span class="op">,</span> <span class="dt">y</span><span class="op">:</span> <span class="dv">215</span> }<span class="op">,</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>    <span class="dt">bodyB</span><span class="op">:</span> leftLower<span class="op">,</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>    <span class="dt">stiffness</span><span class="op">:</span> <span class="fl">0.08</span><span class="op">,</span></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>    <span class="dt">damping</span><span class="op">:</span> <span class="fl">0.01</span></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> leftUpperSpring <span class="op">=</span> Constraint<span class="op">.</span><span class="fu">create</span>({</span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a>    <span class="dt">pointA</span><span class="op">:</span> { <span class="dt">x</span><span class="op">:</span> leftAnchorX<span class="op">,</span> <span class="dt">y</span><span class="op">:</span> <span class="dv">195</span> }<span class="op">,</span></span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a>    <span class="dt">bodyB</span><span class="op">:</span> leftUpper<span class="op">,</span></span>
+<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a>    <span class="dt">stiffness</span><span class="op">:</span> <span class="fl">0.06</span><span class="op">,</span> <span class="co">// Upper cover is typically more pliable</span></span>
+<span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a>    <span class="dt">damping</span><span class="op">:</span> <span class="fl">0.01</span></span>
+<span id="cb2-18"><a href="#cb2-18" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span>
+<span id="cb2-19"><a href="#cb2-19" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-20"><a href="#cb2-20" aria-hidden="true" tabindex="-1"></a><span class="co">// Vertical shear coupling (mediates the mucosal wave)</span></span>
+<span id="cb2-21"><a href="#cb2-21" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> leftShearSpring <span class="op">=</span> Constraint<span class="op">.</span><span class="fu">create</span>({</span>
+<span id="cb2-22"><a href="#cb2-22" aria-hidden="true" tabindex="-1"></a>    <span class="dt">bodyA</span><span class="op">:</span> leftLower<span class="op">,</span></span>
+<span id="cb2-23"><a href="#cb2-23" aria-hidden="true" tabindex="-1"></a>    <span class="dt">bodyB</span><span class="op">:</span> leftUpper<span class="op">,</span></span>
+<span id="cb2-24"><a href="#cb2-24" aria-hidden="true" tabindex="-1"></a>    <span class="dt">stiffness</span><span class="op">:</span> <span class="fl">0.04</span><span class="op">,</span></span>
+<span id="cb2-25"><a href="#cb2-25" aria-hidden="true" tabindex="-1"></a>    <span class="dt">damping</span><span class="op">:</span> <span class="fl">0.02</span></span>
+<span id="cb2-26"><a href="#cb2-26" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span>
+<span id="cb2-27"><a href="#cb2-27" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-28"><a href="#cb2-28" aria-hidden="true" tabindex="-1"></a><span class="co">// Duplicate mirrored constraints for the right vocal fold</span></span>
+<span id="cb2-29"><a href="#cb2-29" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> rightLowerSpring <span class="op">=</span> Constraint<span class="op">.</span><span class="fu">create</span>({ <span class="dt">pointA</span><span class="op">:</span> { <span class="dt">x</span><span class="op">:</span> rightAnchorX<span class="op">,</span> <span class="dt">y</span><span class="op">:</span> <span class="dv">215</span> }<span class="op">,</span> <span class="dt">bodyB</span><span class="op">:</span> rightLower<span class="op">,</span> <span class="dt">stiffness</span><span class="op">:</span> <span class="fl">0.08</span><span class="op">,</span> <span class="dt">damping</span><span class="op">:</span> <span class="fl">0.01</span> })<span class="op">;</span></span>
+<span id="cb2-30"><a href="#cb2-30" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> rightUpperSpring <span class="op">=</span> Constraint<span class="op">.</span><span class="fu">create</span>({ <span class="dt">pointA</span><span class="op">:</span> { <span class="dt">x</span><span class="op">:</span> rightAnchorX<span class="op">,</span> <span class="dt">y</span><span class="op">:</span> <span class="dv">195</span> }<span class="op">,</span> <span class="dt">bodyB</span><span class="op">:</span> rightUpper<span class="op">,</span> <span class="dt">stiffness</span><span class="op">:</span> <span class="fl">0.06</span><span class="op">,</span> <span class="dt">damping</span><span class="op">:</span> <span class="fl">0.01</span> })<span class="op">;</span></span>
+<span id="cb2-31"><a href="#cb2-31" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> rightShearSpring <span class="op">=</span> Constraint<span class="op">.</span><span class="fu">create</span>({ <span class="dt">bodyA</span><span class="op">:</span> rightLower<span class="op">,</span> <span class="dt">bodyB</span><span class="op">:</span> rightUpper<span class="op">,</span> <span class="dt">stiffness</span><span class="op">:</span> <span class="fl">0.04</span><span class="op">,</span> <span class="dt">damping</span><span class="op">:</span> <span class="fl">0.02</span> })<span class="op">;</span></span>
+<span id="cb2-32"><a href="#cb2-32" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-33"><a href="#cb2-33" aria-hidden="true" tabindex="-1"></a>World<span class="op">.</span><span class="fu">add</span>(engine<span class="op">.</span><span class="at">world</span><span class="op">,</span> [</span>
+<span id="cb2-34"><a href="#cb2-34" aria-hidden="true" tabindex="-1"></a>    leftLowerSpring<span class="op">,</span> leftUpperSpring<span class="op">,</span> leftShearSpring<span class="op">,</span></span>
+<span id="cb2-35"><a href="#cb2-35" aria-hidden="true" tabindex="-1"></a>    rightLowerSpring<span class="op">,</span> rightUpperSpring<span class="op">,</span> rightShearSpring</span>
+<span id="cb2-36"><a href="#cb2-36" aria-hidden="true" tabindex="-1"></a>])<span class="op">;</span></span></code></pre></div>
+<hr />
+<h2 id="3-implementing-aerodynamic-pressure-loops">3. Implementing
+Aerodynamic Pressure Loops</h2>
+<p>The mucosal wave cannot sustain itself without energy input from lung
+pressure (<span class="math inline">\(P_{sub}\)</span>). On every engine
+update, measure the instantaneous glottal width at the lower and upper
+apertures and compute the resulting aerodynamic forces:</p>
+<ol type="1">
+<li><strong>Convergent Shape (Lower gap &gt; Upper gap):</strong> High
+intraglottal pressure pushes the walls outward.</li>
+<li><strong>Divergent Shape (Lower gap &lt; Upper gap):</strong> Air
+separates from the walls, producing negative Bernoulli pressure that
+pulls the folds inward.</li>
+<li><strong>Collision / Closure:</strong> When the gap is zero,
+collision response halts inward momentum, and subglottal pressure builds
+up underneath.</li>
+</ol>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> P_SUBGLOTTAL <span class="op">=</span> <span class="fl">1.2</span><span class="op">;</span> <span class="co">// Driving lung pressure</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>Matter<span class="op">.</span><span class="at">Events</span><span class="op">.</span><span class="fu">on</span>(engine<span class="op">,</span> <span class="st">&#39;beforeUpdate&#39;</span><span class="op">,</span> () <span class="kw">=&gt;</span> {</span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Calculate instantaneous apertures</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> lowerGap <span class="op">=</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">max</span>(<span class="fl">0.1</span><span class="op">,</span> rightLower<span class="op">.</span><span class="at">position</span><span class="op">.</span><span class="at">x</span> <span class="op">-</span> leftLower<span class="op">.</span><span class="at">position</span><span class="op">.</span><span class="at">x</span> <span class="op">-</span> massWidth)<span class="op">;</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> upperGap <span class="op">=</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">max</span>(<span class="fl">0.1</span><span class="op">,</span> rightUpper<span class="op">.</span><span class="at">position</span><span class="op">.</span><span class="at">x</span> <span class="op">-</span> leftUpper<span class="op">.</span><span class="at">position</span><span class="op">.</span><span class="at">x</span> <span class="op">-</span> massWidth)<span class="op">;</span></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Bernoulli-driven intraglottal pressures</span></span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a>    <span class="kw">let</span> lowerPressure<span class="op">,</span> upperPressure<span class="op">;</span></span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (lowerGap <span class="op">&lt;=</span> <span class="fl">1.0</span>) {</span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a>        <span class="co">// Glottal closure: full subglottic pressure forces lower masses apart</span></span>
+<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a>        lowerPressure <span class="op">=</span> P_SUBGLOTTAL<span class="op">;</span></span>
+<span id="cb3-14"><a href="#cb3-14" aria-hidden="true" tabindex="-1"></a>        upperPressure <span class="op">=</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb3-15"><a href="#cb3-15" aria-hidden="true" tabindex="-1"></a>    } <span class="cf">else</span> {</span>
+<span id="cb3-16"><a href="#cb3-16" aria-hidden="true" tabindex="-1"></a>        <span class="co">// Open glottis: pressure distribution depends on profile convergence/divergence</span></span>
+<span id="cb3-17"><a href="#cb3-17" aria-hidden="true" tabindex="-1"></a>        <span class="kw">const</span> areaRatio <span class="op">=</span> lowerGap <span class="op">/</span> upperGap<span class="op">;</span></span>
+<span id="cb3-18"><a href="#cb3-18" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-19"><a href="#cb3-19" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> (areaRatio <span class="op">&gt;=</span> <span class="fl">1.0</span>) {</span>
+<span id="cb3-20"><a href="#cb3-20" aria-hidden="true" tabindex="-1"></a>            <span class="co">// Convergent profile: positive driving pressure</span></span>
+<span id="cb3-21"><a href="#cb3-21" aria-hidden="true" tabindex="-1"></a>            lowerPressure <span class="op">=</span> P_SUBGLOTTAL <span class="op">*</span> <span class="fl">0.7</span><span class="op">;</span></span>
+<span id="cb3-22"><a href="#cb3-22" aria-hidden="true" tabindex="-1"></a>            upperPressure <span class="op">=</span> P_SUBGLOTTAL <span class="op">*</span> <span class="fl">0.3</span><span class="op">;</span></span>
+<span id="cb3-23"><a href="#cb3-23" aria-hidden="true" tabindex="-1"></a>        } <span class="cf">else</span> {</span>
+<span id="cb3-24"><a href="#cb3-24" aria-hidden="true" tabindex="-1"></a>            <span class="co">// Divergent profile: negative Bernoulli suction pulls upper/lower masses together</span></span>
+<span id="cb3-25"><a href="#cb3-25" aria-hidden="true" tabindex="-1"></a>            lowerPressure <span class="op">=</span> P_SUBGLOTTAL <span class="op">*</span> <span class="fl">0.1</span><span class="op">;</span></span>
+<span id="cb3-26"><a href="#cb3-26" aria-hidden="true" tabindex="-1"></a>            upperPressure <span class="op">=</span> <span class="op">-</span>P_SUBGLOTTAL <span class="op">*</span> <span class="fl">0.4</span><span class="op">;</span></span>
+<span id="cb3-27"><a href="#cb3-27" aria-hidden="true" tabindex="-1"></a>        }</span>
+<span id="cb3-28"><a href="#cb3-28" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb3-29"><a href="#cb3-29" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-30"><a href="#cb3-30" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Apply forces laterally to simulate pressure</span></span>
+<span id="cb3-31"><a href="#cb3-31" aria-hidden="true" tabindex="-1"></a>    Body<span class="op">.</span><span class="fu">applyForce</span>(leftLower<span class="op">,</span> leftLower<span class="op">.</span><span class="at">position</span><span class="op">,</span> { <span class="dt">x</span><span class="op">:</span> <span class="op">-</span>lowerPressure <span class="op">*</span> <span class="fl">0.05</span><span class="op">,</span> <span class="dt">y</span><span class="op">:</span> <span class="dv">0</span> })<span class="op">;</span></span>
+<span id="cb3-32"><a href="#cb3-32" aria-hidden="true" tabindex="-1"></a>    Body<span class="op">.</span><span class="fu">applyForce</span>(rightLower<span class="op">,</span> rightLower<span class="op">.</span><span class="at">position</span><span class="op">,</span> { <span class="dt">x</span><span class="op">:</span> lowerPressure <span class="op">*</span> <span class="fl">0.05</span><span class="op">,</span> <span class="dt">y</span><span class="op">:</span> <span class="dv">0</span> })<span class="op">;</span></span>
+<span id="cb3-33"><a href="#cb3-33" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-34"><a href="#cb3-34" aria-hidden="true" tabindex="-1"></a>    Body<span class="op">.</span><span class="fu">applyForce</span>(leftUpper<span class="op">,</span> leftUpper<span class="op">.</span><span class="at">position</span><span class="op">,</span> { <span class="dt">x</span><span class="op">:</span> <span class="op">-</span>upperPressure <span class="op">*</span> <span class="fl">0.05</span><span class="op">,</span> <span class="dt">y</span><span class="op">:</span> <span class="dv">0</span> })<span class="op">;</span></span>
+<span id="cb3-35"><a href="#cb3-35" aria-hidden="true" tabindex="-1"></a>    Body<span class="op">.</span><span class="fu">applyForce</span>(rightUpper<span class="op">,</span> rightUpper<span class="op">.</span><span class="at">position</span><span class="op">,</span> { <span class="dt">x</span><span class="op">:</span> upperPressure <span class="op">*</span> <span class="fl">0.05</span><span class="op">,</span> <span class="dt">y</span><span class="op">:</span> <span class="dv">0</span> })<span class="op">;</span></span>
+<span id="cb3-36"><a href="#cb3-36" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div>
+<hr />
+<h2 id="4-tuning-and-observing-the-wave">4. Tuning and Observing the
+Wave</h2>
+<p>To maintain stable self-oscillation and visually confirm the mucosal
+wave:</p>
+<ul>
+<li><strong>Stiffness Gradient:</strong> Keep the upper masses slightly
+less stiff than the lower masses. This ensures the lower tissue opens
+first and forces the upper tissue to trail behind.</li>
+<li><strong>Shear Coupling:</strong> If the shear stiffness is set too
+high, both masses will move in unison as a single rigid block,
+destroying the wave. If set too low, the masses decouple and
+destabilize.</li>
+<li><strong>Collision Handling:</strong> Ensure <code>restitution</code>
+on the fold bodies is set between <code>0.0</code> and <code>0.1</code>
+to prevent unrealistic elastic bouncing upon closure; real vocal fold
+impact is largely inelastic.</li>
+</ul>
+<p>When tuned correctly, plotting the horizontal positions of
+<code>leftLower</code> and <code>leftUpper</code> over time will reveal
+matching sinusoidal waveforms where <code>leftUpper</code> consistently
+lags behind <code>leftLower</code> by approximately <span
+class="math inline">\(60^\circ\)</span> to <span
+class="math inline">\(90^\circ\)</span>, reproducing the mucosal
+wave.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/matter.js'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/matter.js/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/matter.js/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

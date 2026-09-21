@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Optimize Terrain Collision Filtering in Matter.js - matter.js</title>
+    <meta name="description" content="Simulating hundreds of static terrain tiles in Matter.js can quickly cause severe frame drops due to excessive collision detection checks during the engine's broadphase and narrowphase steps. This guide covers actionable strategies to optimize your terra">
+    <link rel="canonical" href="https://salivity.github.io/matter.js/article/optimize-terrain-collision-filtering-in-matter-js">
+    <link rel="search" type="application/opensearchdescription+xml" title="matter.js" href="/matter.js/opensearch.xml">
+    <link rel="icon" href="/matter.js/favicon.ico">
+    <link rel="stylesheet" href="/matter.js/css/style.css">
+    <link media="print" rel="stylesheet" href="/matter.js/css/print.css">
+    <script src="/matter.js/js/fuse.min.js"></script>
+    <script src="/matter.js/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Optimize Terrain Collision Filtering in Matter.js - matter.js" />
+    <meta property="og:url" content="https://salivity.github.io/matter.js/article/optimize-terrain-collision-filtering-in-matter-js" />
+    <meta property="og:image" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Simulating hundreds of static terrain tiles in Matter.js can quickly cause severe frame drops due to excessive collision detection checks during the engine's broadphase and narrowphase steps. This guide covers actionable strategies to optimize your terra" />
+    <link rel="manifest" href="/matter.js/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/matter.js/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>matter.js</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/matter.js/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="optimize-terrain-collision-filtering-in-matterjs">Optimize
+Terrain Collision Filtering in Matter.js</h1>
+<p>Simulating hundreds of static terrain tiles in Matter.js can quickly
+cause severe frame drops due to excessive collision detection checks
+during the engine's broadphase and narrowphase steps. This guide covers
+actionable strategies to optimize your terrain layout, focusing on
+collision bitmasks, combining adjacent bodies, leveraging sleep states,
+and dynamically managing bodies in the physics world to maintain high
+frame rates.</p>
+<h3 id="1-configure-bitmask-collision-filters-properly">1. Configure
+Bitmask Collision Filters Properly</h3>
+<p>Matter.js evaluates collisions using bitwise masks defined in the
+<code>collisionFilter</code> object. By default, every body attempts to
+check collisions against every other body. Static tiles never need to
+collide with other static tiles, so you must explicitly instruct the
+engine to ignore static-to-static checks.</p>
+<p>Define discrete 32-bit integer categories for your world objects:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> CATEGORY_TERRAIN <span class="op">=</span> <span class="bn">0x0001</span><span class="op">;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> CATEGORY_PLAYER  <span class="op">=</span> <span class="bn">0x0002</span><span class="op">;</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> CATEGORY_ENEMY   <span class="op">=</span> <span class="bn">0x0004</span><span class="op">;</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="co">// Apply to static tiles</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> terrainTile <span class="op">=</span> Matter<span class="op">.</span><span class="at">Bodies</span><span class="op">.</span><span class="fu">rectangle</span>(x<span class="op">,</span> y<span class="op">,</span> width<span class="op">,</span> height<span class="op">,</span> {</span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>  <span class="dt">isStatic</span><span class="op">:</span> <span class="kw">true</span><span class="op">,</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>  <span class="dt">collisionFilter</span><span class="op">:</span> {</span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>    <span class="dt">category</span><span class="op">:</span> CATEGORY_TERRAIN<span class="op">,</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Only register collisions with dynamic bodies, not other terrain</span></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>    <span class="dt">mask</span><span class="op">:</span> CATEGORY_PLAYER <span class="op">|</span> CATEGORY_ENEMY</span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div>
+<p>By omitting <code>CATEGORY_TERRAIN</code> from the terrain's
+<code>mask</code>, you eliminate redundant calculations before
+narrowphase collision algorithms run.</p>
+<h3 id="2-merge-adjacent-static-tiles">2. Merge Adjacent Static
+Tiles</h3>
+<p>Creating a distinct physics body for every 16x16 or 32x32 visual grid
+tile causes broadphase tree bloat. While visual layers need small tiles,
+physics terrain does not.</p>
+<ul>
+<li><strong>Raycast / Scanline Merging:</strong> Parse your tilemap row
+by row or column by column. If five identical collision blocks sit
+consecutively horizontally, replace them with a single static rectangle
+spanning the combined width.</li>
+<li><strong>Compound Bodies:</strong> For complex geometry, combine
+adjacent shapes using <code>Matter.Body.create({ parts: [...] })</code>.
+This creates a unified broadphase bounding box for multiple collision
+parts, reducing the workload of the spatial hash.</li>
+<li><strong>Polygon Tracing:</strong> For non-grid geometry, extract the
+exterior contour of your terrain using marching squares or
+outline-tracing algorithms to generate simple outer edges rather than
+internal blocks.</li>
+</ul>
+<h3 id="3-enable-engine-sleeping">3. Enable Engine Sleeping</h3>
+<p>When dynamic bodies come to rest, Matter.js can exclude them from
+collision pairs completely until an external force acts on them:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> engine <span class="op">=</span> Matter<span class="op">.</span><span class="at">Engine</span><span class="op">.</span><span class="fu">create</span>({</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>  <span class="dt">enableSleeping</span><span class="op">:</span> <span class="kw">true</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div>
+<p>Setting <code>enableSleeping: true</code> prevents stationary dynamic
+bodies (like resting items or debris) from running continuous collision
+checks against hundreds of static terrain tiles.</p>
+<h3 id="4-implement-spatial-chunking-world-streaming">4. Implement
+Spatial Chunking (World Streaming)</h3>
+<p>Matter.js uses a broadphase spatial hashing grid (or bounding box
+tree), but maintaining hundreds of off-screen bodies still incurs memory
+and traversal overhead.</p>
+<p>Divide your world into chunks (e.g., 512x512 pixels):</p>
+<ol type="1">
+<li>Store tile data in memory arrays rather than directly in the physics
+world.</li>
+<li>Track the camera or player position.</li>
+<li>Use <code>Matter.Composite.add(world, chunkBodies)</code> to mount
+static bodies when a chunk enters the viewport plus a safety
+margin.</li>
+<li>Use <code>Matter.Composite.remove(world, chunkBodies)</code> to
+unmount chunks that move far off-screen.</li>
+</ol>
+<h3 id="5-disable-internal-sensor-checks-on-static-walls">5. Disable
+Internal Sensor Checks on Static Walls</h3>
+<p>Ensure that none of your static terrain blocks use
+<code>isSensor: true</code> unless strictly required for trigger areas.
+Sensor checks force the engine to fire event callbacks
+(<code>collisionStart</code>, <code>collisionActive</code>) each tick,
+adding CPU overhead that static boundary walls do not need. Keep static
+geometry strictly physical by keeping <code>isSensor</code> set to
+<code>false</code>.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/matter.js'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/matter.js/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/matter.js/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

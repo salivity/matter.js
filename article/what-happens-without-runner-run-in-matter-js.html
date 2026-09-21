@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>What Happens Without Runner.run in Matter.js - matter.js</title>
+    <meta name="description" content="In Matter.js, the Runner module provides the execution loop responsible for continuously updating the physics simulation over time. If you do not call Runner.run(runner, engine), the physics engine will remain completely dormant, meaning bodies will not">
+    <link rel="canonical" href="https://salivity.github.io/matter.js/article/what-happens-without-runner-run-in-matter-js">
+    <link rel="search" type="application/opensearchdescription+xml" title="matter.js" href="/matter.js/opensearch.xml">
+    <link rel="icon" href="/matter.js/favicon.ico">
+    <link rel="stylesheet" href="/matter.js/css/style.css">
+    <link media="print" rel="stylesheet" href="/matter.js/css/print.css">
+    <script src="/matter.js/js/fuse.min.js"></script>
+    <script src="/matter.js/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="What Happens Without Runner.run in Matter.js - matter.js" />
+    <meta property="og:url" content="https://salivity.github.io/matter.js/article/what-happens-without-runner-run-in-matter-js" />
+    <meta property="og:image" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="In Matter.js, the Runner module provides the execution loop responsible for continuously updating the physics simulation over time. If you do not call Runner.run(runner, engine), the physics engine will remain completely dormant, meaning bodies will not" />
+    <link rel="manifest" href="/matter.js/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/matter.js/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>matter.js</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/matter.js/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="what-happens-without-runnerrun-in-matterjs">What Happens Without
+Runner.run in Matter.js</h1>
+<p>In Matter.js, the <code>Runner</code> module provides the execution
+loop responsible for continuously updating the physics simulation over
+time. If you do not call <code>Runner.run(runner, engine)</code>, the
+physics engine will remain completely dormant, meaning bodies will not
+move, gravity will not take effect, and collisions will not resolve.
+This article explains the mechanics of the <code>Runner</code>, what
+happens to your scene when it is omitted, and how you can manually drive
+the simulation if you choose not to use it.</p>
+<h3 id="the-physics-engine-remains-frozen">The Physics Engine Remains
+Frozen</h3>
+<p>The core <code>Matter.Engine</code> does not run on an internal timer
+by default; it is purely a state machine that calculates physics steps
+on demand. Calling <code>Runner.run()</code> establishes a recurring
+loop using <code>requestAnimationFrame</code> (in the browser) to
+continuously step the engine forward in time.</p>
+<p>If you do not call this method:</p>
+<ul>
+<li><strong>No Time Progression:</strong> The simulation time does not
+advance.</li>
+<li><strong>Static Entities:</strong> Rigid bodies added to the
+<code>Composite</code> world will remain frozen at their initial
+coordinates.</li>
+<li><strong>No Forces or Collisions:</strong> Gravity, applied forces,
+velocities, and collision detection routines will never execute.</li>
+<li><strong>Silent Event Listeners:</strong> Engine-level events such as
+<code>beforeUpdate</code>, <code>afterUpdate</code>,
+<code>collisionStart</code>, and <code>collisionActive</code> will never
+fire because the update cycle is never triggered.</li>
+</ul>
+<h3 id="what-happens-to-the-renderer">What Happens to the Renderer?</h3>
+<p>If you are using the built-in <code>Matter.Render</code> module and
+call <code>Render.run(render)</code>, the canvas will still initialize
+and draw your bodies. However, because the physics state never advances,
+the renderer simply re-draws the exact same initial positions on every
+frame. This often leads to confusion, making it appear as though gravity
+is broken or rigid bodies are permanently static.</p>
+<h3 id="manual-simulation-updates">Manual Simulation Updates</h3>
+<p>Skipping <code>Runner.run</code> is not always a bug; developers
+often do this intentionally when integrating Matter.js into existing
+rendering engines like Three.js, PixiJS, or standard game loops.</p>
+<p>If you omit <code>Runner.run</code>, you must manually advance the
+engine using <code>Engine.update()</code> inside your own animation
+loop:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">gameLoop</span>(timestamp) {</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Manually advance the physics engine by 16.66ms (or use a calculated delta)</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>    Matter<span class="op">.</span><span class="at">Engine</span><span class="op">.</span><span class="fu">update</span>(engine<span class="op">,</span> <span class="dv">1000</span> <span class="op">/</span> <span class="dv">60</span>)<span class="op">;</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Custom rendering or logic goes here</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>    <span class="fu">requestAnimationFrame</span>(gameLoop)<span class="op">;</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a><span class="fu">requestAnimationFrame</span>(gameLoop)<span class="op">;</span></span></code></pre></div>
+<p>Failing to provide either <code>Runner.run</code> or a manual call to
+<code>Engine.update</code> ensures that your Matter.js physics world
+will never execute.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/matter.js'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/matter.js/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/matter.js/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

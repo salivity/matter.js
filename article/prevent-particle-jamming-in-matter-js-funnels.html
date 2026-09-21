@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Prevent Particle Jamming in Matter.js Funnels - matter.js</title>
+    <meta name="description" content="Simulating thousands of small circular bodies passing through a narrow funnel in Matter.js often leads to particle jamming, clustering, and performance bottlenecks. This issue occurs due to physical arch formation, friction, uniform particle sizing, and">
+    <link rel="canonical" href="https://salivity.github.io/matter.js/article/prevent-particle-jamming-in-matter-js-funnels">
+    <link rel="search" type="application/opensearchdescription+xml" title="matter.js" href="/matter.js/opensearch.xml">
+    <link rel="icon" href="/matter.js/favicon.ico">
+    <link rel="stylesheet" href="/matter.js/css/style.css">
+    <link media="print" rel="stylesheet" href="/matter.js/css/print.css">
+    <script src="/matter.js/js/fuse.min.js"></script>
+    <script src="/matter.js/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Prevent Particle Jamming in Matter.js Funnels - matter.js" />
+    <meta property="og:url" content="https://salivity.github.io/matter.js/article/prevent-particle-jamming-in-matter-js-funnels" />
+    <meta property="og:image" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Simulating thousands of small circular bodies passing through a narrow funnel in Matter.js often leads to particle jamming, clustering, and performance bottlenecks. This issue occurs due to physical arch formation, friction, uniform particle sizing, and" />
+    <link rel="manifest" href="/matter.js/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/matter.js/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>matter.js</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/matter.js/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="prevent-particle-jamming-in-matterjs-funnels">Prevent Particle
+Jamming in Matter.js Funnels</h1>
+<p>Simulating thousands of small circular bodies passing through a
+narrow funnel in Matter.js often leads to particle jamming, clustering,
+and performance bottlenecks. This issue occurs due to physical arch
+formation, friction, uniform particle sizing, and solver constraints
+within the physics engine. You can eliminate jamming and maintain smooth
+particle flow by introducing polydispersity, minimizing friction
+coefficients, optimizing funnel geometry, applying external agitation,
+and tuning the engine's solver parameters.</p>
+<h3 id="introduce-particle-polydispersity">Introduce Particle
+Polydispersity</h3>
+<p>Monodisperse particles—where every circle has the exact same
+radius—naturally self-assemble into rigid, crystalline lattices. When
+approaching a bottleneck, these uniform structures form mechanical
+arches over the opening that block subsequent particles.</p>
+<p>To prevent this:</p>
+<ul>
+<li>Vary the radii of your particles by ±10% to ±20%.</li>
+<li>Implement a random distribution function during particle generation
+(e.g.,
+<code>radius = baseRadius * (0.85 + Math.random() * 0.3)</code>).</li>
+<li>The resulting size variation (polydispersity) disrupts stable arch
+formation and causes the aggregate mass to behave more like a
+fluid.</li>
+</ul>
+<h3 id="reduce-friction-parameters">Reduce Friction Parameters</h3>
+<p>Matter.js assigns default friction values that encourage sticking.
+When thousands of bodies exert pressure downward, standard friction
+values allow stable bridges to hold the weight of the particles above
+them.</p>
+<p>Adjust the particle and funnel bodies with the following
+properties:</p>
+<ul>
+<li>Set <code>friction: 0.0</code> or a very low value (e.g.,
+<code>0.001</code>).</li>
+<li>Set <code>frictionStatic: 0.0</code> to eliminate static resistance
+that triggers bridging.</li>
+<li>Set <code>frictionAir: 0.01</code> to prevent particles from gaining
+excessive, unstable speeds while removing surface drag.</li>
+</ul>
+<h3 id="optimize-funnel-geometry">Optimize Funnel Geometry</h3>
+<p>The physical design of the constriction strongly influences whether
+particles funnel smoothly or form bottlenecks.</p>
+<ul>
+<li><strong>Increase the Outlet Width:</strong> Ensure the funnel
+opening is at least 3 to 5 times larger than the diameter of your
+largest particle. Anything narrower physically promotes mechanical
+interlocking.</li>
+<li><strong>Steepen Wall Angles:</strong> Funnels with shallow angles
+allow particles to settle along the edges. Maintain a steep wall angle,
+ideally 60 degrees or steeper relative to the horizontal axis.</li>
+<li><strong>Add Chamfers and Curved Corners:</strong> Sharp interior
+corners where the funnel slopes meet the vertical neck create catch
+points. Use multiple angled segments to create a rounded transition into
+the outlet.</li>
+</ul>
+<h3 id="implement-dynamic-agitation">Implement Dynamic Agitation</h3>
+<p>Industrial hoppers rely on vibration to disrupt jams, and the same
+principle applies in Matter.js:</p>
+<ul>
+<li><strong>Micro-Vibrations:</strong> Apply tiny, randomized forces or
+gentle periodic oscillations to particles near the funnel neck using
+<code>Matter.Body.applyForce()</code>.</li>
+<li><strong>Shaking the Funnel:</strong> Gently oscillate the funnel
+walls left and right using a small sine wave applied directly to their
+position.</li>
+<li><strong>Agitator Pins:</strong> Place a static or slowly rotating
+circular obstacle (a deflector peg) slightly above the funnel throat.
+This splits the main downward flow into two separate streams, reducing
+the downward pressure directly above the exit and preventing central
+arching.</li>
+</ul>
+<h3 id="tune-matterjs-engine-iterations">Tune Matter.js Engine
+Iterations</h3>
+<p>Simulating thousands of dynamic bodies pushes 2D physics engines to
+their limits, occasionally causing overlapping bodies or incorrect
+contact resolution that mimics jamming.</p>
+<ul>
+<li><strong>Adjust Solver Iterations:</strong> Lower
+<code>engine.positionIterations</code> and
+<code>engine.velocityIterations</code> if the frame rate drops, or raise
+them slightly (e.g., to 8–10) if particles tunnel into one another and
+stick.</li>
+<li><strong>Use Fixed Substepping:</strong> When dealing with high
+particle counts, update the engine using a fixed delta time
+(<code>Matter.Engine.update(engine, 1000 / 60)</code>) to maintain
+numerical stability and avoid sudden physics spikes that freeze
+flow.</li>
+</ul></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/matter.js'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/matter.js/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/matter.js/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

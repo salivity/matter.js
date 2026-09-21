@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Create a Destructible Environment in Matter.js - matter.js</title>
+    <meta name="description" content="This article explains how to build a destructible environment using Matter.js, the 2D rigid body physics engine for the web. You will learn the primary architectural approaches for destruction—including grid-based voxel decomposition and dynamic polygo">
+    <link rel="canonical" href="https://salivity.github.io/matter.js/article/create-a-destructible-environment-in-matter-js">
+    <link rel="search" type="application/opensearchdescription+xml" title="matter.js" href="/matter.js/opensearch.xml">
+    <link rel="icon" href="/matter.js/favicon.ico">
+    <link rel="stylesheet" href="/matter.js/css/style.css">
+    <link media="print" rel="stylesheet" href="/matter.js/css/print.css">
+    <script src="/matter.js/js/fuse.min.js"></script>
+    <script src="/matter.js/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Create a Destructible Environment in Matter.js - matter.js" />
+    <meta property="og:url" content="https://salivity.github.io/matter.js/article/create-a-destructible-environment-in-matter-js" />
+    <meta property="og:image" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article explains how to build a destructible environment using Matter.js, the 2D rigid body physics engine for the web. You will learn the primary architectural approaches for destruction—including grid-based voxel decomposition and dynamic polygo" />
+    <link rel="manifest" href="/matter.js/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/matter.js/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>matter.js</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/matter.js/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="create-a-destructible-environment-in-matterjs">Create a
+Destructible Environment in Matter.js</h1>
+<p>This article explains how to build a destructible environment using
+Matter.js, the 2D rigid body physics engine for the web. You will learn
+the primary architectural approaches for destruction—including
+grid-based voxel decomposition and dynamic polygon slicing—along with
+collision force detection, performance optimization techniques, and
+practical implementation steps to make terrain or obstacles break apart
+dynamically upon impact.</p>
+<h2 id="core-architectural-approaches">Core Architectural
+Approaches</h2>
+<p>Matter.js does not provide built-in destructible geometry out of the
+box, so you must implement it using one of two primary architectural
+strategies:</p>
+<h3 id="1-tile-or-grid-based-destruction">1. Tile or Grid-Based
+Destruction</h3>
+<p>This method builds structures out of small, individual rigid bodies
+(such as squares or hexagons) assembled into a compound body or a single
+composite. When a block receives sufficient damage or force, it is
+removed from the physics world.</p>
+<ul>
+<li><strong>Best for:</strong> Pixel-art games, brick-breaker mechanics,
+digging games, and voxel-style destruction.</li>
+<li><strong>Pros:</strong> Simple to implement, stable physics behavior,
+predictable collisions.</li>
+<li><strong>Cons:</strong> High body counts can quickly degrade
+performance if not properly managed.</li>
+</ul>
+<h3 id="2-dynamic-polygon-slicing">2. Dynamic Polygon Slicing</h3>
+<p>This method models an object as a single concave or convex polygon.
+Upon impact, geometry clipping algorithms (using external libraries like
+PolyK or poly-decomp) slice the polygon along a cut-plane or impact
+radius, replacing the original body with two or more smaller child
+bodies.</p>
+<ul>
+<li><strong>Best for:</strong> Slicing mechanics, procedural terrain
+craters, and realistic shattering.</li>
+<li><strong>Pros:</strong> Smooth, organic-looking destruction with
+fewer total bodies.</li>
+<li><strong>Cons:</strong> Complex polygon decomposition math; potential
+physics instabilities with tiny degenerate triangles.</li>
+</ul>
+<hr />
+<h2 id="step-by-step-implementation-grid-based-destruction">Step-by-Step
+Implementation: Grid-Based Destruction</h2>
+<p>The grid-based approach is the most reliable starting point for
+real-time web games.</p>
+<h3 id="step-1-generate-the-destructible-structure">Step 1: Generate the
+Destructible Structure</h3>
+<p>Group individual blocks together using <code>Matter.Composite</code>
+to maintain organizational control over the destructible zone.</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> { Engine<span class="op">,</span> Render<span class="op">,</span> Runner<span class="op">,</span> Bodies<span class="op">,</span> Composite<span class="op">,</span> Events } <span class="op">=</span> Matter<span class="op">;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> engine <span class="op">=</span> Engine<span class="op">.</span><span class="fu">create</span>()<span class="op">;</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> world <span class="op">=</span> engine<span class="op">.</span><span class="at">world</span><span class="op">;</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> blockSize <span class="op">=</span> <span class="dv">20</span><span class="op">;</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> rows <span class="op">=</span> <span class="dv">10</span><span class="op">;</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> cols <span class="op">=</span> <span class="dv">15</span><span class="op">;</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> destructibleComposite <span class="op">=</span> Composite<span class="op">.</span><span class="fu">create</span>({ <span class="dt">label</span><span class="op">:</span> <span class="st">&#39;DestructibleTerrain&#39;</span> })<span class="op">;</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> (<span class="kw">let</span> r <span class="op">=</span> <span class="dv">0</span><span class="op">;</span> r <span class="op">&lt;</span> rows<span class="op">;</span> r<span class="op">++</span>) {</span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>  <span class="cf">for</span> (<span class="kw">let</span> c <span class="op">=</span> <span class="dv">0</span><span class="op">;</span> c <span class="op">&lt;</span> cols<span class="op">;</span> c<span class="op">++</span>) {</span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> block <span class="op">=</span> Bodies<span class="op">.</span><span class="fu">rectangle</span>(</span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>      <span class="dv">200</span> <span class="op">+</span> c <span class="op">*</span> blockSize<span class="op">,</span></span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a>      <span class="dv">150</span> <span class="op">+</span> r <span class="op">*</span> blockSize<span class="op">,</span></span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a>      blockSize<span class="op">,</span></span>
+<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a>      blockSize<span class="op">,</span></span>
+<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a>      {</span>
+<span id="cb1-19"><a href="#cb1-19" aria-hidden="true" tabindex="-1"></a>        <span class="dt">isStatic</span><span class="op">:</span> <span class="kw">true</span><span class="op">,</span></span>
+<span id="cb1-20"><a href="#cb1-20" aria-hidden="true" tabindex="-1"></a>        <span class="dt">label</span><span class="op">:</span> <span class="st">&#39;DestructibleBlock&#39;</span><span class="op">,</span></span>
+<span id="cb1-21"><a href="#cb1-21" aria-hidden="true" tabindex="-1"></a>        <span class="dt">render</span><span class="op">:</span> { <span class="dt">fillStyle</span><span class="op">:</span> <span class="st">&#39;#885533&#39;</span> }</span>
+<span id="cb1-22"><a href="#cb1-22" aria-hidden="true" tabindex="-1"></a>      }</span>
+<span id="cb1-23"><a href="#cb1-23" aria-hidden="true" tabindex="-1"></a>    )<span class="op">;</span></span>
+<span id="cb1-24"><a href="#cb1-24" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Custom health or durability attribute</span></span>
+<span id="cb1-25"><a href="#cb1-25" aria-hidden="true" tabindex="-1"></a>    block<span class="op">.</span><span class="at">health</span> <span class="op">=</span> <span class="dv">30</span><span class="op">;</span></span>
+<span id="cb1-26"><a href="#cb1-26" aria-hidden="true" tabindex="-1"></a>    Composite<span class="op">.</span><span class="fu">add</span>(destructibleComposite<span class="op">,</span> block)<span class="op">;</span></span>
+<span id="cb1-27"><a href="#cb1-27" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb1-28"><a href="#cb1-28" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb1-29"><a href="#cb1-29" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-30"><a href="#cb1-30" aria-hidden="true" tabindex="-1"></a>Composite<span class="op">.</span><span class="fu">add</span>(world<span class="op">,</span> destructibleComposite)<span class="op">;</span></span></code></pre></div>
+<h3 id="step-2-measure-impact-force-via-collision-events">Step 2:
+Measure Impact Force via Collision Events</h3>
+<p>To make destruction dynamic, remove blocks based on kinetic energy
+rather than any simple contact. Listen to the
+<code>collisionStart</code> or <code>collisionActive</code> event on the
+engine.</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a>Events<span class="op">.</span><span class="fu">on</span>(engine<span class="op">,</span> <span class="st">&#39;collisionStart&#39;</span><span class="op">,</span> (<span class="bu">event</span>) <span class="kw">=&gt;</span> {</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>  <span class="bu">event</span><span class="op">.</span><span class="at">pairs</span><span class="op">.</span><span class="fu">forEach</span>((pair) <span class="kw">=&gt;</span> {</span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> { bodyA<span class="op">,</span> bodyB } <span class="op">=</span> pair<span class="op">;</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> block <span class="op">=</span> bodyA<span class="op">.</span><span class="at">label</span> <span class="op">===</span> <span class="st">&#39;DestructibleBlock&#39;</span> <span class="op">?</span> bodyA <span class="op">:</span> </span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>                  bodyB<span class="op">.</span><span class="at">label</span> <span class="op">===</span> <span class="st">&#39;DestructibleBlock&#39;</span> <span class="op">?</span> bodyB <span class="op">:</span> <span class="kw">null</span><span class="op">;</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> projectile <span class="op">=</span> block <span class="op">===</span> bodyA <span class="op">?</span> bodyB <span class="op">:</span> bodyA<span class="op">;</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (block <span class="op">&amp;&amp;</span> projectile <span class="op">&amp;&amp;</span> projectile<span class="op">.</span><span class="at">label</span> <span class="op">===</span> <span class="st">&#39;Projectile&#39;</span>) {</span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>      <span class="co">// Calculate relative velocity (kinetic energy estimation)</span></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>      <span class="kw">const</span> speed <span class="op">=</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">hypot</span>(</span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>        projectile<span class="op">.</span><span class="at">velocity</span><span class="op">.</span><span class="at">x</span><span class="op">,</span></span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>        projectile<span class="op">.</span><span class="at">velocity</span><span class="op">.</span><span class="at">y</span></span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a>      )<span class="op">;</span></span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a>      </span>
+<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a>      <span class="kw">const</span> damage <span class="op">=</span> speed <span class="op">*</span> projectile<span class="op">.</span><span class="at">mass</span> <span class="op">*</span> <span class="dv">5</span><span class="op">;</span></span>
+<span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a>      block<span class="op">.</span><span class="at">health</span> <span class="op">-=</span> damage<span class="op">;</span></span>
+<span id="cb2-18"><a href="#cb2-18" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-19"><a href="#cb2-19" aria-hidden="true" tabindex="-1"></a>      <span class="cf">if</span> (block<span class="op">.</span><span class="at">health</span> <span class="op">&lt;=</span> <span class="dv">0</span>) {</span>
+<span id="cb2-20"><a href="#cb2-20" aria-hidden="true" tabindex="-1"></a>        <span class="co">// Destroy the block</span></span>
+<span id="cb2-21"><a href="#cb2-21" aria-hidden="true" tabindex="-1"></a>        Composite<span class="op">.</span><span class="fu">remove</span>(destructibleComposite<span class="op">,</span> block)<span class="op">;</span></span>
+<span id="cb2-22"><a href="#cb2-22" aria-hidden="true" tabindex="-1"></a>      }</span>
+<span id="cb2-23"><a href="#cb2-23" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb2-24"><a href="#cb2-24" aria-hidden="true" tabindex="-1"></a>  })<span class="op">;</span></span>
+<span id="cb2-25"><a href="#cb2-25" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div>
+<h3 id="step-3-area-of-effect-explosive-destruction">Step 3: Area of
+Effect (Explosive) Destruction</h3>
+<p>For explosions that clear an entire radius of terrain:</p>
+<ol type="1">
+<li>Obtain the center point and radius of the explosion.</li>
+<li>Query the composite using <code>Matter.Query.point</code> or filter
+bodies by distance.</li>
+<li>Remove affected static blocks.</li>
+<li>Optionally spawn small, non-static particle debris to simulate
+realistic rubble without permanent performance costs.</li>
+</ol>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">explode</span>(world<span class="op">,</span> composite<span class="op">,</span> epicenter<span class="op">,</span> radius) {</span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> bodies <span class="op">=</span> Composite<span class="op">.</span><span class="fu">allBodies</span>(composite)<span class="op">;</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>  bodies<span class="op">.</span><span class="fu">forEach</span>((body) <span class="kw">=&gt;</span> {</span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> dist <span class="op">=</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">hypot</span>(body<span class="op">.</span><span class="at">position</span><span class="op">.</span><span class="at">x</span> <span class="op">-</span> epicenter<span class="op">.</span><span class="at">x</span><span class="op">,</span> body<span class="op">.</span><span class="at">position</span><span class="op">.</span><span class="at">y</span> <span class="op">-</span> epicenter<span class="op">.</span><span class="at">y</span>)<span class="op">;</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (dist <span class="op">&lt;=</span> radius) {</span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>      Composite<span class="op">.</span><span class="fu">remove</span>(composite<span class="op">,</span> body)<span class="op">;</span></span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a>  })<span class="op">;</span></span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<hr />
+<h2 id="optimizing-performance">Optimizing Performance</h2>
+<p>Physics engines struggle when tracking hundreds of dynamic or closely
+packed bodies simultaneously. Use these rules to maintain 60 FPS:</p>
+<ul>
+<li><strong>Keep Terrain Static:</strong> Keep destructible pieces
+static (<code>isStatic: true</code>) until they are damaged or detached.
+Static bodies bypass expensive velocity and trajectory integration
+steps.</li>
+<li><strong>Enable Body Sleeping:</strong> Set
+<code>enableSleeping: true</code> on your engine instance. Inactive
+bodies enter sleep mode and stop triggering collision solver
+calculations.</li>
+<li><strong>Batch Visual Rendering:</strong> Do not use default
+Matter.js canvas debug rendering for large destructible environments.
+Track the physics data in Matter.js, but render the visual layer to an
+offscreen buffer, WebGL texture, or single HTML5
+<code>&lt;canvas&gt;</code> via tilemap blitting.</li>
+<li><strong>Prune Tiny Bodies:</strong> Set a minimum volume threshold.
+When slicing polygons or shattering blocks, discard fragments smaller
+than a predetermined size to avoid solver instability and
+micro-collisions.</li>
+</ul></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/matter.js'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/matter.js/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/matter.js/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

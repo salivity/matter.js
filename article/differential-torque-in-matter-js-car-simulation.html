@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Differential Torque in Matter.js Car Simulation - matter.js</title>
+    <meta name="description" content="Simulating realistic vehicle dynamics in Matter.js requires distributing rotational drive force unevenly between wheels based on turning angles, traction, and wheel speeds. This article explains how to model differential torque across drive wheels—such">
+    <link rel="canonical" href="https://salivity.github.io/matter.js/article/differential-torque-in-matter-js-car-simulation">
+    <link rel="search" type="application/opensearchdescription+xml" title="matter.js" href="/matter.js/opensearch.xml">
+    <link rel="icon" href="/matter.js/favicon.ico">
+    <link rel="stylesheet" href="/matter.js/css/style.css">
+    <link media="print" rel="stylesheet" href="/matter.js/css/print.css">
+    <script src="/matter.js/js/fuse.min.js"></script>
+    <script src="/matter.js/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Differential Torque in Matter.js Car Simulation - matter.js" />
+    <meta property="og:url" content="https://salivity.github.io/matter.js/article/differential-torque-in-matter-js-car-simulation" />
+    <meta property="og:image" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Simulating realistic vehicle dynamics in Matter.js requires distributing rotational drive force unevenly between wheels based on turning angles, traction, and wheel speeds. This article explains how to model differential torque across drive wheels—such" />
+    <link rel="manifest" href="/matter.js/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/matter.js/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>matter.js</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/matter.js/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="differential-torque-in-matterjs-car-simulation">Differential
+Torque in Matter.js Car Simulation</h1>
+<p>Simulating realistic vehicle dynamics in Matter.js requires
+distributing rotational drive force unevenly between wheels based on
+turning angles, traction, and wheel speeds. This article explains how to
+model differential torque across drive wheels—such as an open or
+limited-slip differential (LSD)—in a 2D Matter.js environment by
+monitoring wheel angular velocities and dynamically distributing torque
+values on every physics engine update tick.</p>
+<hr />
+<h3 id="understanding-differential-types-in-2d-physics">Understanding
+Differential Types in 2D Physics</h3>
+<p>In a vehicle, the differential allows the driven wheels to rotate at
+different speeds while supplying power. In a 2D physics engine like
+Matter.js, vehicles are typically modeled either in a side-profile view
+(front and rear axles) or a top-down view (left and right wheels).</p>
+<ul>
+<li><strong>Open Differential:</strong> Supplies equal torque to both
+wheels (<span class="math inline">\(T_1 = T_2 =
+\frac{T_{\text{engine}}}{2}\)</span>). If one wheel loses traction and
+spins rapidly, the total applied propulsion collapses to the limit of
+the slipping wheel.</li>
+<li><strong>Locked Differential (Spool):</strong> Forces both wheels to
+rotate at identical speeds regardless of resistance, causing tire scrub
+during sharp turns.</li>
+<li><strong>Limited-Slip Differential (LSD):</strong> Transmits equal
+base torque until an angular velocity delta (<span
+class="math inline">\(\Delta\omega\)</span>) is detected between the
+wheels, at which point torque is redirected to the slower-spinning wheel
+with more grip.</li>
+</ul>
+<hr />
+<h3 id="step-by-step-implementation">Step-by-Step Implementation</h3>
+<h4 id="1-setup-the-drive-wheels">1. Setup the Drive Wheels</h4>
+<p>Define your driven wheels as standard circular rigid bodies and
+attach them to the chassis using revolute constraints or stiff distance
+constraints.</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> wheelA <span class="op">=</span> Matter<span class="op">.</span><span class="at">Bodies</span><span class="op">.</span><span class="fu">circle</span>(x1<span class="op">,</span> y1<span class="op">,</span> radius<span class="op">,</span> { <span class="dt">friction</span><span class="op">:</span> <span class="fl">0.8</span> })<span class="op">;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> wheelB <span class="op">=</span> Matter<span class="op">.</span><span class="at">Bodies</span><span class="op">.</span><span class="fu">circle</span>(x2<span class="op">,</span> y2<span class="op">,</span> radius<span class="op">,</span> { <span class="dt">friction</span><span class="op">:</span> <span class="fl">0.8</span> })<span class="op">;</span></span></code></pre></div>
+<h4 id="2-listen-to-the-engines-pre-update-loop">2. Listen to the
+Engine's Pre-Update Loop</h4>
+<p>All torque computations must occur inside the
+<code>beforeUpdate</code> event listener to ensure forces are applied
+immediately before the solver executes collision resolution and position
+integration.</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a>Matter<span class="op">.</span><span class="at">Events</span><span class="op">.</span><span class="fu">on</span>(engine<span class="op">,</span> <span class="st">&#39;beforeUpdate&#39;</span><span class="op">,</span> () <span class="kw">=&gt;</span> {</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>    <span class="fu">applyDifferentialTorque</span>(wheelA<span class="op">,</span> wheelB<span class="op">,</span> throttleInput)<span class="op">;</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div>
+<h4 id="3-calculate-angular-velocities">3. Calculate Angular
+Velocities</h4>
+<p>Query the current rotational speed (<code>angularVelocity</code>) of
+both wheels directly from their Matter.js body properties:</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> omegaA <span class="op">=</span> wheelA<span class="op">.</span><span class="at">angularVelocity</span><span class="op">;</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> omegaB <span class="op">=</span> wheelB<span class="op">.</span><span class="at">angularVelocity</span><span class="op">;</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> deltaOmega <span class="op">=</span> omegaA <span class="op">-</span> omegaB<span class="op">;</span></span></code></pre></div>
+<h4 id="4-compute-torque-allocation">4. Compute Torque Allocation</h4>
+<h5 id="open-differential-model">Open Differential Model</h5>
+<p>For an open differential, base torque is split evenly. If speed
+matching is desired to prevent runaway free-spinning, dampening can be
+applied to the faster wheel:</p>
+<div class="sourceCode" id="cb4"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">applyOpenDifferential</span>(wheelA<span class="op">,</span> wheelB<span class="op">,</span> throttle) {</span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> totalTorque <span class="op">=</span> throttle <span class="op">*</span> MAX_TORQUE<span class="op">;</span></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> halfTorque <span class="op">=</span> totalTorque <span class="op">/</span> <span class="dv">2</span><span class="op">;</span></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>    wheelA<span class="op">.</span><span class="at">torque</span> <span class="op">+=</span> halfTorque<span class="op">;</span></span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a>    wheelB<span class="op">.</span><span class="at">torque</span> <span class="op">+=</span> halfTorque<span class="op">;</span></span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<h5 id="limited-slip-differential-lsd-model">Limited-Slip Differential
+(LSD) Model</h5>
+<p>An LSD redistributes torque from the slipping wheel back to the
+traction-bearing wheel using a stiffness coefficient (<span
+class="math inline">\(K_{lsd}\)</span>):</p>
+<div class="sourceCode" id="cb5"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">applyLimitedSlipDifferential</span>(wheelA<span class="op">,</span> wheelB<span class="op">,</span> throttle) {</span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> totalTorque <span class="op">=</span> throttle <span class="op">*</span> MAX_TORQUE<span class="op">;</span></span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> baseTorque <span class="op">=</span> totalTorque <span class="op">*</span> <span class="fl">0.5</span><span class="op">;</span></span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Determine differential speed</span></span>
+<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> deltaOmega <span class="op">=</span> wheelA<span class="op">.</span><span class="at">angularVelocity</span> <span class="op">-</span> wheelB<span class="op">.</span><span class="at">angularVelocity</span><span class="op">;</span></span>
+<span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb5-8"><a href="#cb5-8" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Transfer torque proportional to the difference in rotational speed</span></span>
+<span id="cb5-9"><a href="#cb5-9" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> kLsd <span class="op">=</span> <span class="fl">0.05</span><span class="op">;</span> <span class="co">// LSD bias factor</span></span>
+<span id="cb5-10"><a href="#cb5-10" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> transferTorque <span class="op">=</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">max</span>(<span class="op">-</span>baseTorque<span class="op">,</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">min</span>(baseTorque<span class="op">,</span> deltaOmega <span class="op">*</span> kLsd))<span class="op">;</span></span>
+<span id="cb5-11"><a href="#cb5-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-12"><a href="#cb5-12" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Wheel A loses torque if spinning faster; Wheel B gains it</span></span>
+<span id="cb5-13"><a href="#cb5-13" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> torqueA <span class="op">=</span> baseTorque <span class="op">-</span> transferTorque<span class="op">;</span></span>
+<span id="cb5-14"><a href="#cb5-14" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> torqueB <span class="op">=</span> baseTorque <span class="op">+</span> transferTorque<span class="op">;</span></span>
+<span id="cb5-15"><a href="#cb5-15" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-16"><a href="#cb5-16" aria-hidden="true" tabindex="-1"></a>    wheelA<span class="op">.</span><span class="at">torque</span> <span class="op">+=</span> torqueA<span class="op">;</span></span>
+<span id="cb5-17"><a href="#cb5-17" aria-hidden="true" tabindex="-1"></a>    wheelB<span class="op">.</span><span class="at">torque</span> <span class="op">+=</span> torqueB<span class="op">;</span></span>
+<span id="cb5-18"><a href="#cb5-18" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<hr />
+<h3 id="top-down-vehicle-considerations">Top-Down Vehicle
+Considerations</h3>
+<p>For top-down vehicles, rotational torque alone applied to the wheels
+will not propel the vehicle forward. In this case, torque translates to
+linear forward force applied at the wheel’s contact patch.</p>
+<p>Compute the forward vector of each wheel and apply force using
+<code>Matter.Body.applyForce</code>:</p>
+<div class="sourceCode" id="cb6"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">applyTopDownDriveForce</span>(wheel<span class="op">,</span> torqueValue) {</span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> angle <span class="op">=</span> wheel<span class="op">.</span><span class="at">angle</span><span class="op">;</span></span>
+<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> forceMagnitude <span class="op">=</span> torqueValue <span class="op">/</span> wheel<span class="op">.</span><span class="at">circleRadius</span><span class="op">;</span></span>
+<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-5"><a href="#cb6-5" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> forceVector <span class="op">=</span> {</span>
+<span id="cb6-6"><a href="#cb6-6" aria-hidden="true" tabindex="-1"></a>        <span class="dt">x</span><span class="op">:</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">cos</span>(angle) <span class="op">*</span> forceMagnitude<span class="op">,</span></span>
+<span id="cb6-7"><a href="#cb6-7" aria-hidden="true" tabindex="-1"></a>        <span class="dt">y</span><span class="op">:</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">sin</span>(angle) <span class="op">*</span> forceMagnitude</span>
+<span id="cb6-8"><a href="#cb6-8" aria-hidden="true" tabindex="-1"></a>    }<span class="op">;</span></span>
+<span id="cb6-9"><a href="#cb6-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-10"><a href="#cb6-10" aria-hidden="true" tabindex="-1"></a>    Matter<span class="op">.</span><span class="at">Body</span><span class="op">.</span><span class="fu">applyForce</span>(wheel<span class="op">,</span> wheel<span class="op">.</span><span class="at">position</span><span class="op">,</span> forceVector)<span class="op">;</span></span>
+<span id="cb6-11"><a href="#cb6-11" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<p>By substituting raw body torque with vector forces distributed
+according to the LSD or open differential logic, top-down vehicles will
+accurately display understeer, oversteer, and power-sliding
+characteristics depending on traction states.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/matter.js'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/matter.js/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/matter.js/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

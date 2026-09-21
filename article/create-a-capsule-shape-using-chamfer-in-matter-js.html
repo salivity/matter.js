@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Create a Capsule Shape Using Chamfer in Matter.js - matter.js</title>
+    <meta name="description" content="Matter.js does not feature a dedicated capsule primitive, but you can create an accurate capsule collider by applying a chamfer to a standard rectangle body. This article explains how to configure a rectangle's dimensions and chamfer radius to produce a">
+    <link rel="canonical" href="https://salivity.github.io/matter.js/article/create-a-capsule-shape-using-chamfer-in-matter-js">
+    <link rel="search" type="application/opensearchdescription+xml" title="matter.js" href="/matter.js/opensearch.xml">
+    <link rel="icon" href="/matter.js/favicon.ico">
+    <link rel="stylesheet" href="/matter.js/css/style.css">
+    <link media="print" rel="stylesheet" href="/matter.js/css/print.css">
+    <script src="/matter.js/js/fuse.min.js"></script>
+    <script src="/matter.js/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Create a Capsule Shape Using Chamfer in Matter.js - matter.js" />
+    <meta property="og:url" content="https://salivity.github.io/matter.js/article/create-a-capsule-shape-using-chamfer-in-matter-js" />
+    <meta property="og:image" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Matter.js does not feature a dedicated capsule primitive, but you can create an accurate capsule collider by applying a chamfer to a standard rectangle body. This article explains how to configure a rectangle's dimensions and chamfer radius to produce a" />
+    <link rel="manifest" href="/matter.js/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/matter.js/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>matter.js</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/matter.js/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="create-a-capsule-shape-using-chamfer-in-matterjs">Create a
+Capsule Shape Using Chamfer in Matter.js</h1>
+<p>Matter.js does not feature a dedicated capsule primitive, but you can
+create an accurate capsule collider by applying a chamfer to a standard
+rectangle body. This article explains how to configure a rectangle's
+dimensions and chamfer radius to produce a capsule, provides a
+ready-to-use code implementation, and covers key settings such as vertex
+quality.</p>
+<h2 id="how-the-chamfer-method-works">How the Chamfer Method Works</h2>
+<p>A capsule (also known as a stadium shape) consists of a rectangle
+capped by two semicircular ends. In Matter.js, the <code>chamfer</code>
+property bevels the corners of a polygon by generating additional
+vertices along a curve.</p>
+<p>To form a true capsule:</p>
+<ol type="1">
+<li>Choose the capsule orientation (vertical or horizontal).</li>
+<li>Set the chamfer radius to exactly half of the shorter
+dimension.</li>
+<li>For a vertical capsule of width <span
+class="math inline">\(W\)</span> and height <span
+class="math inline">\(H\)</span> (where <span class="math inline">\(H
+&gt; W\)</span>), the chamfer radius must be <span
+class="math inline">\(W / 2\)</span>.</li>
+<li>For a horizontal capsule where <span class="math inline">\(W &gt;
+H\)</span>, the chamfer radius must be <span class="math inline">\(H /
+2\)</span>.</li>
+</ol>
+<p>Applying this radius rounds the adjacent corners together, forming
+seamless semicircular caps on both ends of the body.</p>
+<h2 id="code-example">Code Example</h2>
+<p>To generate a vertical capsule, define the rectangle and pass the
+<code>chamfer</code> configuration in the body options:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> Matter <span class="op">=</span> <span class="pp">require</span>(<span class="st">&#39;matter-js&#39;</span>)<span class="op">;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> { Bodies } <span class="op">=</span> Matter<span class="op">;</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> x <span class="op">=</span> <span class="dv">400</span><span class="op">;</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> y <span class="op">=</span> <span class="dv">300</span><span class="op">;</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> width <span class="op">=</span> <span class="dv">60</span><span class="op">;</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> height <span class="op">=</span> <span class="dv">140</span><span class="op">;</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a><span class="co">// Radius must equal half the width for a vertical capsule</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> capsuleRadius <span class="op">=</span> width <span class="op">/</span> <span class="dv">2</span><span class="op">;</span></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> capsule <span class="op">=</span> Bodies<span class="op">.</span><span class="fu">rectangle</span>(x<span class="op">,</span> y<span class="op">,</span> width<span class="op">,</span> height<span class="op">,</span> {</span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>  <span class="dt">chamfer</span><span class="op">:</span> {</span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>    <span class="dt">radius</span><span class="op">:</span> capsuleRadius<span class="op">,</span></span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a>    <span class="dt">quality</span><span class="op">:</span> <span class="dv">8</span> <span class="co">// Controls the smoothness of the curve</span></span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a>  }<span class="op">,</span></span>
+<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a>  <span class="dt">render</span><span class="op">:</span> {</span>
+<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a>    <span class="dt">fillStyle</span><span class="op">:</span> <span class="st">&#39;#2ecc71&#39;</span></span>
+<span id="cb1-19"><a href="#cb1-19" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb1-20"><a href="#cb1-20" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div>
+<h2 id="configuring-chamfer-settings">Configuring Chamfer Settings</h2>
+<p>The <code>chamfer</code> option accepts two primary properties:</p>
+<ul>
+<li><strong><code>radius</code></strong>: A number or an array of
+numbers specifying the corner radius. For a uniform capsule, pass a
+single number equal to half the smaller dimension.</li>
+<li><strong><code>quality</code></strong>: Controls how many vertices
+are generated to approximate the rounded corners. The default value is
+<code>-1</code> (automatic based on radius). Setting a specific integer,
+such as <code>8</code> or <code>10</code>, ensures smooth curves without
+generating an excessive number of vertices.</li>
+</ul>
+<h2 id="chamfer-vs-compound-bodies">Chamfer vs. Compound Bodies</h2>
+<p>Using a chamfered rectangle is generally preferred over building a
+compound body made of two circles and a rectangle:</p>
+<ul>
+<li><strong>Performance</strong>: A chamfered rectangle remains a single
+convex polygon. Matter.js processes single convex bodies faster than
+compound bodies consisting of multiple sub-parts.</li>
+<li><strong>Simplicity</strong>: Chamfered bodies have a single center
+of mass and unified inertia automatically calculated by the engine.</li>
+<li><strong>Collision Artifacts</strong>: Compound shapes can
+occasionally cause internal edge catching or collision jitter at the
+seam between the circles and the central rectangle. A chamfered polygon
+eliminates this issue entirely.</li>
+</ul></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/matter.js'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/matter.js/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/matter.js/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

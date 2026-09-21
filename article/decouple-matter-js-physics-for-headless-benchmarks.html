@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Decouple Matter.js Physics for Headless Benchmarks - matter.js</title>
+    <meta name="description" content="By default, Matter.js couples simulation updates to the browser display refresh rate using Matter.Runner and requestAnimationFrame. Decoupling physics updates from screen rendering allows you to run headless simulations at maximum processor speed, making">
+    <link rel="canonical" href="https://salivity.github.io/matter.js/article/decouple-matter-js-physics-for-headless-benchmarks">
+    <link rel="search" type="application/opensearchdescription+xml" title="matter.js" href="/matter.js/opensearch.xml">
+    <link rel="icon" href="/matter.js/favicon.ico">
+    <link rel="stylesheet" href="/matter.js/css/style.css">
+    <link media="print" rel="stylesheet" href="/matter.js/css/print.css">
+    <script src="/matter.js/js/fuse.min.js"></script>
+    <script src="/matter.js/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Decouple Matter.js Physics for Headless Benchmarks - matter.js" />
+    <meta property="og:url" content="https://salivity.github.io/matter.js/article/decouple-matter-js-physics-for-headless-benchmarks" />
+    <meta property="og:image" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="By default, Matter.js couples simulation updates to the browser display refresh rate using Matter.Runner and requestAnimationFrame. Decoupling physics updates from screen rendering allows you to run headless simulations at maximum processor speed, making" />
+    <link rel="manifest" href="/matter.js/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/matter.js/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>matter.js</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/matter.js/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="decouple-matterjs-physics-for-headless-benchmarks">Decouple
+Matter.js Physics for Headless Benchmarks</h1>
+<p>By default, Matter.js couples simulation updates to the browser
+display refresh rate using <code>Matter.Runner</code> and
+<code>requestAnimationFrame</code>. Decoupling physics updates from
+screen rendering allows you to run headless simulations at maximum
+processor speed, making it possible to execute automated stress tests,
+profile computational bottlenecks, and measure engine throughput. This
+guide demonstrates how to bypass Matter.js rendering utilities,
+implement a manual execution loop, and collect accurate benchmark
+metrics.</p>
+<h3 id="why-avoid-matterrunner-and-matterrender">Why Avoid Matter.Runner
+and Matter.Render</h3>
+<p><code>Matter.Runner</code> synchronizes simulation steps with the
+screen's refresh cycle (typically 60Hz or 144Hz). It calculates a
+dynamic delta based on wall-clock time and caps the execution rate to
+prevent physics updates from outpacing frame delivery. Similarly,
+<code>Matter.Render</code> consumes significant CPU and GPU overhead
+drawing canvas elements.</p>
+<p>To benchmark raw physics performance, both must be eliminated:</p>
+<ul>
+<li>Omit <code>Matter.Render</code> entirely to run in environments like
+Node.js or web workers without DOM dependencies.</li>
+<li>Replace <code>Matter.Runner</code> with a tight, synchronous loop
+that calls <code>Matter.Engine.update</code> directly.</li>
+</ul>
+<h3 id="implementing-a-synchronous-headless-loop">Implementing a
+Synchronous Headless Loop</h3>
+<p>To execute physics calculations as fast as possible, call
+<code>Engine.update()</code> inside a standard iteration loop. Passing a
+fixed <code>delta</code> (such as <code>1000 / 60</code> for 16.666ms)
+ensures deterministic physics across benchmark runs regardless of
+hardware execution speed.</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> Matter <span class="im">from</span> <span class="st">&#39;matter-js&#39;</span><span class="op">;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> { Engine<span class="op">,</span> World<span class="op">,</span> Bodies } <span class="op">=</span> Matter<span class="op">;</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="co">// 1. Initialize the Engine without Runner or Render</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> engine <span class="op">=</span> Engine<span class="op">.</span><span class="fu">create</span>()<span class="op">;</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a><span class="co">// 2. Populate the World</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> ground <span class="op">=</span> Bodies<span class="op">.</span><span class="fu">rectangle</span>(<span class="dv">400</span><span class="op">,</span> <span class="dv">610</span><span class="op">,</span> <span class="dv">810</span><span class="op">,</span> <span class="dv">60</span><span class="op">,</span> { <span class="dt">isStatic</span><span class="op">:</span> <span class="kw">true</span> })<span class="op">;</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> stack <span class="op">=</span> []<span class="op">;</span></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> (<span class="kw">let</span> i <span class="op">=</span> <span class="dv">0</span><span class="op">;</span> i <span class="op">&lt;</span> <span class="dv">500</span><span class="op">;</span> i<span class="op">++</span>) {</span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>  stack<span class="op">.</span><span class="fu">push</span>(Bodies<span class="op">.</span><span class="fu">circle</span>(<span class="dv">400</span><span class="op">,</span> <span class="dv">100</span><span class="op">,</span> <span class="dv">10</span>))<span class="op">;</span></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>World<span class="op">.</span><span class="fu">add</span>(engine<span class="op">.</span><span class="at">world</span><span class="op">,</span> [ground<span class="op">,</span> <span class="op">...</span>stack])<span class="op">;</span></span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a><span class="co">// 3. Define Benchmark Parameters</span></span>
+<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> TOTAL_FRAMES <span class="op">=</span> <span class="dv">1000</span><span class="op">;</span></span>
+<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> FIXED_DELTA <span class="op">=</span> <span class="dv">1000</span> <span class="op">/</span> <span class="dv">60</span><span class="op">;</span> <span class="co">// 16.66ms per step</span></span>
+<span id="cb1-19"><a href="#cb1-19" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-20"><a href="#cb1-20" aria-hidden="true" tabindex="-1"></a><span class="co">// 4. Run the Headless Execution Loop</span></span>
+<span id="cb1-21"><a href="#cb1-21" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> startTime <span class="op">=</span> <span class="bu">performance</span><span class="op">.</span><span class="fu">now</span>()<span class="op">;</span></span>
+<span id="cb1-22"><a href="#cb1-22" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-23"><a href="#cb1-23" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> (<span class="kw">let</span> frame <span class="op">=</span> <span class="dv">0</span><span class="op">;</span> frame <span class="op">&lt;</span> TOTAL_FRAMES<span class="op">;</span> frame<span class="op">++</span>) {</span>
+<span id="cb1-24"><a href="#cb1-24" aria-hidden="true" tabindex="-1"></a>  Matter<span class="op">.</span><span class="at">Engine</span><span class="op">.</span><span class="fu">update</span>(engine<span class="op">,</span> FIXED_DELTA)<span class="op">;</span></span>
+<span id="cb1-25"><a href="#cb1-25" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb1-26"><a href="#cb1-26" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-27"><a href="#cb1-27" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> endTime <span class="op">=</span> <span class="bu">performance</span><span class="op">.</span><span class="fu">now</span>()<span class="op">;</span></span>
+<span id="cb1-28"><a href="#cb1-28" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> durationMs <span class="op">=</span> endTime <span class="op">-</span> startTime<span class="op">;</span></span>
+<span id="cb1-29"><a href="#cb1-29" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-30"><a href="#cb1-30" aria-hidden="true" tabindex="-1"></a><span class="co">// 5. Calculate Metrics</span></span>
+<span id="cb1-31"><a href="#cb1-31" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> framesPerSecond <span class="op">=</span> (TOTAL_FRAMES <span class="op">/</span> (durationMs <span class="op">/</span> <span class="dv">1000</span>))<span class="op">.</span><span class="fu">toFixed</span>(<span class="dv">2</span>)<span class="op">;</span></span>
+<span id="cb1-32"><a href="#cb1-32" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> msPerFrame <span class="op">=</span> (durationMs <span class="op">/</span> TOTAL_FRAMES)<span class="op">.</span><span class="fu">toFixed</span>(<span class="dv">3</span>)<span class="op">;</span></span>
+<span id="cb1-33"><a href="#cb1-33" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-34"><a href="#cb1-34" aria-hidden="true" tabindex="-1"></a><span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(<span class="vs">`Simulated </span><span class="sc">${</span>TOTAL_FRAMES<span class="sc">}</span><span class="vs"> frames in </span><span class="sc">${</span>durationMs<span class="op">.</span><span class="fu">toFixed</span>(<span class="dv">2</span>)<span class="sc">}</span><span class="vs">ms`</span>)<span class="op">;</span></span>
+<span id="cb1-35"><a href="#cb1-35" aria-hidden="true" tabindex="-1"></a><span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(<span class="vs">`Throughput: </span><span class="sc">${</span>framesPerSecond<span class="sc">}</span><span class="vs"> steps/sec (</span><span class="sc">${</span>msPerFrame<span class="sc">}</span><span class="vs"> ms/step)`</span>)<span class="op">;</span></span></code></pre></div>
+<h3 id="best-practices-for-accurate-benchmarking">Best Practices for
+Accurate Benchmarking</h3>
+<p>When running headless Matter.js tests, apply these practices to
+isolate physics computation:</p>
+<ul>
+<li><strong>Enforce Fixed Time Steps:</strong> Never pass fluctuating
+dynamic delta times to <code>Engine.update()</code> during benchmarking.
+Dynamic time-stepping alters collision resolution counts and introduces
+non-deterministic behavior between runs.</li>
+<li><strong>Include a Warmup Phase:</strong> Modern JavaScript engines
+(such as V8) optimize code dynamically via JIT compilation. Run several
+hundred updates before recording <code>performance.now()</code> to
+ensure JIT optimization completes before timing begins.</li>
+<li><strong>Control Garbage Collection:</strong> Avoid instantiating new
+bodies, vectors, or arrays inside the iteration loop. Pre-allocate
+required entities to ensure memory allocation overhead does not skew
+your simulation measurements.</li>
+</ul></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/matter.js'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/matter.js/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/matter.js/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How to Normalize Vectors in Matter.js - matter.js</title>
+    <meta name="description" content="This article explains how to compute a unit vector from an arbitrary displacement vector in Matter.js using the built-in Matter.Vector.normalise method. You will learn the mathematical concept behind vector normalization, the exact syntax required by the">
+    <link rel="canonical" href="https://salivity.github.io/matter.js/article/how-to-normalize-vectors-in-matter-js">
+    <link rel="search" type="application/opensearchdescription+xml" title="matter.js" href="/matter.js/opensearch.xml">
+    <link rel="icon" href="/matter.js/favicon.ico">
+    <link rel="stylesheet" href="/matter.js/css/style.css">
+    <link media="print" rel="stylesheet" href="/matter.js/css/print.css">
+    <script src="/matter.js/js/fuse.min.js"></script>
+    <script src="/matter.js/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How to Normalize Vectors in Matter.js - matter.js" />
+    <meta property="og:url" content="https://salivity.github.io/matter.js/article/how-to-normalize-vectors-in-matter-js" />
+    <meta property="og:image" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article explains how to compute a unit vector from an arbitrary displacement vector in Matter.js using the built-in Matter.Vector.normalise method. You will learn the mathematical concept behind vector normalization, the exact syntax required by the" />
+    <link rel="manifest" href="/matter.js/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/matter.js/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>matter.js</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/matter.js/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="how-to-normalize-vectors-in-matterjs">How to Normalize Vectors
+in Matter.js</h1>
+<p>This article explains how to compute a unit vector from an arbitrary
+displacement vector in Matter.js using the built-in
+<code>Matter.Vector.normalise</code> method. You will learn the
+mathematical concept behind vector normalization, the exact syntax
+required by the Matter.js physics engine, and how to apply the resulting
+unit vector to control movement and directional forces in your
+simulations.</p>
+<h2 id="understanding-displacement-and-unit-vectors">Understanding
+Displacement and Unit Vectors</h2>
+<p>A displacement vector represents the distance and direction between
+two points in 2D space. A unit vector—also known as a normalized
+vector—retains the exact same direction as the original displacement
+vector, but its magnitude (length) is scaled down to 1. Unit vectors are
+essential in physics engines for applying uniform forces, setting
+projectile velocities, and calculating collision trajectories without
+the magnitude of the distance skewing the physics calculations.</p>
+<h2 id="step-by-step-implementation">Step-by-Step Implementation</h2>
+<p>To calculate a unit vector from two positions, you first calculate
+the displacement vector and then pass it to
+<code>Matter.Vector.normalise</code>.</p>
+<h3 id="1-calculate-the-displacement-vector">1. Calculate the
+Displacement Vector</h3>
+<p>Subtract the origin point (point A) from the target point (point B)
+using <code>Matter.Vector.sub</code>:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> pointA <span class="op">=</span> { <span class="dt">x</span><span class="op">:</span> <span class="dv">50</span><span class="op">,</span> <span class="dt">y</span><span class="op">:</span> <span class="dv">100</span> }<span class="op">;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> pointB <span class="op">=</span> { <span class="dt">x</span><span class="op">:</span> <span class="dv">200</span><span class="op">,</span> <span class="dt">y</span><span class="op">:</span> <span class="dv">300</span> }<span class="op">;</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="co">// Displacement = Point B - Point A</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> displacement <span class="op">=</span> Matter<span class="op">.</span><span class="at">Vector</span><span class="op">.</span><span class="fu">sub</span>(pointB<span class="op">,</span> pointA)<span class="op">;</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a><span class="co">// displacement is { x: 150, y: 200 }</span></span></code></pre></div>
+<h3 id="2-normalize-the-vector">2. Normalize the Vector</h3>
+<p>Pass the displacement vector to <code>Matter.Vector.normalise</code>.
+The function divides both components (<span
+class="math inline">\(x\)</span> and <span
+class="math inline">\(y\)</span>) by the vector's total length (computed
+via the Pythagorean theorem: <span class="math inline">\(\sqrt{x^2 +
+y^2}\)</span>).</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> unitVector <span class="op">=</span> Matter<span class="op">.</span><span class="at">Vector</span><span class="op">.</span><span class="fu">normalise</span>(displacement)<span class="op">;</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="co">// unitVector is approximately { x: 0.6, y: 0.8 }</span></span></code></pre></div>
+<p>The resulting <code>unitVector</code> has a magnitude of precisely 1,
+pointing from <code>pointA</code> toward <code>pointB</code>.</p>
+<h2 id="complete-code-example">Complete Code Example</h2>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Import or alias the Matter.js Vector module</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> Vector <span class="op">=</span> Matter<span class="op">.</span><span class="at">Vector</span><span class="op">;</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a><span class="co">// Define two positions in your 2D world</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> startPosition <span class="op">=</span> { <span class="dt">x</span><span class="op">:</span> <span class="dv">10</span><span class="op">,</span> <span class="dt">y</span><span class="op">:</span> <span class="dv">20</span> }<span class="op">;</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> targetPosition <span class="op">=</span> { <span class="dt">x</span><span class="op">:</span> <span class="dv">70</span><span class="op">,</span> <span class="dt">y</span><span class="op">:</span> <span class="dv">100</span> }<span class="op">;</span></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a><span class="co">// 1. Calculate the displacement between the two positions</span></span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> displacement <span class="op">=</span> Vector<span class="op">.</span><span class="fu">sub</span>(targetPosition<span class="op">,</span> startPosition)<span class="op">;</span></span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a><span class="co">// 2. Compute the unit vector</span></span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> unitVector <span class="op">=</span> Vector<span class="op">.</span><span class="fu">normalise</span>(displacement)<span class="op">;</span></span>
+<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-14"><a href="#cb3-14" aria-hidden="true" tabindex="-1"></a><span class="co">// 3. (Optional) Apply a specific speed or force along this direction</span></span>
+<span id="cb3-15"><a href="#cb3-15" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> speed <span class="op">=</span> <span class="dv">5</span><span class="op">;</span></span>
+<span id="cb3-16"><a href="#cb3-16" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> velocity <span class="op">=</span> Vector<span class="op">.</span><span class="fu">mult</span>(unitVector<span class="op">,</span> speed)<span class="op">;</span></span>
+<span id="cb3-17"><a href="#cb3-17" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-18"><a href="#cb3-18" aria-hidden="true" tabindex="-1"></a><span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(<span class="st">&quot;Unit Vector:&quot;</span><span class="op">,</span> unitVector)<span class="op">;</span></span>
+<span id="cb3-19"><a href="#cb3-19" aria-hidden="true" tabindex="-1"></a><span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(<span class="st">&quot;Magnitude:&quot;</span><span class="op">,</span> Vector<span class="op">.</span><span class="fu">magnitude</span>(unitVector))<span class="op">;</span> <span class="co">// Outputs: 1</span></span>
+<span id="cb3-20"><a href="#cb3-20" aria-hidden="true" tabindex="-1"></a><span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(<span class="st">&quot;Scaled Velocity:&quot;</span><span class="op">,</span> velocity)<span class="op">;</span></span></code></pre></div>
+<h2 id="handling-zero-length-vectors">Handling Zero-Length Vectors</h2>
+<p>If the start position and target position share the exact same
+coordinates, the displacement vector is <code>{ x: 0, y: 0 }</code>. In
+this scenario, the magnitude is zero. Dividing by zero returns
+<code>NaN</code> in standard mathematics. In Matter.js,
+<code>Matter.Vector.normalise</code> safely handles this by returning
+<code>{ x: 0, y: 0 }</code> if the magnitude is zero, preventing
+numerical instability in your physics world.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/matter.js'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/matter.js/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/matter.js/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

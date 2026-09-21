@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simulate Flagellar Motor Propulsion in Matter.js - matter.js</title>
+    <meta name="description" content="This article details how to model low Reynolds number bacterial locomotion, driven by a rotary flagellar motor, using the Matter.js 2D physics engine. Because bacteria swim in environments dominated by viscous forces rather than inertia, standard Newtoni">
+    <link rel="canonical" href="https://salivity.github.io/matter.js/article/simulate-flagellar-motor-propulsion-in-matter-js">
+    <link rel="search" type="application/opensearchdescription+xml" title="matter.js" href="/matter.js/opensearch.xml">
+    <link rel="icon" href="/matter.js/favicon.ico">
+    <link rel="stylesheet" href="/matter.js/css/style.css">
+    <link media="print" rel="stylesheet" href="/matter.js/css/print.css">
+    <script src="/matter.js/js/fuse.min.js"></script>
+    <script src="/matter.js/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Simulate Flagellar Motor Propulsion in Matter.js - matter.js" />
+    <meta property="og:url" content="https://salivity.github.io/matter.js/article/simulate-flagellar-motor-propulsion-in-matter-js" />
+    <meta property="og:image" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article details how to model low Reynolds number bacterial locomotion, driven by a rotary flagellar motor, using the Matter.js 2D physics engine. Because bacteria swim in environments dominated by viscous forces rather than inertia, standard Newtoni" />
+    <link rel="manifest" href="/matter.js/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/matter.js/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>matter.js</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/matter.js/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="simulate-flagellar-motor-propulsion-in-matterjs">Simulate
+Flagellar Motor Propulsion in Matter.js</h1>
+<p>This article details how to model low Reynolds number bacterial
+locomotion, driven by a rotary flagellar motor, using the Matter.js 2D
+physics engine. Because bacteria swim in environments dominated by
+viscous forces rather than inertia, standard Newtonian rigid-body
+physics engines require specific adjustments. Below, you will learn how
+to adapt Matter.js to mimic Stokes flow, construct a two-part bacterium
+with a counter-rotating motor, apply anisotropic drag via Resistive
+Force Theory (RFT), and calculate forward thrust.</p>
+<h2 id="understanding-low-reynolds-number-locomotion">Understanding Low
+Reynolds Number Locomotion</h2>
+<p>Bacterial swimming operates at a Reynolds number (<span
+class="math inline">\(Re\)</span>) of roughly <span
+class="math inline">\(10^{-4}\)</span> to <span
+class="math inline">\(10^{-5}\)</span>. In this regime, viscous forces
+completely dominate inertial forces, meaning momentum is negligible:
+when the motor stops, movement stops instantaneously. Matter.js is
+inherently an inertial physics engine, so you must negate default
+momentum and implement linear, non-inertial resistance to recreate this
+behavior accurately.</p>
+<h2 id="step-1-modeling-the-cell-anatomy">Step 1: Modeling the Cell
+Anatomy</h2>
+<p>A typical flagellated bacterium consists of a cell body (the soma)
+and a helical flagellar filament powered by a rotary motor embedded in
+the cell envelope.</p>
+<p>In a 2D Matter.js simulation:</p>
+<ol type="1">
+<li><strong>The Soma (Body):</strong> Create an elongated capsule or
+rectangle with rounded ends using
+<code>Matter.Bodies.rectangle</code>.</li>
+<li><strong>The Flagellum:</strong> Represent the flagellar filament as
+either a rigid rod or a series of constrained circular segments linked
+by <code>Matter.Constraint</code>.</li>
+<li><strong>The Motor:</strong> Connect the soma and flagellum using a
+revolute joint (<code>Matter.Constraint.create</code> with zero length)
+allowing free relative rotation.</li>
+</ol>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> body <span class="op">=</span> Matter<span class="op">.</span><span class="at">Bodies</span><span class="op">.</span><span class="fu">rectangle</span>(<span class="dv">400</span><span class="op">,</span> <span class="dv">300</span><span class="op">,</span> <span class="dv">60</span><span class="op">,</span> <span class="dv">25</span><span class="op">,</span> {</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>  <span class="dt">chamfer</span><span class="op">:</span> { <span class="dt">radius</span><span class="op">:</span> <span class="dv">10</span> }<span class="op">,</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>  <span class="dt">density</span><span class="op">:</span> <span class="fl">0.001</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> flagellum <span class="op">=</span> Matter<span class="op">.</span><span class="at">Bodies</span><span class="op">.</span><span class="fu">rectangle</span>(<span class="dv">350</span><span class="op">,</span> <span class="dv">300</span><span class="op">,</span> <span class="dv">50</span><span class="op">,</span> <span class="dv">6</span><span class="op">,</span> {</span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>  <span class="dt">density</span><span class="op">:</span> <span class="fl">0.0005</span><span class="op">,</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>  <span class="dt">collisionFilter</span><span class="op">:</span> { <span class="dt">group</span><span class="op">:</span> <span class="op">-</span><span class="dv">1</span> } <span class="co">// Prevent self-collision</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> motor <span class="op">=</span> Matter<span class="op">.</span><span class="at">Constraint</span><span class="op">.</span><span class="fu">create</span>({</span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>  <span class="dt">bodyA</span><span class="op">:</span> body<span class="op">,</span></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>  <span class="dt">pointA</span><span class="op">:</span> { <span class="dt">x</span><span class="op">:</span> <span class="op">-</span><span class="dv">30</span><span class="op">,</span> <span class="dt">y</span><span class="op">:</span> <span class="dv">0</span> }<span class="op">,</span></span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>  <span class="dt">bodyB</span><span class="op">:</span> flagellum<span class="op">,</span></span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a>  <span class="dt">pointB</span><span class="op">:</span> { <span class="dt">x</span><span class="op">:</span> <span class="dv">25</span><span class="op">,</span> <span class="dt">y</span><span class="op">:</span> <span class="dv">0</span> }<span class="op">,</span></span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a>  <span class="dt">length</span><span class="op">:</span> <span class="dv">0</span><span class="op">,</span></span>
+<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a>  <span class="dt">stiffness</span><span class="op">:</span> <span class="dv">1</span></span>
+<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span>
+<span id="cb1-19"><a href="#cb1-19" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-20"><a href="#cb1-20" aria-hidden="true" tabindex="-1"></a>Matter<span class="op">.</span><span class="at">Composite</span><span class="op">.</span><span class="fu">add</span>(engine<span class="op">.</span><span class="at">world</span><span class="op">,</span> [body<span class="op">,</span> flagellum<span class="op">,</span> motor])<span class="op">;</span></span></code></pre></div>
+<h2 id="step-2-overriding-inertia-with-viscous-drag">Step 2: Overriding
+Inertia with Viscous Drag</h2>
+<p>To replicate Stokes flow, apply a drag force directly proportional to
+velocity (<span class="math inline">\(F_{drag} = -\gamma v\)</span>) on
+every update tick, rather than letting Matter.js rely solely on
+quadratic air friction.</p>
+<p>Within an <code>engine.beforeUpdate</code> event, zero out angular
+and linear velocity accumulations from prior frames that exceed the
+current propulsion:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a>Matter<span class="op">.</span><span class="at">Events</span><span class="op">.</span><span class="fu">on</span>(engine<span class="op">,</span> <span class="st">&#39;beforeUpdate&#39;</span><span class="op">,</span> () <span class="kw">=&gt;</span> {</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> bodies <span class="op">=</span> [body<span class="op">,</span> flagellum]<span class="op">;</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> linearDragCoefficient <span class="op">=</span> <span class="fl">0.08</span><span class="op">;</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> angularDragCoefficient <span class="op">=</span> <span class="fl">0.15</span><span class="op">;</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>  bodies<span class="op">.</span><span class="fu">forEach</span>(b <span class="kw">=&gt;</span> {</span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Stokes drag: F = -gamma * v</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> dragForce <span class="op">=</span> {</span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>      <span class="dt">x</span><span class="op">:</span> <span class="op">-</span>b<span class="op">.</span><span class="at">velocity</span><span class="op">.</span><span class="at">x</span> <span class="op">*</span> linearDragCoefficient<span class="op">,</span></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>      <span class="dt">y</span><span class="op">:</span> <span class="op">-</span>b<span class="op">.</span><span class="at">velocity</span><span class="op">.</span><span class="at">y</span> <span class="op">*</span> linearDragCoefficient</span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>    }<span class="op">;</span></span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>    Matter<span class="op">.</span><span class="at">Body</span><span class="op">.</span><span class="fu">applyForce</span>(b<span class="op">,</span> b<span class="op">.</span><span class="at">position</span><span class="op">,</span> dragForce)<span class="op">;</span></span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Rotational viscous damping</span></span>
+<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a>    b<span class="op">.</span><span class="at">torque</span> <span class="op">-=</span> b<span class="op">.</span><span class="at">angularVelocity</span> <span class="op">*</span> angularDragCoefficient<span class="op">;</span></span>
+<span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a>  })<span class="op">;</span></span>
+<span id="cb2-18"><a href="#cb2-18" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div>
+<h2 id="step-3-applying-motor-torque-and-counter-rotation">Step 3:
+Applying Motor Torque and Counter-Rotation</h2>
+<p>The flagellar motor acts as a rotary engine that exerts equal and
+opposite torque on the filament and the cell body (Newton’s third law).
+If the flagellum rotates clockwise, the body counter-rotates
+counter-clockwise.</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> motorTorque <span class="op">=</span> <span class="fl">0.05</span><span class="op">;</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>Matter<span class="op">.</span><span class="at">Events</span><span class="op">.</span><span class="fu">on</span>(engine<span class="op">,</span> <span class="st">&#39;beforeUpdate&#39;</span><span class="op">,</span> () <span class="kw">=&gt;</span> {</span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>  <span class="co">// Apply counter-rotational torque</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>  body<span class="op">.</span><span class="at">torque</span> <span class="op">-=</span> motorTorque<span class="op">;</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>  flagellum<span class="op">.</span><span class="at">torque</span> <span class="op">+=</span> motorTorque<span class="op">;</span></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div>
+<h2 id="step-4-generating-thrust-via-resistive-force-theory-rft">Step 4:
+Generating Thrust via Resistive Force Theory (RFT)</h2>
+<p>True flagella generate thrust via 3D helical rotation. Because
+Matter.js operates in 2D, a rotating planar rod cannot produce net
+thrust without asymmetrical fluid interaction. According to Resistive
+Force Theory, a slender filament moving through a viscous fluid
+experiences roughly twice as much drag perpendicular to its axis (<span
+class="math inline">\(C_\perp\)</span>) as it does parallel to its axis
+(<span class="math inline">\(C_\parallel\)</span>).</p>
+<p>You can simulate this mechanism in 2D using one of two methods:</p>
+<h3 id="method-a-direct-thrust-conversion">Method A: Direct Thrust
+Conversion</h3>
+<p>Translate the relative rotational speed between the soma and the
+flagellar filament directly into an axial propulsive force applied along
+the body’s longitudinal axis:</p>
+<div class="sourceCode" id="cb4"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a>Matter<span class="op">.</span><span class="at">Events</span><span class="op">.</span><span class="fu">on</span>(engine<span class="op">,</span> <span class="st">&#39;beforeUpdate&#39;</span><span class="op">,</span> () <span class="kw">=&gt;</span> {</span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> relativeSpin <span class="op">=</span> flagellum<span class="op">.</span><span class="at">angularVelocity</span> <span class="op">-</span> body<span class="op">.</span><span class="at">angularVelocity</span><span class="op">;</span></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> thrustMagnitude <span class="op">=</span> relativeSpin <span class="op">*</span> <span class="fl">0.002</span><span class="op">;</span> <span class="co">// Coupling efficiency</span></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> angle <span class="op">=</span> body<span class="op">.</span><span class="at">angle</span><span class="op">;</span></span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> thrustVector <span class="op">=</span> {</span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a>    <span class="dt">x</span><span class="op">:</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">cos</span>(angle) <span class="op">*</span> thrustMagnitude<span class="op">,</span></span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a>    <span class="dt">y</span><span class="op">:</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">sin</span>(angle) <span class="op">*</span> thrustMagnitude</span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a>  }<span class="op">;</span></span>
+<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a>  Matter<span class="op">.</span><span class="at">Body</span><span class="op">.</span><span class="fu">applyForce</span>(body<span class="op">,</span> body<span class="op">.</span><span class="at">position</span><span class="op">,</span> thrustVector)<span class="op">;</span></span>
+<span id="cb4-12"><a href="#cb4-12" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div>
+<h3 id="method-b-anisotropic-drag-on-flagellar-segments">Method B:
+Anisotropic Drag on Flagellar Segments</h3>
+<p>If modeling the flagellum as a traveling wave or multi-jointed
+tail:</p>
+<ol type="1">
+<li>Decompose each segment's velocity into normal (<span
+class="math inline">\(v_\perp\)</span>) and tangential (<span
+class="math inline">\(v_\parallel\)</span>) components relative to the
+segment angle.</li>
+<li>Apply anisotropic drag: <span class="math display">\[F_\perp =
+-C_\perp v_\perp\]</span> <span class="math display">\[F_\parallel =
+-C_\parallel v_\parallel\]</span> where <span
+class="math inline">\(C_\perp \approx 2 \cdot C_\parallel\)</span>.</li>
+<li>The net difference in resistance pushes the cell forward as the
+segments undulate.</li>
+</ol>
+<h2 id="tuning-and-validation">Tuning and Validation</h2>
+<p>To confirm the model mimics realistic bacterial mechanics:</p>
+<ul>
+<li><strong>Check for Scallop Theorem Compliance:</strong> Reciprocal
+(symmetrical back-and-forth) motion must result in zero net
+displacement. Net movement should only occur when rotation or wave
+propagation breaks time-reversal symmetry.</li>
+<li><strong>Observe Immediate Halting:</strong> When
+<code>motorTorque</code> is set to zero, forward velocity must drop to
+zero within 1–2 engine ticks, reflecting the non-inertial reality of
+microscale aquatic transport.</li>
+</ul></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/matter.js'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/matter.js/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/matter.js/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

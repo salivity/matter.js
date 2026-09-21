@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>What Is Topological Sort and How Matter.js Uses It - matter.js</title>
+    <meta name="description" content="Topological sorting is an algorithmic method used to order the vertices of a directed acyclic graph (DAG) so that every dependency is resolved before the element that depends on it. In the context of Matter.js, a widely used 2D physics engine for JavaScr">
+    <link rel="canonical" href="https://salivity.github.io/matter.js/article/what-is-topological-sort-and-how-matter-js-uses-it">
+    <link rel="search" type="application/opensearchdescription+xml" title="matter.js" href="/matter.js/opensearch.xml">
+    <link rel="icon" href="/matter.js/favicon.ico">
+    <link rel="stylesheet" href="/matter.js/css/style.css">
+    <link media="print" rel="stylesheet" href="/matter.js/css/print.css">
+    <script src="/matter.js/js/fuse.min.js"></script>
+    <script src="/matter.js/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="What Is Topological Sort and How Matter.js Uses It - matter.js" />
+    <meta property="og:url" content="https://salivity.github.io/matter.js/article/what-is-topological-sort-and-how-matter-js-uses-it" />
+    <meta property="og:image" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Topological sorting is an algorithmic method used to order the vertices of a directed acyclic graph (DAG) so that every dependency is resolved before the element that depends on it. In the context of Matter.js, a widely used 2D physics engine for JavaScr" />
+    <link rel="manifest" href="/matter.js/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/matter.js/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>matter.js</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/matter.js/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="what-is-topological-sort-and-how-matterjs-uses-it">What Is
+Topological Sort and How Matter.js Uses It</h1>
+<p>Topological sorting is an algorithmic method used to order the
+vertices of a directed acyclic graph (DAG) so that every dependency is
+resolved before the element that depends on it. In the context of
+Matter.js, a widely used 2D physics engine for JavaScript, topological
+sorting principles are used internally to process composite structures
+and constraint networks in a deterministic sequence. This article
+explains the fundamentals of topological sorting and details how
+Matter.js applies this concept to maintain simulation stability and
+resolve body-constraint relationships accurately.</p>
+<h2 id="what-is-a-topological-sort">What Is a Topological Sort?</h2>
+<p>A topological sort produces a linear ordering of vertices in a
+Directed Acyclic Graph (DAG) such that for every directed edge from
+vertex <span class="math inline">\(u\)</span> to vertex <span
+class="math inline">\(v\)</span>, vertex <span
+class="math inline">\(u\)</span> appears before vertex <span
+class="math inline">\(v\)</span> in the ordering.</p>
+<p>A graph must meet two conditions to be topologically sorted:</p>
+<ol type="1">
+<li><strong>Directed:</strong> Edges have a specific direction
+representing dependencies or precedence (<span class="math inline">\(u
+\to v\)</span>).</li>
+<li><strong>Acyclic:</strong> The graph contains no closed loops. If a
+cycle exists (<span class="math inline">\(A \to B \to C \to A\)</span>),
+it is impossible to determine which node should come first.</li>
+</ol>
+<p>Two primary algorithms are commonly used to achieve a topological
+sort:</p>
+<ul>
+<li><strong>Kahn's Algorithm (BFS-based):</strong> Tracks the in-degree
+(number of incoming edges) for all nodes. Nodes with an in-degree of
+zero are added to a queue, processed, and removed, reducing the
+in-degree of neighboring nodes until all nodes are ordered.</li>
+<li><strong>Depth-First Search (DFS):</strong> Traverses the graph
+deeply, pushing nodes onto a stack only after all of their outgoing
+edges have been visited, then reverses the resulting list.</li>
+</ul>
+<h2 id="how-matterjs-uses-topological-sort-internally">How Matter.js
+Uses Topological Sort Internally</h2>
+<p>Matter.js is built around modular units consisting of bodies,
+constraints (springs, rods, pins), and composites. To update physical
+states accurately frame-by-frame, Matter.js must process these elements
+in a logically consistent order.</p>
+<h3 id="1-traversing-and-flattening-composite-hierarchies">1. Traversing
+and Flattening Composite Hierarchies</h3>
+<p>Matter.js organizes physics simulations inside a root
+<code>Composite</code> object (often referred to as the
+<code>world</code>). A <code>Composite</code> can contain bodies,
+constraints, and other nested composites, forming a directed tree or
+hierarchy.</p>
+<p>When the engine runs methods such as
+<code>Composite.allBodies()</code> or
+<code>Composite.allConstraints()</code>, it recursively traverses the
+composite tree to extract a flat array of elements. This traversal
+functions as a topological dependency resolution: parent composites must
+be traversed before child elements to ensure inherited properties,
+position offsets, and groupings are applied in the proper
+parent-to-child sequence.</p>
+<h3 id="2-constraint-and-chain-resolution">2. Constraint and Chain
+Resolution</h3>
+<p>Constraints in Matter.js connect two bodies (or one body to a fixed
+world point). In systems containing interconnected chains—such as ropes,
+cloth simulations, or ragdoll characters—each constraint depends on the
+positional corrections of neighboring constraints.</p>
+<p>When solving constraints:</p>
+<ul>
+<li>If Body A is pinned to a static point, Body B is constrained to Body
+A, and Body C is constrained to Body B, an implicit directed dependency
+exists (<span class="math inline">\(A \to B \to C\)</span>).</li>
+<li>If the solver updates constraints randomly, corrections applied to
+<span class="math inline">\(B \to C\)</span> might be immediately
+invalidated when <span class="math inline">\(A \to B\)</span> is
+subsequently resolved, causing visible jitter, stretching, or slow
+convergence.</li>
+<li>By structuring or sorting connected constraint chains topologically
+from fixed anchors outward to free-moving leaf bodies, the solver
+applies force propagation down the chain in a single pass, drastically
+reducing the number of solver iterations required for physical
+stability.</li>
+</ul>
+<h3 id="3-preventing-cyclic-update-traps">3. Preventing Cyclic Update
+Traps</h3>
+<p>Physics configurations can sometimes inadvertently introduce cyclic
+dependencies, especially when custom composite wrappers or
+bi-directional constraints are generated dynamically. Using topological
+sorting checks allows the engine to detect cycles, avoid infinite
+recursion during tree traversals, and safely fall back to iterative
+relaxation when perfect linear ordering cannot be achieved.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/matter.js'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/matter.js/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/matter.js/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

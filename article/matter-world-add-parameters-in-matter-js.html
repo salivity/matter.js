@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Matter.World.add Parameters in Matter.js - matter.js</title>
+    <meta name="description" content="This article explains the parameters accepted by the Matter.World.add function in the Matter.js 2D physics engine. It breaks down the function signature, details the two primary arguments it accepts, and lists the specific physics object types that can b">
+    <link rel="canonical" href="https://salivity.github.io/matter.js/article/matter-world-add-parameters-in-matter-js">
+    <link rel="search" type="application/opensearchdescription+xml" title="matter.js" href="/matter.js/opensearch.xml">
+    <link rel="icon" href="/matter.js/favicon.ico">
+    <link rel="stylesheet" href="/matter.js/css/style.css">
+    <link media="print" rel="stylesheet" href="/matter.js/css/print.css">
+    <script src="/matter.js/js/fuse.min.js"></script>
+    <script src="/matter.js/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Matter.World.add Parameters in Matter.js - matter.js" />
+    <meta property="og:url" content="https://salivity.github.io/matter.js/article/matter-world-add-parameters-in-matter-js" />
+    <meta property="og:image" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article explains the parameters accepted by the Matter.World.add function in the Matter.js 2D physics engine. It breaks down the function signature, details the two primary arguments it accepts, and lists the specific physics object types that can b" />
+    <link rel="manifest" href="/matter.js/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/matter.js/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>matter.js</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/matter.js/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="matterworldadd-parameters-in-matterjs">Matter.World.add
+Parameters in Matter.js</h1>
+<p>This article explains the parameters accepted by the
+<code>Matter.World.add</code> function in the Matter.js 2D physics
+engine. It breaks down the function signature, details the two primary
+arguments it accepts, and lists the specific physics object types that
+can be registered into a simulation world.</p>
+<hr />
+<h3 id="function-signature">Function Signature</h3>
+<p>In Matter.js, <code>Matter.World</code> inherits from
+<code>Matter.Composite</code>. The <code>Matter.World.add</code> method
+uses the following signature:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a>Matter<span class="op">.</span><span class="at">World</span><span class="op">.</span><span class="fu">add</span>(world<span class="op">,</span> object)</span></code></pre></div>
+<p>The method accepts two arguments: the target world composite and the
+object (or array of objects) to be simulated. It returns the modified
+<code>world</code> instance to allow method chaining.</p>
+<hr />
+<h3 id="parameter-1-world">Parameter 1: <code>world</code></h3>
+<ul>
+<li><strong>Type:</strong> <code>Matter.World</code> (or
+<code>Matter.Composite</code>)</li>
+<li><strong>Description:</strong> The root world instance of the physics
+engine (commonly accessed via <code>engine.world</code>). This composite
+acts as the container for all physical entities participating in the
+simulation.</li>
+</ul>
+<hr />
+<h3 id="parameter-2-object">Parameter 2: <code>object</code></h3>
+<ul>
+<li><strong>Type:</strong> <code>Matter.Body</code> |
+<code>Matter.Constraint</code> | <code>Matter.Composite</code> |
+<code>Array&lt;Matter.Body | Matter.Constraint | Matter.Composite&gt;</code></li>
+<li><strong>Description:</strong> The entity or list of entities you
+want to introduce to the physics world.</li>
+</ul>
+<p>The <code>object</code> argument accepts several specific Matter.js
+types:</p>
+<h4 id="1-rigid-bodies-matterbody">1. Rigid Bodies
+(<code>Matter.Body</code>)</h4>
+<p>Single rigid bodies created using <code>Matter.Body.create()</code>
+or helper methods from <code>Matter.Bodies</code> (such as
+<code>rectangle</code>, <code>circle</code>, <code>polygon</code>, or
+<code>fromVertices</code>).</p>
+<ul>
+<li><strong>Example:</strong>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> box <span class="op">=</span> Matter<span class="op">.</span><span class="at">Bodies</span><span class="op">.</span><span class="fu">rectangle</span>(<span class="dv">400</span><span class="op">,</span> <span class="dv">200</span><span class="op">,</span> <span class="dv">80</span><span class="op">,</span> <span class="dv">80</span>)<span class="op">;</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>Matter<span class="op">.</span><span class="at">World</span><span class="op">.</span><span class="fu">add</span>(engine<span class="op">.</span><span class="at">world</span><span class="op">,</span> box)<span class="op">;</span></span></code></pre></div></li>
+</ul>
+<h4 id="2-constraints-matterconstraint">2. Constraints
+(<code>Matter.Constraint</code>)</h4>
+<p>Joints, springs, elastic connections, or pins connecting two bodies
+(or one body and a fixed world point).</p>
+<ul>
+<li><strong>Example:</strong>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> spring <span class="op">=</span> Matter<span class="op">.</span><span class="at">Constraint</span><span class="op">.</span><span class="fu">create</span>({</span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>    <span class="dt">bodyA</span><span class="op">:</span> bodyA<span class="op">,</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>    <span class="dt">bodyB</span><span class="op">:</span> bodyB<span class="op">,</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>    <span class="dt">stiffness</span><span class="op">:</span> <span class="fl">0.05</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>Matter<span class="op">.</span><span class="at">World</span><span class="op">.</span><span class="fu">add</span>(engine<span class="op">.</span><span class="at">world</span><span class="op">,</span> spring)<span class="op">;</span></span></code></pre></div></li>
+</ul>
+<h4 id="3-mouse-constraints-mattermouseconstraint">3. Mouse Constraints
+(<code>Matter.MouseConstraint</code>)</h4>
+<p>A specialized constraint wrapper that links canvas mouse interactions
+directly to bodies within the world.</p>
+<ul>
+<li><strong>Example:</strong>
+<div class="sourceCode" id="cb4"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> mouseConstraint <span class="op">=</span> Matter<span class="op">.</span><span class="at">MouseConstraint</span><span class="op">.</span><span class="fu">create</span>(engine<span class="op">,</span> { <span class="dt">element</span><span class="op">:</span> canvas })<span class="op">;</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>Matter<span class="op">.</span><span class="at">World</span><span class="op">.</span><span class="fu">add</span>(engine<span class="op">.</span><span class="at">world</span><span class="op">,</span> mouseConstraint)<span class="op">;</span></span></code></pre></div></li>
+</ul>
+<h4 id="4-composites-mattercomposite">4. Composites
+(<code>Matter.Composite</code>)</h4>
+<p>Higher-level containers or groups containing multiple bodies,
+constraints, or other nested composites (such as car models, chains, or
+ragdolls).</p>
+<ul>
+<li><strong>Example:</strong>
+<div class="sourceCode" id="cb5"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> stack <span class="op">=</span> Matter<span class="op">.</span><span class="at">Composites</span><span class="op">.</span><span class="fu">stack</span>(<span class="dv">20</span><span class="op">,</span> <span class="dv">20</span><span class="op">,</span> <span class="dv">10</span><span class="op">,</span> <span class="dv">5</span><span class="op">,</span> <span class="dv">0</span><span class="op">,</span> <span class="dv">0</span><span class="op">,</span> (x<span class="op">,</span> y) <span class="kw">=&gt;</span> {</span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> Matter<span class="op">.</span><span class="at">Bodies</span><span class="op">.</span><span class="fu">circle</span>(x<span class="op">,</span> y<span class="op">,</span> <span class="dv">20</span>)<span class="op">;</span></span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a>Matter<span class="op">.</span><span class="at">World</span><span class="op">.</span><span class="fu">add</span>(engine<span class="op">.</span><span class="at">world</span><span class="op">,</span> stack)<span class="op">;</span></span></code></pre></div></li>
+</ul>
+<h4 id="5-arrays-of-valid-objects">5. Arrays of Valid Objects</h4>
+<p>Instead of calling <code>Matter.World.add</code> repeatedly, you can
+pass an array containing any combination of bodies, constraints, and
+composites in a single call.</p>
+<ul>
+<li><strong>Example:</strong>
+<div class="sourceCode" id="cb6"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a>Matter<span class="op">.</span><span class="at">World</span><span class="op">.</span><span class="fu">add</span>(engine<span class="op">.</span><span class="at">world</span><span class="op">,</span> [</span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a>    ground<span class="op">,</span></span>
+<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a>    boxA<span class="op">,</span></span>
+<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a>    boxB<span class="op">,</span></span>
+<span id="cb6-5"><a href="#cb6-5" aria-hidden="true" tabindex="-1"></a>    ropeConstraint<span class="op">,</span></span>
+<span id="cb6-6"><a href="#cb6-6" aria-hidden="true" tabindex="-1"></a>    mouseConstraint</span>
+<span id="cb6-7"><a href="#cb6-7" aria-hidden="true" tabindex="-1"></a>])<span class="op">;</span></span></code></pre></div></li>
+</ul></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/matter.js'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/matter.js/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/matter.js/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

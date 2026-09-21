@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Main Modules in the Matter.js Library - matter.js</title>
+    <meta name="description" content="Matter.js is a widely used 2D rigid body physics engine built for JavaScript and the modern web. This article outlines the essential modules that make up the Matter.js architecture, explaining how each component contributes to simulating realistic motion">
+    <link rel="canonical" href="https://salivity.github.io/matter.js/article/main-modules-in-the-matter-js-library">
+    <link rel="search" type="application/opensearchdescription+xml" title="matter.js" href="/matter.js/opensearch.xml">
+    <link rel="icon" href="/matter.js/favicon.ico">
+    <link rel="stylesheet" href="/matter.js/css/style.css">
+    <link media="print" rel="stylesheet" href="/matter.js/css/print.css">
+    <script src="/matter.js/js/fuse.min.js"></script>
+    <script src="/matter.js/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Main Modules in the Matter.js Library - matter.js" />
+    <meta property="og:url" content="https://salivity.github.io/matter.js/article/main-modules-in-the-matter-js-library" />
+    <meta property="og:image" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Matter.js is a widely used 2D rigid body physics engine built for JavaScript and the modern web. This article outlines the essential modules that make up the Matter.js architecture, explaining how each component contributes to simulating realistic motion" />
+    <link rel="manifest" href="/matter.js/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/matter.js/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>matter.js</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/matter.js/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="main-modules-in-the-matterjs-library">Main Modules in the
+Matter.js Library</h1>
+<p>Matter.js is a widely used 2D rigid body physics engine built for
+JavaScript and the modern web. This article outlines the essential
+modules that make up the Matter.js architecture, explaining how each
+component contributes to simulating realistic motion, handling
+collisions, managing constraints, and rendering visual output in
+browser-based applications.</p>
+<h3 id="1-matterengine">1. Matter.Engine</h3>
+<p>The <code>Engine</code> module is the brain of the physics
+simulation. It manages the state of the simulation world, processes
+collision detection, calculates body interactions, and advances the
+simulation step-by-step over time. Every Matter.js project requires an
+engine instance to coordinate the physics environment.</p>
+<h3 id="2-matterrunner">2. Matter.Runner</h3>
+<p>The <code>Runner</code> module provides an execution loop that
+automatically steps the <code>Engine</code> forward in synchronization
+with the browser's frame rate using <code>requestAnimationFrame</code>.
+While optional—developers can manually trigger engine ticks—it
+simplifies implementation by ensuring smooth, frame-rate-independent
+physics updates.</p>
+<h3 id="3-matterworld-and-mattercomposite">3. Matter.World and
+Matter.Composite</h3>
+<ul>
+<li><strong>Matter.Composite</strong>: The fundamental container
+structure in Matter.js. It holds collections of bodies, constraints, and
+other nested composites.</li>
+<li><strong>Matter.World</strong>: A specialized root composite
+associated directly with an <code>Engine</code> instance. Everything
+that exists in a simulation—including objects and boundaries—must be
+added to the simulation's root world.</li>
+</ul>
+<h3 id="4-matterbodies">4. Matter.Bodies</h3>
+<p>The <code>Bodies</code> module is a factory for creating standard
+geometric rigid bodies. It includes preconfigured methods to generate
+shapes such as:</p>
+<ul>
+<li><code>Bodies.rectangle</code>: Generates rectangular or square
+bodies, often used for walls and platforms.</li>
+<li><code>Bodies.circle</code>: Creates circular bodies with defined
+radii.</li>
+<li><code>Bodies.polygon</code>: Creates regular n-sided polygons.</li>
+<li><code>Bodies.trapezoid</code>: Produces trapezoid shapes.</li>
+<li><code>Bodies.fromVertices</code>: Generates complex, concave, or
+convex bodies based on a set of vector coordinates.</li>
+</ul>
+<h3 id="5-matterbody">5. Matter.Body</h3>
+<p>While <code>Bodies</code> creates shapes, the <code>Body</code>
+module contains utility methods to manipulate individual rigid bodies
+during runtime. It provides functions to apply forces, apply torque,
+update velocities, alter physical properties (such as friction,
+restitution, density, and mass), and toggle properties like
+<code>isStatic</code> or <code>isSensor</code>.</p>
+<h3 id="6-matterconstraint">6. Matter.Constraint</h3>
+<p>The <code>Constraint</code> module manages joints and connections.
+Constraints can link two bodies together or pin a single body to a fixed
+point in the world. They simulate elastic or rigid physical links such
+as ropes, springs, pivots, and suspension systems, defined by properties
+such as <code>length</code> and <code>stiffness</code>.</p>
+<h3 id="7-matterrender">7. Matter.Render</h3>
+<p>The <code>Render</code> module is a built-in, HTML5 Canvas-based
+visualizer. Primarily designed for debugging, testing, and rapid
+prototyping, it draws bodies, constraints, and collision wireframes
+directly onto the screen. For production-ready games, developers often
+bypass <code>Matter.Render</code> in favor of dedicated graphics
+libraries like PixiJS, Three.js, or custom WebGL engines.</p>
+<h3 id="8-mattermouse-and-mattermouseconstraint">8. Matter.Mouse and
+Matter.MouseConstraint</h3>
+<ul>
+<li><strong>Matter.Mouse</strong>: Normalizes mouse and touch inputs
+across different screen resolutions and pixel ratios.</li>
+<li><strong>Matter.MouseConstraint</strong>: Couples user pointer input
+directly to the physics simulation, allowing users to click, drag,
+flick, and interact with dynamic bodies on the canvas.</li>
+</ul>
+<h3 id="9-mattercollision-and-matterdetector">9. Matter.Collision and
+Matter.Detector</h3>
+<p>The <code>Collision</code> and <code>Detector</code> modules handle
+collision testing. They provide low-level methods to test whether
+specific bodies overlap, compute collision pairs, determine penetration
+depths, and resolve contact manifolds without necessarily requiring a
+full simulation step.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/matter.js'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/matter.js/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/matter.js/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

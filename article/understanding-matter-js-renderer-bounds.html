@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Understanding Matter.js Renderer Bounds - matter.js</title>
+    <meta name="description" content="The bounds property in a Matter.js renderer defines the visible rectangular area of the simulation, acting as the camera or viewport for the 2D physics world. By manipulating the minimum and maximum coordinates of this property, developers can implement">
+    <link rel="canonical" href="https://salivity.github.io/matter.js/article/understanding-matter-js-renderer-bounds">
+    <link rel="search" type="application/opensearchdescription+xml" title="matter.js" href="/matter.js/opensearch.xml">
+    <link rel="icon" href="/matter.js/favicon.ico">
+    <link rel="stylesheet" href="/matter.js/css/style.css">
+    <link media="print" rel="stylesheet" href="/matter.js/css/print.css">
+    <script src="/matter.js/js/fuse.min.js"></script>
+    <script src="/matter.js/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Understanding Matter.js Renderer Bounds - matter.js" />
+    <meta property="og:url" content="https://salivity.github.io/matter.js/article/understanding-matter-js-renderer-bounds" />
+    <meta property="og:image" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="The bounds property in a Matter.js renderer defines the visible rectangular area of the simulation, acting as the camera or viewport for the 2D physics world. By manipulating the minimum and maximum coordinates of this property, developers can implement" />
+    <link rel="manifest" href="/matter.js/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/matter.js/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>matter.js</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/matter.js/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="understanding-matterjs-renderer-bounds">Understanding Matter.js
+Renderer Bounds</h1>
+<p>The <code>bounds</code> property in a Matter.js renderer defines the
+visible rectangular area of the simulation, acting as the camera or
+viewport for the 2D physics world. By manipulating the minimum and
+maximum coordinates of this property, developers can implement essential
+game mechanics such as camera panning, following specific physics
+bodies, and zooming in or out.</p>
+<h3 id="structure-of-the-bounds-property">Structure of the Bounds
+Property</h3>
+<p>In Matter.js, <code>render.bounds</code> is an object representing an
+axis-aligned bounding box (AABB). It contains two vectors:</p>
+<ul>
+<li><code>bounds.min</code>: An object containing the
+<code>{ x, y }</code> coordinates of the top-left corner of the visible
+viewport.</li>
+<li><code>bounds.max</code>: An object containing the
+<code>{ x, y }</code> coordinates of the bottom-right corner of the
+visible viewport.</li>
+</ul>
+<p>By default, <code>min</code> starts at <code>(0, 0)</code> and
+<code>max</code> matches the width and height specified in the canvas
+configuration.</p>
+<h3 id="primary-use-cases">Primary Use Cases</h3>
+<h4 id="1-camera-panning-and-scrolling">1. Camera Panning and
+Scrolling</h4>
+<p>In worlds larger than the HTML5 canvas, the simulation extends beyond
+the screen. By incrementing or decrementing the <code>x</code> and
+<code>y</code> values of both <code>min</code> and <code>max</code>
+simultaneously, the camera moves across the world. This allows players
+to navigate through large side-scrolling levels, open-world
+environments, or deep vertical spaces.</p>
+<h4 id="2-following-a-target-body">2. Following a Target Body</h4>
+<p>The <code>bounds</code> property is commonly used to lock the camera
+onto a moving body, such as a player-controlled character or vehicle. By
+calculating the center position of the body during each tick of the
+simulation, you can recalculate <code>bounds.min</code> and
+<code>bounds.max</code> to keep the body centered on the screen.
+Matter.js also provides a built-in helper method,
+<code>Render.lookAt(render, body)</code>, which automatically updates
+the <code>bounds</code> to frame the targeted object.</p>
+<h4 id="3-zooming-and-scaling">3. Zooming and Scaling</h4>
+<p>Adjusting the distance between <code>bounds.min</code> and
+<code>bounds.max</code> controls the zoom level:</p>
+<ul>
+<li><strong>Zooming in:</strong> Decreasing the difference between the
+minimum and maximum coordinates shrinks the captured area, rendering
+physics bodies larger on the screen.</li>
+<li><strong>Zooming out:</strong> Increasing the difference widens the
+captured area, making physics bodies appear smaller to show more of the
+surrounding environment.</li>
+</ul>
+<h3 id="enabling-custom-bounds">Enabling Custom Bounds</h3>
+<p>For custom bounds to take effect, the renderer must be instructed to
+respect them. This is typically done by setting
+<code>render.options.hasBounds = true</code> during renderer
+initialization or directly modifying the render options before running
+the engine. Once enabled, the renderer automatically calculates the
+necessary canvas scale and translation transforms on each frame based on
+the coordinates in <code>render.bounds</code>.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/matter.js'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/matter.js/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/matter.js/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

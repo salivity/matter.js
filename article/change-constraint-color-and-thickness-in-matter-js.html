@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Change Constraint Color and Thickness in Matter.js - matter.js</title>
+    <meta name="description" content="Yes, you can easily change both the color and thickness of a constraint line in Matter.js. The default Matter.Render engine includes built-in options specifically for styling constraints, allowing you to define custom visuals without writing a custom can">
+    <link rel="canonical" href="https://salivity.github.io/matter.js/article/change-constraint-color-and-thickness-in-matter-js">
+    <link rel="search" type="application/opensearchdescription+xml" title="matter.js" href="/matter.js/opensearch.xml">
+    <link rel="icon" href="/matter.js/favicon.ico">
+    <link rel="stylesheet" href="/matter.js/css/style.css">
+    <link media="print" rel="stylesheet" href="/matter.js/css/print.css">
+    <script src="/matter.js/js/fuse.min.js"></script>
+    <script src="/matter.js/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Change Constraint Color and Thickness in Matter.js - matter.js" />
+    <meta property="og:url" content="https://salivity.github.io/matter.js/article/change-constraint-color-and-thickness-in-matter-js" />
+    <meta property="og:image" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Yes, you can easily change both the color and thickness of a constraint line in Matter.js. The default Matter.Render engine includes built-in options specifically for styling constraints, allowing you to define custom visuals without writing a custom can" />
+    <link rel="manifest" href="/matter.js/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/matter.js/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>matter.js</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/matter.js/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="change-constraint-color-and-thickness-in-matterjs">Change
+Constraint Color and Thickness in Matter.js</h1>
+<p>Yes, you can easily change both the color and thickness of a
+constraint line in Matter.js. The default <code>Matter.Render</code>
+engine includes built-in options specifically for styling constraints,
+allowing you to define custom visuals without writing a custom canvas
+rendering loop. This guide covers how to set these styles during
+constraint creation and how to update them dynamically at runtime.</p>
+<h2 id="configuring-constraint-styles">Configuring Constraint
+Styles</h2>
+<p>To customize the visual appearance of a constraint line, define the
+<code>render</code> property within the options object passed to
+<code>Matter.Constraint.create()</code>.</p>
+<p>The two primary properties for styling the line are:</p>
+<ul>
+<li><strong><code>strokeStyle</code></strong>: A string representing the
+color of the line (accepts HEX, RGB, RGBA, or standard CSS color
+names).</li>
+<li><strong><code>lineWidth</code></strong>: A number representing the
+thickness of the line in pixels.</li>
+</ul>
+<h3 id="example-creating-a-styled-constraint">Example: Creating a Styled
+Constraint</h3>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> { Constraint<span class="op">,</span> Composite } <span class="op">=</span> Matter<span class="op">;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="co">// Create a constraint with custom color and thickness</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> styledConstraint <span class="op">=</span> Constraint<span class="op">.</span><span class="fu">create</span>({</span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>    <span class="dt">bodyA</span><span class="op">:</span> bodyA<span class="op">,</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>    <span class="dt">bodyB</span><span class="op">:</span> bodyB<span class="op">,</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>    <span class="dt">length</span><span class="op">:</span> <span class="dv">100</span><span class="op">,</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>    <span class="dt">stiffness</span><span class="op">:</span> <span class="fl">0.9</span><span class="op">,</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>    <span class="dt">render</span><span class="op">:</span> {</span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>        <span class="dt">visible</span><span class="op">:</span> <span class="kw">true</span><span class="op">,</span></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>        <span class="dt">lineWidth</span><span class="op">:</span> <span class="dv">6</span><span class="op">,</span>           <span class="co">// Sets line thickness to 6 pixels</span></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>        <span class="dt">strokeStyle</span><span class="op">:</span> <span class="st">&#39;#e74c3c&#39;</span><span class="op">,</span> <span class="co">// Sets line color to red</span></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>        <span class="dt">type</span><span class="op">:</span> <span class="st">&#39;line&#39;</span>            <span class="co">// Renders as a standard line</span></span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a><span class="co">// Add the constraint to your world</span></span>
+<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a>Composite<span class="op">.</span><span class="fu">add</span>(engine<span class="op">.</span><span class="at">world</span><span class="op">,</span> styledConstraint)<span class="op">;</span></span></code></pre></div>
+<h2 id="modifying-styles-dynamically">Modifying Styles Dynamically</h2>
+<p>If you need to change the color or thickness of an existing
+constraint after it has already been added to the world, you can modify
+the <code>render</code> properties directly on the constraint
+object:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Change color to green</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>styledConstraint<span class="op">.</span><span class="at">render</span><span class="op">.</span><span class="at">strokeStyle</span> <span class="op">=</span> <span class="st">&#39;#2ecc71&#39;</span><span class="op">;</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a><span class="co">// Increase line thickness</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>styledConstraint<span class="op">.</span><span class="at">render</span><span class="op">.</span><span class="at">lineWidth</span> <span class="op">=</span> <span class="dv">10</span><span class="op">;</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a><span class="co">// Hide the line temporarily</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>styledConstraint<span class="op">.</span><span class="at">render</span><span class="op">.</span><span class="at">visible</span> <span class="op">=</span> <span class="kw">false</span><span class="op">;</span></span></code></pre></div>
+<h2 id="important-considerations">Important Considerations</h2>
+<ul>
+<li><strong>Default Renderer Only</strong>: These properties
+specifically control the output of the built-in
+<code>Matter.Render</code> module. If you are using a custom rendering
+pipeline (such as PixiJS, Three.js, or your own HTML5 Canvas loop),
+Matter.js only computes the physics, and you must apply stroke styles
+manually within your custom draw code.</li>
+<li><strong>Anchors and Pin Types</strong>: By default,
+<code>render.type</code> is set to <code>'line'</code>. If you set it to
+<code>'pin'</code>, Matter.js renders circular anchor pins at the
+attachment points instead of a connecting line.</li>
+</ul></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/matter.js'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/matter.js/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/matter.js/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

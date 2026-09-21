@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Matter.Composite.allComposites in Matter.js - matter.js</title>
+    <meta name="description" content="This article explains how the Matter.Composite.allComposites method operates within the Matter.js 2D physics engine to provide comprehensive visibility into nested composite hierarchies. By recursively traversing complex parent-child tree structures, thi">
+    <link rel="canonical" href="https://salivity.github.io/matter.js/article/matter-composite-all-composites-in-matter-js">
+    <link rel="search" type="application/opensearchdescription+xml" title="matter.js" href="/matter.js/opensearch.xml">
+    <link rel="icon" href="/matter.js/favicon.ico">
+    <link rel="stylesheet" href="/matter.js/css/style.css">
+    <link media="print" rel="stylesheet" href="/matter.js/css/print.css">
+    <script src="/matter.js/js/fuse.min.js"></script>
+    <script src="/matter.js/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Matter.Composite.allComposites in Matter.js - matter.js" />
+    <meta property="og:url" content="https://salivity.github.io/matter.js/article/matter-composite-all-composites-in-matter-js" />
+    <meta property="og:image" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article explains how the Matter.Composite.allComposites method operates within the Matter.js 2D physics engine to provide comprehensive visibility into nested composite hierarchies. By recursively traversing complex parent-child tree structures, thi" />
+    <link rel="manifest" href="/matter.js/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/matter.js/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>matter.js</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/matter.js/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1
+id="mattercompositeallcomposites-in-matterjs">Matter.Composite.allComposites
+in Matter.js</h1>
+<p>This article explains how the
+<code>Matter.Composite.allComposites</code> method operates within the
+Matter.js 2D physics engine to provide comprehensive visibility into
+nested composite hierarchies. By recursively traversing complex
+parent-child tree structures, this function flattens hierarchical
+groupings into an accessible collection, enabling developers to monitor,
+inspect, and manipulate modular assemblies across an entire physics
+simulation without manual tree-traversal logic.</p>
+<h3 id="understanding-composite-hierarchies-in-matterjs">Understanding
+Composite Hierarchies in Matter.js</h3>
+<p>In Matter.js, a <code>Composite</code> acts as an organizational
+container that can hold rigid bodies, constraints, and other nested
+composites. Complex simulation elements—such as ragdolls, multi-part
+vehicles, or procedurally generated structures—are typically built as
+self-contained sub-composites and then added to the top-level
+<code>engine.world</code>.</p>
+<p>While this hierarchical design promotes modular architecture and
+clean encapsulation, it introduces deep nesting. Accessing a specific
+sub-assembly buried multiple layers deep using standard properties (such
+as <code>composite.composites</code>) requires custom recursive
+algorithms to walk the tree.</p>
+<h3 id="how-mattercompositeallcomposites-works">How
+<code>Matter.Composite.allComposites</code> Works</h3>
+<p>The <code>Matter.Composite.allComposites(composite)</code> function
+solves the visibility problem by executing an automated, depth-first
+search across the specified root composite.</p>
+<p>When passed a parent composite (most commonly
+<code>engine.world</code>), the function:</p>
+<ol type="1">
+<li><strong>Traverses the Tree:</strong> It evaluates the target
+composite and identifies all child composites residing directly inside
+it.</li>
+<li><strong>Recurses Child Branches:</strong> For each discovered child,
+it recursively checks for further nested composites, repeating the
+process until the leaf nodes of the architecture are reached.</li>
+<li><strong>Flattens the Results:</strong> It collates references to
+every visited composite into a single, one-dimensional array.</li>
+</ol>
+<p>The resulting flat array includes every composite in the structure,
+regardless of its depth level in the hierarchy.</p>
+<h3 id="practical-implications-for-architecture-visibility">Practical
+Implications for Architecture Visibility</h3>
+<p>Using <code>Matter.Composite.allComposites</code> provides several
+operational advantages for managing nested simulation groups:</p>
+<ul>
+<li><strong>Centralized Discovery and Auditing:</strong> Developers can
+instantly evaluate the scale and composition of the entire physics
+scene. It allows for quick counts and audits of active modular systems
+without tracking intermediate parents.</li>
+<li><strong>Targeted Filtering:</strong> Because it outputs a standard
+array of composite references, standard array methods (such as
+<code>.filter()</code> or <code>.find()</code>) can be used to query
+sub-assemblies by custom labels, properties, or body counts.</li>
+<li><strong>Batch Operations:</strong> Applying updates—such as scaling,
+translating, or removing groups of related objects—can be performed
+uniformly across all nested groups without maintaining complex lookup
+maps.</li>
+<li><strong>Debugging and Telemetry:</strong> Physics debuggers and
+visualization overlays can use the flattened list to display bounding
+boxes, labels, or hierarchical metrics for each individual group in the
+canvas.</li>
+</ul>
+<p>By abstracting away tree traversal,
+<code>Matter.Composite.allComposites</code> ensures that modular, deeply
+nested architectures remain transparent, queryable, and maintainable
+throughout the simulation lifecycle.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/matter.js'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/matter.js/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/matter.js/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

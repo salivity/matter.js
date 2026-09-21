@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>What Evicts Collision Pairs in Matter.js Pairs Table - matter.js</title>
+    <meta name="description" content="In Matter.js, collision pairs are evicted from the Matter.Pairs table when two previously colliding bodies separate, when one or both bodies are removed from the physics world, or when bodies transition into a sleeping state. During each engine update, M">
+    <link rel="canonical" href="https://salivity.github.io/matter.js/article/what-evicts-collision-pairs-in-matter-js-pairs-table">
+    <link rel="search" type="application/opensearchdescription+xml" title="matter.js" href="/matter.js/opensearch.xml">
+    <link rel="icon" href="/matter.js/favicon.ico">
+    <link rel="stylesheet" href="/matter.js/css/style.css">
+    <link media="print" rel="stylesheet" href="/matter.js/css/print.css">
+    <script src="/matter.js/js/fuse.min.js"></script>
+    <script src="/matter.js/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="What Evicts Collision Pairs in Matter.js Pairs Table - matter.js" />
+    <meta property="og:url" content="https://salivity.github.io/matter.js/article/what-evicts-collision-pairs-in-matter-js-pairs-table" />
+    <meta property="og:image" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="In Matter.js, collision pairs are evicted from the Matter.Pairs table when two previously colliding bodies separate, when one or both bodies are removed from the physics world, or when bodies transition into a sleeping state. During each engine update, M" />
+    <link rel="manifest" href="/matter.js/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/matter.js/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>matter.js</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/matter.js/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="what-evicts-collision-pairs-in-matterjs-pairs-table">What Evicts
+Collision Pairs in Matter.js Pairs Table</h1>
+<p>In Matter.js, collision pairs are evicted from the
+<code>Matter.Pairs</code> table when two previously colliding bodies
+separate, when one or both bodies are removed from the physics world, or
+when bodies transition into a sleeping state. During each engine update,
+<code>Matter.Pairs.update</code> validates active contacts against the
+narrowphase collision detector; any tracked pair that fails to register
+a collision in the current frame is marked inactive, triggers a
+<code>collisionEnd</code> event, and is purged from internal storage to
+conserve memory and maintain accurate collision tracking.</p>
+<h2 id="the-role-of-the-pairs-table">The Role of the Pairs Table</h2>
+<p>The <code>Matter.Pairs</code> module maintains a cache of active
+collisions between rigid bodies. Each collision pair is assigned a
+unique identifier string (derived from the two body IDs, such as
+<code>A1_B2</code>) and stored in a lookup dictionary named
+<code>pairs.table</code>, as well as an array called
+<code>pairs.list</code>.</p>
+<p>This table allows the engine to preserve contact data across ticks,
+warm-start collision impulses for stability, and determine whether a
+collision is beginning, persisting, or terminating.</p>
+<h2 id="primary-eviction-triggers">Primary Eviction Triggers</h2>
+<h3 id="1-physical-separation-narrowphase-non-detection">1. Physical
+Separation (Narrowphase Non-Detection)</h3>
+<p>The most common trigger is the physical separation of two bodies.</p>
+<ol type="1">
+<li>During the broadphase, the engine finds potential bounding-box
+overlaps.</li>
+<li>During the narrowphase (Separating Axis Theorem), the engine
+calculates exact intersection manifolds.</li>
+<li>For every confirmed collision, <code>pair.timeUpdated</code> is set
+to the current engine tick timestamp.</li>
+<li>If two bodies drift apart, the narrowphase generates no collision
+for that pair.</li>
+<li>In <code>Pairs.update</code>, the engine scans existing pairs: if a
+pair’s <code>timeUpdated</code> does not match the current engine
+<code>timestamp</code>, the engine recognizes that the bodies are no
+longer touching.</li>
+</ol>
+<h3 id="2-body-removal-or-world-despawn">2. Body Removal or World
+Despawn</h3>
+<p>When an entity is removed from a <code>Composite</code> or
+<code>World</code> via <code>Composite.remove(world, body)</code>, the
+body no longer exists in the collision pipeline. Because the broadphase
+skips the removed body, no new collision can be recorded in subsequent
+ticks. Consequently, any active pair referencing the deleted body fails
+the timestamp validation check during the next <code>Pairs.update</code>
+pass and is cleared.</p>
+<h3 id="3-body-sleeping-transitions">3. Body Sleeping Transitions</h3>
+<p>When Matter.js sleep mode is enabled, bodies that drop below
+predefined velocity and motion thresholds enter a sleep state. While the
+engine retains contact constraints for sleeping bodies resting on each
+other, moving bodies that separate from a settling or sleeping body stop
+generating active collision manifold updates. Once the interaction
+ceases, the unrefreshed pair is evicted.</p>
+<h2 id="the-eviction-lifecycle-in-pairsupdate">The Eviction Lifecycle in
+<code>Pairs.update</code></h2>
+<p>When an eviction is triggered, the engine executes the cleanup
+systematically:</p>
+<ol type="1">
+<li><strong>Stale Identification:</strong> The engine iterates backward
+through <code>pairs.list</code> and compares each
+<code>pair.timeUpdated</code> to the current
+<code>timestamp</code>.</li>
+<li><strong>State Transition:</strong> If the timestamps do not match,
+<code>Pair.setActive(pair, false, timestamp)</code> flags the collision
+as inactive.</li>
+<li><strong>Event Generation:</strong> The inactive pair is queued into
+the engine's internal <code>collisionEnd</code> event array, notifying
+listeners that the contact has ceased.</li>
+<li><strong>Table Deletion:</strong> The engine removes the pair’s
+reference from the <code>pairs.table</code> hash map using
+<code>delete pairs.table[pair.id]</code>.</li>
+<li><strong>List Splice:</strong> The pair is spliced out of
+<code>pairs.list</code>, freeing memory references and ensuring
+subsequent solver iterations skip the pair entirely.</li>
+</ol></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/matter.js'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/matter.js/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/matter.js/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

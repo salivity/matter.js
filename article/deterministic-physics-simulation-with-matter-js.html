@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Deterministic Physics Simulation with Matter.js - matter.js</title>
+    <meta name="description" content="This guide explains how to achieve deterministic 2D physics simulations across different platforms and devices using Matter.js. By addressing the core causes of divergence—variable timesteps, engine settings, execution order, and floating-point variati">
+    <link rel="canonical" href="https://salivity.github.io/matter.js/article/deterministic-physics-simulation-with-matter-js">
+    <link rel="search" type="application/opensearchdescription+xml" title="matter.js" href="/matter.js/opensearch.xml">
+    <link rel="icon" href="/matter.js/favicon.ico">
+    <link rel="stylesheet" href="/matter.js/css/style.css">
+    <link media="print" rel="stylesheet" href="/matter.js/css/print.css">
+    <script src="/matter.js/js/fuse.min.js"></script>
+    <script src="/matter.js/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Deterministic Physics Simulation with Matter.js - matter.js" />
+    <meta property="og:url" content="https://salivity.github.io/matter.js/article/deterministic-physics-simulation-with-matter-js" />
+    <meta property="og:image" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This guide explains how to achieve deterministic 2D physics simulations across different platforms and devices using Matter.js. By addressing the core causes of divergence—variable timesteps, engine settings, execution order, and floating-point variati" />
+    <link rel="manifest" href="/matter.js/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/matter.js/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>matter.js</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/matter.js/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="deterministic-physics-simulation-with-matterjs">Deterministic
+Physics Simulation with Matter.js</h1>
+<p>This guide explains how to achieve deterministic 2D physics
+simulations across different platforms and devices using Matter.js. By
+addressing the core causes of divergence—variable timesteps, engine
+settings, execution order, and floating-point variations—you will learn
+the exact steps and code patterns required to guarantee that identical
+inputs produce identical physics states every time.</p>
+<h2 id="1-decouple-physics-from-the-render-loop">1. Decouple Physics
+from the Render Loop</h2>
+<p>The default <code>Matter.Runner</code> synchronizes simulation
+updates with the browser’s <code>requestAnimationFrame</code>. Because
+frame rates fluctuate between devices and screens, this introduces
+variable delta times (<span class="math inline">\(\Delta t\)</span>),
+making determinism impossible.</p>
+<p>To fix this, update the physics engine manually with a fixed timestep
+using an accumulator loop:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> engine <span class="op">=</span> Matter<span class="op">.</span><span class="at">Engine</span><span class="op">.</span><span class="fu">create</span>()<span class="op">;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> fixedDelta <span class="op">=</span> <span class="dv">1000</span> <span class="op">/</span> <span class="dv">60</span><span class="op">;</span> <span class="co">// 60 updates per second (16.666ms)</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="kw">let</span> accumulatedTime <span class="op">=</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="kw">let</span> lastTime <span class="op">=</span> <span class="bu">performance</span><span class="op">.</span><span class="fu">now</span>()<span class="op">;</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">gameLoop</span>(currentTime) {</span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> frameTime <span class="op">=</span> currentTime <span class="op">-</span> lastTime<span class="op">;</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>  lastTime <span class="op">=</span> currentTime<span class="op">;</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>  <span class="co">// Prevent spiral of death if a frame takes too long</span></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>  accumulatedTime <span class="op">+=</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">min</span>(frameTime<span class="op">,</span> <span class="dv">250</span>)<span class="op">;</span></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>  <span class="cf">while</span> (accumulatedTime <span class="op">&gt;=</span> fixedDelta) {</span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>    Matter<span class="op">.</span><span class="at">Engine</span><span class="op">.</span><span class="fu">update</span>(engine<span class="op">,</span> fixedDelta)<span class="op">;</span></span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a>    accumulatedTime <span class="op">-=</span> fixedDelta<span class="op">;</span></span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a>  <span class="co">// Render logic goes here (interpolate positions if needed)</span></span>
+<span id="cb1-19"><a href="#cb1-19" aria-hidden="true" tabindex="-1"></a>  <span class="fu">requestAnimationFrame</span>(gameLoop)<span class="op">;</span></span>
+<span id="cb1-20"><a href="#cb1-20" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb1-21"><a href="#cb1-21" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-22"><a href="#cb1-22" aria-hidden="true" tabindex="-1"></a><span class="fu">requestAnimationFrame</span>(gameLoop)<span class="op">;</span></span></code></pre></div>
+<p>By passing a hardcoded <code>fixedDelta</code> directly to
+<code>Matter.Engine.update</code>, every platform steps the simulation
+forward by the exact same mathematical duration per tick.</p>
+<h2 id="2-lock-engine-solver-iterations">2. Lock Engine Solver
+Iterations</h2>
+<p>Matter.js uses iterative solvers for collisions, constraints, and
+positions. If iteration counts vary or use default heuristics across
+different environments, precision will diverge. Lock these explicitly
+during engine initialization:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> engine <span class="op">=</span> Matter<span class="op">.</span><span class="at">Engine</span><span class="op">.</span><span class="fu">create</span>({</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>  <span class="dt">positionIterations</span><span class="op">:</span> <span class="dv">6</span><span class="op">,</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>  <span class="dt">velocityIterations</span><span class="op">:</span> <span class="dv">4</span><span class="op">,</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>  <span class="dt">constraintIterations</span><span class="op">:</span> <span class="dv">2</span><span class="op">,</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>  <span class="dt">enableSleeping</span><span class="op">:</span> <span class="kw">false</span> <span class="co">// Sleeping introduces non-deterministic wake-up states</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div>
+<p>Disabling sleeping (<code>enableSleeping: false</code>) is critical
+for cross-platform lockstep, as resting bodies may wake up on different
+ticks due to microscopic rounding differences.</p>
+<h2 id="3-enforce-deterministic-object-creation-and-array-ordering">3.
+Enforce Deterministic Object Creation and Array Ordering</h2>
+<p>Matter.js iterates through internal arrays (such as bodies, pairs,
+and constraints) sequentially. If objects are added in a different order
+on two clients, the solver resolves contact constraints in a different
+sequence, causing divergence.</p>
+<ul>
+<li><strong>Sort Collections:</strong> Always add bodies and constraints
+to the <code>Composite</code> in the exact same order.</li>
+<li><strong>Avoid Non-Deterministic IDs:</strong> Matter.js increments
+an internal counter (<code>Common._nextId</code>) when generating
+bodies. Do not instantiate bodies asynchronously without deterministic
+ID assignment.</li>
+</ul>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Add entities in a predictable, sorted order</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> sortedEntities <span class="op">=</span> <span class="fu">getEntities</span>()<span class="op">.</span><span class="fu">sort</span>((a<span class="op">,</span> b) <span class="kw">=&gt;</span> a<span class="op">.</span><span class="at">id</span> <span class="op">-</span> b<span class="op">.</span><span class="at">id</span>)<span class="op">;</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>sortedEntities<span class="op">.</span><span class="fu">forEach</span>(entity <span class="kw">=&gt;</span> Matter<span class="op">.</span><span class="at">Composite</span><span class="op">.</span><span class="fu">add</span>(engine<span class="op">.</span><span class="at">world</span><span class="op">,</span> entity<span class="op">.</span><span class="at">body</span>))<span class="op">;</span></span></code></pre></div>
+<h2 id="4-handle-platform-floating-point-discrepancies">4. Handle
+Platform Floating-Point Discrepancies</h2>
+<p>JavaScript specifies IEEE 754 double-precision floating-point math,
+but execution can vary slightly across architectures (such as x86 vs.
+ARM) due to differences in compiler optimizations (like FMA instructions
+in V8 vs. JavaScriptCore).</p>
+<p>For simulations running independently across clients (e.g., lockstep
+multiplayer):</p>
+<ul>
+<li><strong>Quantize States:</strong> Truncate or round fractional
+values (positions, angles, velocities) to a fixed precision (e.g., 4 to
+6 decimal places) at regular intervals.</li>
+<li><strong>Avoid Math Libraries with Platform Divergence:</strong>
+Functions like <code>Math.sin</code>, <code>Math.cos</code>, and
+<code>Math.atan2</code> can produce slight bit-level discrepancies
+across different OS/browser combinations. Where absolute strictness is
+needed, replace trigonometric functions with lookup tables or
+integer-based approximations.</li>
+</ul>
+<div class="sourceCode" id="cb4"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">quantizeBody</span>(body<span class="op">,</span> precision <span class="op">=</span> <span class="dv">10000</span>) {</span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>  body<span class="op">.</span><span class="at">position</span><span class="op">.</span><span class="at">x</span> <span class="op">=</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">round</span>(body<span class="op">.</span><span class="at">position</span><span class="op">.</span><span class="at">x</span> <span class="op">*</span> precision) <span class="op">/</span> precision<span class="op">;</span></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>  body<span class="op">.</span><span class="at">position</span><span class="op">.</span><span class="at">y</span> <span class="op">=</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">round</span>(body<span class="op">.</span><span class="at">position</span><span class="op">.</span><span class="at">y</span> <span class="op">*</span> precision) <span class="op">/</span> precision<span class="op">;</span></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>  body<span class="op">.</span><span class="at">velocity</span><span class="op">.</span><span class="at">x</span> <span class="op">=</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">round</span>(body<span class="op">.</span><span class="at">velocity</span><span class="op">.</span><span class="at">x</span> <span class="op">*</span> precision) <span class="op">/</span> precision<span class="op">;</span></span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>  body<span class="op">.</span><span class="at">velocity</span><span class="op">.</span><span class="at">y</span> <span class="op">=</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">round</span>(body<span class="op">.</span><span class="at">velocity</span><span class="op">.</span><span class="at">y</span> <span class="op">*</span> precision) <span class="op">/</span> precision<span class="op">;</span></span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a>  body<span class="op">.</span><span class="at">angle</span> <span class="op">=</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">round</span>(body<span class="op">.</span><span class="at">angle</span> <span class="op">*</span> precision) <span class="op">/</span> precision<span class="op">;</span></span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a>  body<span class="op">.</span><span class="at">angularVelocity</span> <span class="op">=</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">round</span>(body<span class="op">.</span><span class="at">angularVelocity</span> <span class="op">*</span> precision) <span class="op">/</span> precision<span class="op">;</span></span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<h2 id="5-synchronize-inputs-by-tick-number">5. Synchronize Inputs by
+Tick Number</h2>
+<p>Never apply forces, impulses, or user inputs inside UI event
+listeners (<code>mousemove</code>, <code>keydown</code>,
+<code>touchstart</code>). These events fire at arbitrary, un-synced
+intervals.</p>
+<ol type="1">
+<li>Buffer user inputs alongside the current engine tick index.</li>
+<li>Apply the inputs immediately before
+<code>Matter.Engine.update</code> runs for that specific tick.</li>
+<li>Keep the input format standardized across all clients.</li>
+</ol>
+<div class="sourceCode" id="cb5"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="kw">let</span> currentTick <span class="op">=</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> inputQueue <span class="op">=</span> []<span class="op">;</span></span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">stepSimulation</span>() {</span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a>  <span class="co">// Process only inputs registered for this exact tick</span></span>
+<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> inputsForTick <span class="op">=</span> inputQueue<span class="op">.</span><span class="fu">filter</span>(input <span class="kw">=&gt;</span> input<span class="op">.</span><span class="at">tick</span> <span class="op">===</span> currentTick)<span class="op">;</span></span>
+<span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a>  <span class="cf">for</span> (<span class="kw">const</span> input <span class="kw">of</span> inputsForTick) {</span>
+<span id="cb5-8"><a href="#cb5-8" aria-hidden="true" tabindex="-1"></a>    Matter<span class="op">.</span><span class="at">Body</span><span class="op">.</span><span class="fu">applyForce</span>(playerBody<span class="op">,</span> playerBody<span class="op">.</span><span class="at">position</span><span class="op">,</span> input<span class="op">.</span><span class="at">force</span>)<span class="op">;</span></span>
+<span id="cb5-9"><a href="#cb5-9" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb5-10"><a href="#cb5-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-11"><a href="#cb5-11" aria-hidden="true" tabindex="-1"></a>  Matter<span class="op">.</span><span class="at">Engine</span><span class="op">.</span><span class="fu">update</span>(engine<span class="op">,</span> fixedDelta)<span class="op">;</span></span>
+<span id="cb5-12"><a href="#cb5-12" aria-hidden="true" tabindex="-1"></a>  currentTick<span class="op">++;</span></span>
+<span id="cb5-13"><a href="#cb5-13" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<h2 id="6-validate-with-state-hashing">6. Validate with State
+Hashing</h2>
+<p>To ensure determinism remains intact across different devices during
+development, generate a state hash of your world at fixed intervals:</p>
+<div class="sourceCode" id="cb6"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">getWorldStateHash</span>(world) {</span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> bodies <span class="op">=</span> Matter<span class="op">.</span><span class="at">Composite</span><span class="op">.</span><span class="fu">allBodies</span>(world)<span class="op">;</span></span>
+<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a>  <span class="kw">let</span> hashString <span class="op">=</span> <span class="st">&quot;&quot;</span><span class="op">;</span></span>
+<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-5"><a href="#cb6-5" aria-hidden="true" tabindex="-1"></a>  <span class="cf">for</span> (<span class="kw">const</span> b <span class="kw">of</span> bodies) {</span>
+<span id="cb6-6"><a href="#cb6-6" aria-hidden="true" tabindex="-1"></a>    hashString <span class="op">+=</span> <span class="vs">`</span><span class="sc">${</span>b<span class="op">.</span><span class="at">id</span><span class="sc">}</span><span class="vs">:</span><span class="sc">${</span>b<span class="op">.</span><span class="at">position</span><span class="op">.</span><span class="at">x</span><span class="op">.</span><span class="fu">toFixed</span>(<span class="dv">4</span>)<span class="sc">}</span><span class="vs">,</span><span class="sc">${</span>b<span class="op">.</span><span class="at">position</span><span class="op">.</span><span class="at">y</span><span class="op">.</span><span class="fu">toFixed</span>(<span class="dv">4</span>)<span class="sc">}</span><span class="vs">,</span><span class="sc">${</span>b<span class="op">.</span><span class="at">angle</span><span class="op">.</span><span class="fu">toFixed</span>(<span class="dv">4</span>)<span class="sc">}</span><span class="vs">;`</span><span class="op">;</span></span>
+<span id="cb6-7"><a href="#cb6-7" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb6-8"><a href="#cb6-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-9"><a href="#cb6-9" aria-hidden="true" tabindex="-1"></a>  <span class="co">// Simple string hash algorithm (e.g., djb2)</span></span>
+<span id="cb6-10"><a href="#cb6-10" aria-hidden="true" tabindex="-1"></a>  <span class="kw">let</span> hash <span class="op">=</span> <span class="dv">5381</span><span class="op">;</span></span>
+<span id="cb6-11"><a href="#cb6-11" aria-hidden="true" tabindex="-1"></a>  <span class="cf">for</span> (<span class="kw">let</span> i <span class="op">=</span> <span class="dv">0</span><span class="op">;</span> i <span class="op">&lt;</span> hashString<span class="op">.</span><span class="at">length</span><span class="op">;</span> i<span class="op">++</span>) {</span>
+<span id="cb6-12"><a href="#cb6-12" aria-hidden="true" tabindex="-1"></a>    hash <span class="op">=</span> (hash <span class="op">*</span> <span class="dv">33</span>) <span class="op">^</span> hashString<span class="op">.</span><span class="fu">charCodeAt</span>(i)<span class="op">;</span></span>
+<span id="cb6-13"><a href="#cb6-13" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb6-14"><a href="#cb6-14" aria-hidden="true" tabindex="-1"></a>  <span class="cf">return</span> hash <span class="op">&gt;&gt;&gt;</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb6-15"><a href="#cb6-15" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<p>Log or compare this hash across platforms at specified tick numbers
+(e.g., every 600 ticks) to detect and isolate simulation
+desynchronization.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/matter.js'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/matter.js/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/matter.js/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

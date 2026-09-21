@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fix Floating-Point Math in Multiplayer Matter.js - matter.js</title>
+    <meta name="description" content="This article explains how to resolve floating-point divergence and simulation desynchronization in multiplayer games using Matter.js. You will learn why cross-platform JavaScript engines produce inconsistent physics states, how to enforce deterministic e">
+    <link rel="canonical" href="https://salivity.github.io/matter.js/article/fix-floating-point-math-in-multiplayer-matter-js">
+    <link rel="search" type="application/opensearchdescription+xml" title="matter.js" href="/matter.js/opensearch.xml">
+    <link rel="icon" href="/matter.js/favicon.ico">
+    <link rel="stylesheet" href="/matter.js/css/style.css">
+    <link media="print" rel="stylesheet" href="/matter.js/css/print.css">
+    <script src="/matter.js/js/fuse.min.js"></script>
+    <script src="/matter.js/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Fix Floating-Point Math in Multiplayer Matter.js - matter.js" />
+    <meta property="og:url" content="https://salivity.github.io/matter.js/article/fix-floating-point-math-in-multiplayer-matter-js" />
+    <meta property="og:image" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article explains how to resolve floating-point divergence and simulation desynchronization in multiplayer games using Matter.js. You will learn why cross-platform JavaScript engines produce inconsistent physics states, how to enforce deterministic e" />
+    <link rel="manifest" href="/matter.js/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/matter.js/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>matter.js</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/matter.js/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="fix-floating-point-math-in-multiplayer-matterjs">Fix
+Floating-Point Math in Multiplayer Matter.js</h1>
+<p>This article explains how to resolve floating-point divergence and
+simulation desynchronization in multiplayer games using Matter.js. You
+will learn why cross-platform JavaScript engines produce inconsistent
+physics states, how to enforce deterministic execution, and which
+networking architectures—such as authoritative servers with
+reconciliation or fixed-point math implementations—effectively eliminate
+drift across connected clients.</p>
+<h3 id="why-floating-point-differences-occur-in-matterjs">Why
+Floating-Point Differences Occur in Matter.js</h3>
+<p>Matter.js relies on JavaScript’s native 64-bit IEEE 754
+floating-point numbers. While the IEEE 754 standard defines how numbers
+are represented, execution variance across different hardware
+architectures (e.g., x86 vs. ARM), operating systems, and JavaScript
+engines (V8, SpiderMonkey, JavaScriptCore) creates subtle rounding
+discrepancies.</p>
+<p>In a rigid-body physics engine, these micro-discrepancies compound
+exponentially through iterative constraint solving, collision
+resolution, and continuous integration. Within a few seconds of
+gameplay, identical inputs fed to two different clients will produce
+entirely divergent game states.</p>
+<h3 id="solution-1-use-an-authoritative-server-architecture">Solution 1:
+Use an Authoritative Server Architecture</h3>
+<p>The most robust method to solve floating-point desynchronization in
+Matter.js is to avoid relying on peer-to-peer determinism entirely.
+Instead, use an authoritative server model:</p>
+<ol type="1">
+<li><strong>Run the Physics Engine on the Server:</strong> Execute the
+canonical instance of Matter.js inside Node.js on your game server.</li>
+<li><strong>Send Player Inputs:</strong> Clients send timestamped
+control inputs (e.g., jump, move left) to the server rather than sending
+body positions or velocities.</li>
+<li><strong>Run Client-Side Prediction:</strong> To eliminate input lag,
+clients simulate Matter.js locally using the same inputs
+immediately.</li>
+<li><strong>Server Reconciliation:</strong> The server periodically
+broadcasts snapshots of the authoritative bodies (position, velocity,
+angle, angular velocity). The client compares its past predicted state
+to the server state, snaps to the authoritative values if an error
+exceeds a threshold, and resimulates forward to the current tick.</li>
+</ol>
+<h3 id="solution-2-enforce-strict-fixed-timesteps">Solution 2: Enforce
+Strict, Fixed Timesteps</h3>
+<p>Matter.js defaults to using variable frame rates if tied to
+<code>requestAnimationFrame</code>. Variable delta times guarantee
+immediate desynchronization. You must decouple physics from rendering
+using a fixed accumulation loop.</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> fixedDelta <span class="op">=</span> <span class="dv">1000</span> <span class="op">/</span> <span class="dv">60</span><span class="op">;</span> <span class="co">// Exactly 60Hz</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="kw">let</span> accumulator <span class="op">=</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="kw">let</span> lastTime <span class="op">=</span> <span class="bu">performance</span><span class="op">.</span><span class="fu">now</span>()<span class="op">;</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">gameLoop</span>(currentTime) {</span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> frameTime <span class="op">=</span> currentTime <span class="op">-</span> lastTime<span class="op">;</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>  lastTime <span class="op">=</span> currentTime<span class="op">;</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>  accumulator <span class="op">+=</span> frameTime<span class="op">;</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>  <span class="cf">while</span> (accumulator <span class="op">&gt;=</span> fixedDelta) {</span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>    Matter<span class="op">.</span><span class="at">Engine</span><span class="op">.</span><span class="fu">update</span>(engine<span class="op">,</span> fixedDelta)<span class="op">;</span></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>    accumulator <span class="op">-=</span> fixedDelta<span class="op">;</span></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a>  <span class="fu">requestAnimationFrame</span>(gameLoop)<span class="op">;</span></span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a><span class="fu">requestAnimationFrame</span>(gameLoop)<span class="op">;</span></span></code></pre></div>
+<p>Ensure <code>engine.timing.isFixed = true</code> is configured and
+that custom iteration counts (<code>engine.positionIterations</code> and
+<code>engine.velocityIterations</code>) are identical on all
+machines.</p>
+<h3 id="solution-3-quantize-and-truncate-floating-point-state">Solution
+3: Quantize and Truncate Floating-Point State</h3>
+<p>If you must run simulations in parallel, you can mitigate lower-bit
+floating-point variance by rounding physics states at the end of each
+simulation tick. Truncating values strips off the micro-variations
+produced by different CPU arithmetic units before they can propagate to
+the next step.</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">quantize</span>(value<span class="op">,</span> precision <span class="op">=</span> <span class="dv">10000</span>) {</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>  <span class="cf">return</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">round</span>(value <span class="op">*</span> precision) <span class="op">/</span> precision<span class="op">;</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>Matter<span class="op">.</span><span class="at">Events</span><span class="op">.</span><span class="fu">on</span>(engine<span class="op">,</span> <span class="st">&#39;afterUpdate&#39;</span><span class="op">,</span> () <span class="kw">=&gt;</span> {</span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> bodies <span class="op">=</span> Matter<span class="op">.</span><span class="at">Composite</span><span class="op">.</span><span class="fu">allBodies</span>(engine<span class="op">.</span><span class="at">world</span>)<span class="op">;</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>  <span class="cf">for</span> (<span class="kw">let</span> i <span class="op">=</span> <span class="dv">0</span><span class="op">;</span> i <span class="op">&lt;</span> bodies<span class="op">.</span><span class="at">length</span><span class="op">;</span> i<span class="op">++</span>) {</span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> body <span class="op">=</span> bodies[i]<span class="op">;</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>    body<span class="op">.</span><span class="at">position</span><span class="op">.</span><span class="at">x</span> <span class="op">=</span> <span class="fu">quantize</span>(body<span class="op">.</span><span class="at">position</span><span class="op">.</span><span class="at">x</span>)<span class="op">;</span></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>    body<span class="op">.</span><span class="at">position</span><span class="op">.</span><span class="at">y</span> <span class="op">=</span> <span class="fu">quantize</span>(body<span class="op">.</span><span class="at">position</span><span class="op">.</span><span class="at">y</span>)<span class="op">;</span></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>    body<span class="op">.</span><span class="at">velocity</span><span class="op">.</span><span class="at">x</span> <span class="op">=</span> <span class="fu">quantize</span>(body<span class="op">.</span><span class="at">velocity</span><span class="op">.</span><span class="at">x</span>)<span class="op">;</span></span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>    body<span class="op">.</span><span class="at">velocity</span><span class="op">.</span><span class="at">y</span> <span class="op">=</span> <span class="fu">quantize</span>(body<span class="op">.</span><span class="at">velocity</span><span class="op">.</span><span class="at">y</span>)<span class="op">;</span></span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>    body<span class="op">.</span><span class="at">angle</span> <span class="op">=</span> <span class="fu">quantize</span>(body<span class="op">.</span><span class="at">angle</span>)<span class="op">;</span></span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a>    body<span class="op">.</span><span class="at">angularVelocity</span> <span class="op">=</span> <span class="fu">quantize</span>(body<span class="op">.</span><span class="at">angularVelocity</span>)<span class="op">;</span></span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div>
+<h3 id="solution-4-replace-non-deterministic-math-functions">Solution 4:
+Replace Non-Deterministic Math Functions</h3>
+<p>Different browser engines calculate transcendental functions
+(<code>Math.sin</code>, <code>Math.cos</code>, <code>Math.sqrt</code>)
+with slight differences in the least significant bits. For lockstep
+peer-to-peer setups:</p>
+<ul>
+<li><strong>Lookup Tables:</strong> Replace trigonometric functions with
+precomputed integer or quantized lookup tables.</li>
+<li><strong>Math Polyfills:</strong> Monkey-patch standard
+<code>Math</code> methods with deterministic software implementations
+(such as polynomial approximations) to ensure every client computes
+identical values down to the last bit.</li>
+</ul>
+<h3 id="solution-5-use-integerfixed-point-mathematics">Solution 5: Use
+Integer/Fixed-Point Mathematics</h3>
+<p>For true lockstep determinism (e.g., standard RTS style lockstep
+networking), floating-point types cannot be used. While Matter.js is
+natively coupled to standard JavaScript numbers, you can fork or adapt
+its vector and collision modules to work with fixed-point math libraries
+(representing numbers as integers scaled by a fixed factor, such as
+16.16 or 32.32 fixed-point numbers). By executing all physics
+integration through pure integer arithmetic, cross-platform execution
+becomes mathematically deterministic.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/matter.js'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/matter.js/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/matter.js/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

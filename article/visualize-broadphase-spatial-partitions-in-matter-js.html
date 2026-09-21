@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Visualize Broadphase Spatial Partitions in Matter.js - matter.js</title>
+    <meta name="description" content="This article explains how to visualize broad-phase spatial partition cells in Matter.js using the built-in showBroadphase debug rendering option. You will learn the mechanics behind Matter.js broad-phase collision detection, the exact syntax required to">
+    <link rel="canonical" href="https://salivity.github.io/matter.js/article/visualize-broadphase-spatial-partitions-in-matter-js">
+    <link rel="search" type="application/opensearchdescription+xml" title="matter.js" href="/matter.js/opensearch.xml">
+    <link rel="icon" href="/matter.js/favicon.ico">
+    <link rel="stylesheet" href="/matter.js/css/style.css">
+    <link media="print" rel="stylesheet" href="/matter.js/css/print.css">
+    <script src="/matter.js/js/fuse.min.js"></script>
+    <script src="/matter.js/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Visualize Broadphase Spatial Partitions in Matter.js - matter.js" />
+    <meta property="og:url" content="https://salivity.github.io/matter.js/article/visualize-broadphase-spatial-partitions-in-matter-js" />
+    <meta property="og:image" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article explains how to visualize broad-phase spatial partition cells in Matter.js using the built-in showBroadphase debug rendering option. You will learn the mechanics behind Matter.js broad-phase collision detection, the exact syntax required to" />
+    <link rel="manifest" href="/matter.js/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/matter.js/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>matter.js</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/matter.js/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="visualize-broadphase-spatial-partitions-in-matterjs">Visualize
+Broadphase Spatial Partitions in Matter.js</h1>
+<p>This article explains how to visualize broad-phase spatial partition
+cells in Matter.js using the built-in <code>showBroadphase</code> debug
+rendering option. You will learn the mechanics behind Matter.js
+broad-phase collision detection, the exact syntax required to enable
+grid cell visualization in the native renderer, and practical debugging
+tips to diagnose spatial partitioning and performance issues in your
+physics simulations.</p>
+<h2 id="what-is-broadphase-collision-detection">What is Broadphase
+Collision Detection?</h2>
+<p>Before performing exact, resource-intensive polygon intersection
+tests (narrow-phase), Matter.js performs a broad-phase check. The engine
+uses spatial partitioning (typically via bounding boxes and a spatial
+hash grid) to group bodies into coarse cells. Only objects sharing the
+same or neighboring cells are flagged as potential collision pairs.</p>
+<p>Visualizing this grid helps developers analyze how bodies are
+distributed across cells, verify that spatial partition boundaries
+update correctly, and diagnose performance bottlenecks caused by
+excessive bodies crowding a single partition.</p>
+<h2 id="enabling-showbroadphase-in-the-renderer">Enabling
+<code>showBroadphase</code> in the Renderer</h2>
+<p>Matter.js provides a built-in canvas renderer
+(<code>Matter.Render</code>) with multiple debugging flags. The
+<code>showBroadphase</code> option renders the boundaries of the
+internal spatial partition buckets onto the canvas.</p>
+<h3 id="1-enabling-at-initialization">1. Enabling at Initialization</h3>
+<p>You can enable broad-phase visualization when instantiating the
+renderer by setting <code>showBroadphase: true</code> inside the
+<code>options</code> object:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> { Engine<span class="op">,</span> Render<span class="op">,</span> Runner<span class="op">,</span> Bodies<span class="op">,</span> Composite } <span class="op">=</span> Matter<span class="op">;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="co">// Create engine</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> engine <span class="op">=</span> Engine<span class="op">.</span><span class="fu">create</span>()<span class="op">;</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a><span class="co">// Create renderer with showBroadphase enabled</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> render <span class="op">=</span> Render<span class="op">.</span><span class="fu">create</span>({</span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>  <span class="dt">element</span><span class="op">:</span> <span class="bu">document</span><span class="op">.</span><span class="at">body</span><span class="op">,</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>  <span class="dt">engine</span><span class="op">:</span> engine<span class="op">,</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>  <span class="dt">options</span><span class="op">:</span> {</span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>    <span class="dt">width</span><span class="op">:</span> <span class="dv">800</span><span class="op">,</span></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>    <span class="dt">height</span><span class="op">:</span> <span class="dv">600</span><span class="op">,</span></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>    <span class="dt">wireframes</span><span class="op">:</span> <span class="kw">true</span><span class="op">,</span> <span class="co">// Recommended for clear debug visuals</span></span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>    <span class="dt">showBroadphase</span><span class="op">:</span> <span class="kw">true</span></span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span>
+<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a><span class="co">// Run the renderer and engine</span></span>
+<span id="cb1-19"><a href="#cb1-19" aria-hidden="true" tabindex="-1"></a>Render<span class="op">.</span><span class="fu">run</span>(render)<span class="op">;</span></span>
+<span id="cb1-20"><a href="#cb1-20" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> runner <span class="op">=</span> Runner<span class="op">.</span><span class="fu">create</span>()<span class="op">;</span></span>
+<span id="cb1-21"><a href="#cb1-21" aria-hidden="true" tabindex="-1"></a>Runner<span class="op">.</span><span class="fu">run</span>(runner<span class="op">,</span> engine)<span class="op">;</span></span></code></pre></div>
+<h3 id="2-toggling-dynamically-at-runtime">2. Toggling Dynamically at
+Runtime</h3>
+<p>If your simulation is already running, you can toggle broad-phase
+visualization dynamically without recreating the renderer:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Enable broadphase visualization</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>render<span class="op">.</span><span class="at">options</span><span class="op">.</span><span class="at">showBroadphase</span> <span class="op">=</span> <span class="kw">true</span><span class="op">;</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a><span class="co">// Disable broadphase visualization</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>render<span class="op">.</span><span class="at">options</span><span class="op">.</span><span class="at">showBroadphase</span> <span class="op">=</span> <span class="kw">false</span><span class="op">;</span></span></code></pre></div>
+<p>This approach is particularly useful for mapping debug states to
+keyboard shortcuts or UI controls.</p>
+<h2 id="understanding-the-visual-output">Understanding the Visual
+Output</h2>
+<p>When <code>showBroadphase</code> is active, Matter.js draws lines
+representing the bounding regions and partition buckets managed by the
+broad-phase controller:</p>
+<ul>
+<li><strong>Grid Boundaries:</strong> Faint lines appear across the
+canvas showing the partition dimensions.</li>
+<li><strong>Occupied Cells:</strong> Areas containing active physics
+bodies are highlighted according to the broad-phase controller's current
+state.</li>
+<li><strong>Cluster Density:</strong> If many bodies occupy a single
+bucket, narrow-phase checks must process more combinations, which can
+degrade frame rates. Visualizing cells lets you spot uneven distribution
+quickly.</li>
+</ul>
+<h2 id="technical-considerations">Technical Considerations</h2>
+<ul>
+<li><strong>Custom Renderers:</strong> The <code>showBroadphase</code>
+flag only affects the official <code>Matter.Render</code> canvas module.
+If you are rendering with PixiJS, Three.js, or a custom WebGL pipeline,
+you must query the broad-phase controller (such as
+<code>engine.grid</code> or <code>engine.pairs</code>) and draw custom
+overlays manually.</li>
+<li><strong>Performance Overhead:</strong> Debug rendering adds canvas
+drawing calls per frame. Keep <code>showBroadphase</code> disabled in
+production environments.</li>
+<li><strong>Wireframe Mode:</strong> Broad-phase outlines are easiest to
+see when <code>render.options.wireframes</code> is also set to
+<code>true</code>, as solid body fills can obscure the faint
+partitioning lines.</li>
+</ul></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/matter.js'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/matter.js/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/matter.js/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

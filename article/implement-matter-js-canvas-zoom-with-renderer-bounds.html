@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Implement Matter.js Canvas Zoom with Renderer Bounds - matter.js</title>
+    <meta name="description" content="Controlling the camera zoom in a Matter.js simulation is best accomplished by manipulating the bounds object of the built-in renderer rather than applying manual 2D canvas context transformations. By enabling renderer bounds, Matter.js automatically maps">
+    <link rel="canonical" href="https://salivity.github.io/matter.js/article/implement-matter-js-canvas-zoom-with-renderer-bounds">
+    <link rel="search" type="application/opensearchdescription+xml" title="matter.js" href="/matter.js/opensearch.xml">
+    <link rel="icon" href="/matter.js/favicon.ico">
+    <link rel="stylesheet" href="/matter.js/css/style.css">
+    <link media="print" rel="stylesheet" href="/matter.js/css/print.css">
+    <script src="/matter.js/js/fuse.min.js"></script>
+    <script src="/matter.js/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Implement Matter.js Canvas Zoom with Renderer Bounds - matter.js" />
+    <meta property="og:url" content="https://salivity.github.io/matter.js/article/implement-matter-js-canvas-zoom-with-renderer-bounds" />
+    <meta property="og:image" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Controlling the camera zoom in a Matter.js simulation is best accomplished by manipulating the bounds object of the built-in renderer rather than applying manual 2D canvas context transformations. By enabling renderer bounds, Matter.js automatically maps" />
+    <link rel="manifest" href="/matter.js/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/matter.js/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>matter.js</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/matter.js/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="implement-matterjs-canvas-zoom-with-renderer-bounds">Implement
+Matter.js Canvas Zoom with Renderer Bounds</h1>
+<p>Controlling the camera zoom in a Matter.js simulation is best
+accomplished by manipulating the <code>bounds</code> object of the
+built-in renderer rather than applying manual 2D canvas context
+transformations. By enabling renderer bounds, Matter.js automatically
+maps a virtual rectangular viewport to the canvas element's dimensions,
+allowing you to zoom in and out by shrinking or expanding this bounding
+box. This guide covers how to activate this feature, calculate zoom
+scaling relative to the cursor position, and implement mouse wheel zoom
+controls.</p>
+<h2 id="enable-bounds-on-the-renderer">Enable Bounds on the
+Renderer</h2>
+<p>By default, the Matter.js renderer uses the canvas width and height
+directly without tracking custom view boundaries. You must enable
+<code>hasBounds</code> when instantiating the renderer:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> render <span class="op">=</span> Matter<span class="op">.</span><span class="at">Render</span><span class="op">.</span><span class="fu">create</span>({</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>    <span class="dt">element</span><span class="op">:</span> <span class="bu">document</span><span class="op">.</span><span class="at">body</span><span class="op">,</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>    <span class="dt">engine</span><span class="op">:</span> engine<span class="op">,</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>    <span class="dt">options</span><span class="op">:</span> {</span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>        <span class="dt">width</span><span class="op">:</span> <span class="dv">800</span><span class="op">,</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>        <span class="dt">height</span><span class="op">:</span> <span class="dv">600</span><span class="op">,</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>        <span class="dt">wireframes</span><span class="op">:</span> <span class="kw">false</span><span class="op">,</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>        <span class="dt">hasBounds</span><span class="op">:</span> <span class="kw">true</span> <span class="co">// Required for custom bounds and zooming</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div>
+<p>When <code>hasBounds</code> is set to <code>true</code>, Matter.js
+uses <code>render.bounds.min</code> and <code>render.bounds.max</code>
+to determine which region of the physics world is drawn onto the
+canvas.</p>
+<h2 id="understanding-the-bounds-property">Understanding the Bounds
+Property</h2>
+<p>The <code>render.bounds</code> object defines the visible rectangular
+area in world coordinates:</p>
+<ul>
+<li><code>render.bounds.min.x</code> and
+<code>render.bounds.min.y</code>: The top-left corner of the view.</li>
+<li><code>render.bounds.max.x</code> and
+<code>render.bounds.max.y</code>: The bottom-right corner of the
+view.</li>
+</ul>
+<p>To zoom <strong>in</strong>, decrease the distance between
+<code>min</code> and <code>max</code> (making the rendered area
+smaller). To zoom <strong>out</strong>, increase the distance between
+<code>min</code> and <code>max</code>.</p>
+<h2 id="implementing-mouse-wheel-zoom-controls">Implementing Mouse Wheel
+Zoom Controls</h2>
+<p>To provide an intuitive user experience, zoom operations should scale
+around the user's cursor position rather than the top-left corner or
+canvas center.</p>
+<p>Here is the complete implementation attaching to the
+<code>wheel</code> event:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> canvas <span class="op">=</span> render<span class="op">.</span><span class="at">canvas</span><span class="op">;</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="co">// Configure zoom boundaries and speed</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> ZOOM_FACTOR <span class="op">=</span> <span class="fl">0.1</span><span class="op">;</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> MIN_WIDTH <span class="op">=</span> <span class="dv">200</span><span class="op">;</span>   <span class="co">// Maximum zoom in</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> MAX_WIDTH <span class="op">=</span> <span class="dv">4000</span><span class="op">;</span>  <span class="co">// Maximum zoom out</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>canvas<span class="op">.</span><span class="fu">addEventListener</span>(<span class="st">&#39;wheel&#39;</span><span class="op">,</span> (<span class="bu">event</span>) <span class="kw">=&gt;</span> {</span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>    <span class="bu">event</span><span class="op">.</span><span class="fu">preventDefault</span>()<span class="op">;</span></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>    <span class="co">// 1. Get current mouse position relative to canvas</span></span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> rect <span class="op">=</span> canvas<span class="op">.</span><span class="fu">getBoundingClientRect</span>()<span class="op">;</span></span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> mouseCanvasX <span class="op">=</span> <span class="bu">event</span><span class="op">.</span><span class="at">clientX</span> <span class="op">-</span> rect<span class="op">.</span><span class="at">left</span><span class="op">;</span></span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> mouseCanvasY <span class="op">=</span> <span class="bu">event</span><span class="op">.</span><span class="at">clientY</span> <span class="op">-</span> rect<span class="op">.</span><span class="at">top</span><span class="op">;</span></span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a>    <span class="co">// 2. Normalize mouse position (0.0 to 1.0)</span></span>
+<span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> normalizedX <span class="op">=</span> mouseCanvasX <span class="op">/</span> canvas<span class="op">.</span><span class="at">width</span><span class="op">;</span></span>
+<span id="cb2-18"><a href="#cb2-18" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> normalizedY <span class="op">=</span> mouseCanvasY <span class="op">/</span> canvas<span class="op">.</span><span class="at">height</span><span class="op">;</span></span>
+<span id="cb2-19"><a href="#cb2-19" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-20"><a href="#cb2-20" aria-hidden="true" tabindex="-1"></a>    <span class="co">// 3. Get current world dimensions</span></span>
+<span id="cb2-21"><a href="#cb2-21" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> currentBounds <span class="op">=</span> render<span class="op">.</span><span class="at">bounds</span><span class="op">;</span></span>
+<span id="cb2-22"><a href="#cb2-22" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> currentWidth <span class="op">=</span> currentBounds<span class="op">.</span><span class="at">max</span><span class="op">.</span><span class="at">x</span> <span class="op">-</span> currentBounds<span class="op">.</span><span class="at">min</span><span class="op">.</span><span class="at">x</span><span class="op">;</span></span>
+<span id="cb2-23"><a href="#cb2-23" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> currentHeight <span class="op">=</span> currentBounds<span class="op">.</span><span class="at">max</span><span class="op">.</span><span class="at">y</span> <span class="op">-</span> currentBounds<span class="op">.</span><span class="at">min</span><span class="op">.</span><span class="at">y</span><span class="op">;</span></span>
+<span id="cb2-24"><a href="#cb2-24" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-25"><a href="#cb2-25" aria-hidden="true" tabindex="-1"></a>    <span class="co">// 4. Calculate scale factor based on wheel direction</span></span>
+<span id="cb2-26"><a href="#cb2-26" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> zoomDirection <span class="op">=</span> <span class="bu">event</span><span class="op">.</span><span class="at">deltaY</span> <span class="op">&lt;</span> <span class="dv">0</span> <span class="op">?</span> <span class="dv">1</span> <span class="op">:</span> <span class="op">-</span><span class="dv">1</span><span class="op">;</span></span>
+<span id="cb2-27"><a href="#cb2-27" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> scale <span class="op">=</span> <span class="dv">1</span> <span class="op">-</span> (zoomDirection <span class="op">*</span> ZOOM_FACTOR)<span class="op">;</span></span>
+<span id="cb2-28"><a href="#cb2-28" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-29"><a href="#cb2-29" aria-hidden="true" tabindex="-1"></a>    <span class="co">// 5. Calculate new width and apply constraints</span></span>
+<span id="cb2-30"><a href="#cb2-30" aria-hidden="true" tabindex="-1"></a>    <span class="kw">let</span> newWidth <span class="op">=</span> currentWidth <span class="op">*</span> scale<span class="op">;</span></span>
+<span id="cb2-31"><a href="#cb2-31" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (newWidth <span class="op">&lt;</span> MIN_WIDTH) newWidth <span class="op">=</span> MIN_WIDTH<span class="op">;</span></span>
+<span id="cb2-32"><a href="#cb2-32" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (newWidth <span class="op">&gt;</span> MAX_WIDTH) newWidth <span class="op">=</span> MAX_WIDTH<span class="op">;</span></span>
+<span id="cb2-33"><a href="#cb2-33" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-34"><a href="#cb2-34" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Maintain canvas aspect ratio</span></span>
+<span id="cb2-35"><a href="#cb2-35" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> aspectRatio <span class="op">=</span> canvas<span class="op">.</span><span class="at">height</span> <span class="op">/</span> canvas<span class="op">.</span><span class="at">width</span><span class="op">;</span></span>
+<span id="cb2-36"><a href="#cb2-36" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> newHeight <span class="op">=</span> newWidth <span class="op">*</span> aspectRatio<span class="op">;</span></span>
+<span id="cb2-37"><a href="#cb2-37" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-38"><a href="#cb2-38" aria-hidden="true" tabindex="-1"></a>    <span class="co">// 6. Calculate new bounds centered on the cursor position</span></span>
+<span id="cb2-39"><a href="#cb2-39" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> mouseWorldX <span class="op">=</span> currentBounds<span class="op">.</span><span class="at">min</span><span class="op">.</span><span class="at">x</span> <span class="op">+</span> (currentWidth <span class="op">*</span> normalizedX)<span class="op">;</span></span>
+<span id="cb2-40"><a href="#cb2-40" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> mouseWorldY <span class="op">=</span> currentBounds<span class="op">.</span><span class="at">min</span><span class="op">.</span><span class="at">y</span> <span class="op">+</span> (currentHeight <span class="op">*</span> normalizedY)<span class="op">;</span></span>
+<span id="cb2-41"><a href="#cb2-41" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-42"><a href="#cb2-42" aria-hidden="true" tabindex="-1"></a>    render<span class="op">.</span><span class="at">bounds</span><span class="op">.</span><span class="at">min</span><span class="op">.</span><span class="at">x</span> <span class="op">=</span> mouseWorldX <span class="op">-</span> (newWidth <span class="op">*</span> normalizedX)<span class="op">;</span></span>
+<span id="cb2-43"><a href="#cb2-43" aria-hidden="true" tabindex="-1"></a>    render<span class="op">.</span><span class="at">bounds</span><span class="op">.</span><span class="at">min</span><span class="op">.</span><span class="at">y</span> <span class="op">=</span> mouseWorldY <span class="op">-</span> (newHeight <span class="op">*</span> normalizedY)<span class="op">;</span></span>
+<span id="cb2-44"><a href="#cb2-44" aria-hidden="true" tabindex="-1"></a>    render<span class="op">.</span><span class="at">bounds</span><span class="op">.</span><span class="at">max</span><span class="op">.</span><span class="at">x</span> <span class="op">=</span> render<span class="op">.</span><span class="at">bounds</span><span class="op">.</span><span class="at">min</span><span class="op">.</span><span class="at">x</span> <span class="op">+</span> newWidth<span class="op">;</span></span>
+<span id="cb2-45"><a href="#cb2-45" aria-hidden="true" tabindex="-1"></a>    render<span class="op">.</span><span class="at">bounds</span><span class="op">.</span><span class="at">max</span><span class="op">.</span><span class="at">y</span> <span class="op">=</span> render<span class="op">.</span><span class="at">bounds</span><span class="op">.</span><span class="at">min</span><span class="op">.</span><span class="at">y</span> <span class="op">+</span> newHeight<span class="op">;</span></span>
+<span id="cb2-46"><a href="#cb2-46" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div>
+<h2 id="handling-mouse-constraints-with-zoom">Handling Mouse Constraints
+with Zoom</h2>
+<p>If your simulation utilizes <code>Matter.MouseConstraint</code> for
+object dragging, updating <code>render.bounds</code> without syncing the
+mouse module will cause a mismatch between cursor clicks and object
+interactions.</p>
+<p>Ensure the mouse offset and scale are updated whenever the bounds
+change:</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> mouse <span class="op">=</span> Matter<span class="op">.</span><span class="at">Mouse</span><span class="op">.</span><span class="fu">create</span>(render<span class="op">.</span><span class="at">canvas</span>)<span class="op">;</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> mouseConstraint <span class="op">=</span> Matter<span class="op">.</span><span class="at">MouseConstraint</span><span class="op">.</span><span class="fu">create</span>(engine<span class="op">,</span> {</span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>    <span class="dt">mouse</span><span class="op">:</span> mouse</span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a><span class="co">// Update the mouse scale and offset during the render loop or directly after zooming</span></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>Matter<span class="op">.</span><span class="at">Events</span><span class="op">.</span><span class="fu">on</span>(render<span class="op">,</span> <span class="st">&#39;beforeRender&#39;</span><span class="op">,</span> () <span class="kw">=&gt;</span> {</span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>    Matter<span class="op">.</span><span class="at">Mouse</span><span class="op">.</span><span class="fu">setScale</span>(mouse<span class="op">,</span> {</span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a>        <span class="dt">x</span><span class="op">:</span> (render<span class="op">.</span><span class="at">bounds</span><span class="op">.</span><span class="at">max</span><span class="op">.</span><span class="at">x</span> <span class="op">-</span> render<span class="op">.</span><span class="at">bounds</span><span class="op">.</span><span class="at">min</span><span class="op">.</span><span class="at">x</span>) <span class="op">/</span> render<span class="op">.</span><span class="at">canvas</span><span class="op">.</span><span class="at">width</span><span class="op">,</span></span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a>        <span class="dt">y</span><span class="op">:</span> (render<span class="op">.</span><span class="at">bounds</span><span class="op">.</span><span class="at">max</span><span class="op">.</span><span class="at">y</span> <span class="op">-</span> render<span class="op">.</span><span class="at">bounds</span><span class="op">.</span><span class="at">min</span><span class="op">.</span><span class="at">y</span>) <span class="op">/</span> render<span class="op">.</span><span class="at">canvas</span><span class="op">.</span><span class="at">height</span></span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a>    })<span class="op">;</span></span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a>    Matter<span class="op">.</span><span class="at">Mouse</span><span class="op">.</span><span class="fu">setOffset</span>(mouse<span class="op">,</span> render<span class="op">.</span><span class="at">bounds</span><span class="op">.</span><span class="at">min</span>)<span class="op">;</span></span>
+<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div>
+<p>This synchronization ensures physics interactions remain accurate
+regardless of the current zoom level.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/matter.js'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/matter.js/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/matter.js/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

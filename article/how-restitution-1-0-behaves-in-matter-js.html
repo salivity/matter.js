@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How Restitution 1.0 Behaves in Matter.js - matter.js</title>
+    <meta name="description" content="In Matter.js, the restitution property dictates the elasticity or bounciness of a rigid body during impacts. Assigning a restitution value of 1.0 defines a perfectly elastic collision, theoretically conserving 100% of the body's kinetic energy when it st">
+    <link rel="canonical" href="https://salivity.github.io/matter.js/article/how-restitution-1-0-behaves-in-matter-js">
+    <link rel="search" type="application/opensearchdescription+xml" title="matter.js" href="/matter.js/opensearch.xml">
+    <link rel="icon" href="/matter.js/favicon.ico">
+    <link rel="stylesheet" href="/matter.js/css/style.css">
+    <link media="print" rel="stylesheet" href="/matter.js/css/print.css">
+    <script src="/matter.js/js/fuse.min.js"></script>
+    <script src="/matter.js/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How Restitution 1.0 Behaves in Matter.js - matter.js" />
+    <meta property="og:url" content="https://salivity.github.io/matter.js/article/how-restitution-1-0-behaves-in-matter-js" />
+    <meta property="og:image" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="In Matter.js, the restitution property dictates the elasticity or bounciness of a rigid body during impacts. Assigning a restitution value of 1.0 defines a perfectly elastic collision, theoretically conserving 100% of the body's kinetic energy when it st" />
+    <link rel="manifest" href="/matter.js/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/matter.js/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>matter.js</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/matter.js/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="how-restitution-10-behaves-in-matterjs">How Restitution 1.0
+Behaves in Matter.js</h1>
+<p>In Matter.js, the <code>restitution</code> property dictates the
+elasticity or bounciness of a rigid body during impacts. Assigning a
+restitution value of 1.0 defines a perfectly elastic collision,
+theoretically conserving 100% of the body's kinetic energy when it
+strikes another surface. This article explains how the 1.0 restitution
+value interacts with other physics bodies in the engine, why external
+factors like friction affect the outcome, and how to achieve true
+perpetual bouncing.</p>
+<h3 id="collision-resolution-logic">Collision Resolution Logic</h3>
+<p>Matter.js determines collision elasticity using the higher
+restitution value between two colliding bodies. By default, the engine
+applies <code>Math.max(bodyA.restitution, bodyB.restitution)</code> to
+compute the collision response. Because of this formula:</p>
+<ul>
+<li>If <strong>Body A</strong> has a restitution of <code>1.0</code> and
+strikes <strong>Body B</strong> with a restitution of <code>0.0</code>,
+the collision is still treated as fully elastic (<code>1.0</code>).</li>
+<li>The body rebounds with its full post-collision velocity without any
+energy dissipation directly caused by the impact itself.</li>
+</ul>
+<h3 id="the-impact-of-default-drag-and-friction">The Impact of Default
+Drag and Friction</h3>
+<p>A common misconception is that a restitution of 1.0 will cause an
+object to bounce indefinitely under standard engine settings. While the
+collision itself does not absorb kinetic energy, Matter.js bodies
+include default values for drag and surface friction that bleed energy
+continuously:</p>
+<ul>
+<li><strong><code>frictionAir</code></strong>: Defaults to
+<code>0.01</code>. This acts as atmospheric drag, gradually reducing the
+body's linear and angular velocity every update frame.</li>
+<li><strong><code>friction</code></strong>: Defaults to
+<code>0.1</code>. When bodies slide against each other during
+non-perpendicular impacts, this value converts motion into friction
+losses.</li>
+<li><strong><code>frictionStatic</code></strong>: Defaults to
+<code>0.5</code>, introducing resistance when a body begins sliding
+along another surface.</li>
+</ul>
+<p>To achieve an object that bounces perpetually without losing height
+or speed, these properties must be explicitly disabled:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> bouncer <span class="op">=</span> Bodies<span class="op">.</span><span class="fu">circle</span>(x<span class="op">,</span> y<span class="op">,</span> radius<span class="op">,</span> {</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>    <span class="dt">restitution</span><span class="op">:</span> <span class="fl">1.0</span><span class="op">,</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>    <span class="dt">friction</span><span class="op">:</span> <span class="dv">0</span><span class="op">,</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>    <span class="dt">frictionAir</span><span class="op">:</span> <span class="dv">0</span><span class="op">,</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>    <span class="dt">frictionStatic</span><span class="op">:</span> <span class="dv">0</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div>
+<h3 id="numerical-stability-and-edge-cases">Numerical Stability and Edge
+Cases</h3>
+<p>Because Matter.js is an iterative, discrete-time physics engine,
+minor anomalies can occur when restitution is set to 1.0:</p>
+<ul>
+<li><strong>Energy Creep or Decay:</strong> Rounding errors across
+multiple frames can subtly alter an object's energy over prolonged
+simulations. Increasing <code>engine.positionIterations</code> and
+<code>engine.velocityIterations</code> reduces this drift.</li>
+<li><strong>Restitution Above 1.0:</strong> While 1.0 is the physical
+threshold for full energy conservation, Matter.js allows values greater
+than 1.0, which injects kinetic energy into the system on every impact,
+causing objects to accelerate exponentially after each bounce.</li>
+<li><strong>Resting Threshold:</strong> At very low velocities, the
+engine's sleep and resting thresholds may override elasticity to prevent
+micro-jittering when an object settles.</li>
+</ul>
+<p>A restitution value of 1.0 is most commonly utilized in arcade-style
+mechanics, such as <em>Pong</em> or <em>Breakout</em> clones, pinball
+bumpers, and elastic particle simulations where realistic energy
+dampening is undesirable.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/matter.js'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/matter.js/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/matter.js/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How Matter.js Iterations Affect Performance - matter.js</title>
+    <meta name="description" content="In Matter.js, iterations determine how many times the physics engine calculates collision resolution and constraint solving per frame. Increasing iteration settings improves physical accuracy, stabilizes rigid body stacking, and reduces visual artifacts">
+    <link rel="canonical" href="https://salivity.github.io/matter.js/article/how-matter-js-iterations-affect-performance">
+    <link rel="search" type="application/opensearchdescription+xml" title="matter.js" href="/matter.js/opensearch.xml">
+    <link rel="icon" href="/matter.js/favicon.ico">
+    <link rel="stylesheet" href="/matter.js/css/style.css">
+    <link media="print" rel="stylesheet" href="/matter.js/css/print.css">
+    <script src="/matter.js/js/fuse.min.js"></script>
+    <script src="/matter.js/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How Matter.js Iterations Affect Performance - matter.js" />
+    <meta property="og:url" content="https://salivity.github.io/matter.js/article/how-matter-js-iterations-affect-performance" />
+    <meta property="og:image" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="In Matter.js, iterations determine how many times the physics engine calculates collision resolution and constraint solving per frame. Increasing iteration settings improves physical accuracy, stabilizes rigid body stacking, and reduces visual artifacts" />
+    <link rel="manifest" href="/matter.js/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/matter.js/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>matter.js</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/matter.js/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="how-matterjs-iterations-affect-performance">How Matter.js
+Iterations Affect Performance</h1>
+<p>In Matter.js, iterations determine how many times the physics engine
+calculates collision resolution and constraint solving per frame.
+Increasing iteration settings improves physical accuracy, stabilizes
+rigid body stacking, and reduces visual artifacts like jitter and
+tunneling. However, because each iteration adds repetitive mathematical
+calculations across all active bodies, scaling these values up directly
+increases CPU load and can cause severe frame drops if not balanced
+properly.</p>
+<h3 id="how-iterations-work-in-matterjs">How Iterations Work in
+Matter.js</h3>
+<p>Matter.js relies on an iterative impulse solver. During each engine
+update, bodies that collide or are bound by constraints undergo multiple
+passes to converge toward a realistic physical state. The engine
+provides three primary configuration properties:</p>
+<ul>
+<li><strong><code>engine.positionIterations</code></strong> (Default:
+6): The number of passes dedicated to fixing overlapping bodies and
+resolving positional penetration.</li>
+<li><strong><code>engine.velocityIterations</code></strong> (Default:
+4): The number of passes used to compute impulse responses, friction,
+and bounce trajectories.</li>
+<li><strong><code>engine.constraintIterations</code></strong> (Default:
+2): The number of passes dedicated to maintaining distances and
+stiffness between bodies connected by constraints.</li>
+</ul>
+<h3 id="the-benefits-of-increasing-iterations">The Benefits of
+Increasing Iterations</h3>
+<p>Raising these values provides three main physical improvements:</p>
+<ol type="1">
+<li><strong>Stiffer and More Stable Stacks:</strong> Low iterations
+cause stacks of bodies to drift, oscillate, or compress artificially
+under gravity. Higher position and velocity iterations allow the engine
+to distribute normal forces correctly, keeping stacked boxes or shapes
+rigid.</li>
+<li><strong>Reduced Object Tunneling:</strong> When objects move
+rapidly, low position iterations can allow bodies to clip into or pass
+through one another. More solver passes catch and resolve overlaps
+before bodies permanently penetrate boundaries.</li>
+<li><strong>Rigid Constraints:</strong> Constraints (such as springs,
+ropes, or joints) can feel rubbery or stretch beyond their defined
+length under stress. Higher constraint iterations maintain accurate
+distances without unwanted elasticity.</li>
+</ol>
+<h3 id="the-performance-cost">The Performance Cost</h3>
+<p>Physics calculation in a game loop must complete well within the
+target frame budget (typically under 16.6 milliseconds for 60 FPS).
+Increasing iteration counts creates the following performance
+bottlenecks:</p>
+<ul>
+<li><strong>Linear Complexity Scaling:</strong> The computational cost
+of the solver phase scales linearly with the number of iterations
+multiplied by the number of active collision pairs and constraints.
+Doubling iterations roughly doubles solver execution time.</li>
+<li><strong>CPU-Bound Bottlenecks:</strong> Matter.js runs on a single
+JavaScript thread. Heavy iteration counts monopolize the main thread,
+delaying rendering, event handling, and other application logic.</li>
+<li><strong>Compounding Overhead with Complex Scenes:</strong> A high
+iteration count may run smoothly with 10 bodies, but performance
+degrades rapidly once dozens of active bodies interact simultaneously,
+as every new collision pair undergoes the expanded iteration count.</li>
+</ul>
+<h3 id="best-practices-for-optimization">Best Practices for
+Optimization</h3>
+<p>To maintain steady frame rates while achieving the necessary physical
+realism, use these optimization strategies:</p>
+<ul>
+<li><strong>Target Specific Iteration Types:</strong> Do not increase
+all iteration counts uniformly. If stacked objects are sinking, increase
+only <code>positionIterations</code>. If springs are stretching,
+increase only <code>constraintIterations</code>.</li>
+<li><strong>Use Substepping Instead of High Iterations:</strong> In
+scenarios involving fast-moving objects, running the engine update
+multiple times with smaller delta time steps often yields better
+stability and collision detection than excessively cranking up
+iterations on a single large step.</li>
+<li><strong>Thicken Static Boundaries:</strong> Instead of increasing
+iterations to prevent fast bodies from penetrating walls, increase the
+physical thickness of the wall bodies.</li>
+<li><strong>Sleep Inactive Bodies:</strong> Enable sleeping
+(<code>engine.enableSleeping = true</code>) to take resting bodies out
+of the solver loop entirely, freeing up CPU overhead for objects that
+require active calculations.</li>
+</ul></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/matter.js'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/matter.js/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/matter.js/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

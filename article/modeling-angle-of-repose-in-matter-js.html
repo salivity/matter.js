@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Modeling Angle of Repose in Matter.js - matter.js</title>
+    <meta name="description" content="This article explains how to simulate the angle of repose for stacked granular materials using the 2D physics engine Matter.js. You will learn which physical properties directly govern pile stability, how to overcome the limitation of rolling circular bo">
+    <link rel="canonical" href="https://salivity.github.io/matter.js/article/modeling-angle-of-repose-in-matter-js">
+    <link rel="search" type="application/opensearchdescription+xml" title="matter.js" href="/matter.js/opensearch.xml">
+    <link rel="icon" href="/matter.js/favicon.ico">
+    <link rel="stylesheet" href="/matter.js/css/style.css">
+    <link media="print" rel="stylesheet" href="/matter.js/css/print.css">
+    <script src="/matter.js/js/fuse.min.js"></script>
+    <script src="/matter.js/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Modeling Angle of Repose in Matter.js - matter.js" />
+    <meta property="og:url" content="https://salivity.github.io/matter.js/article/modeling-angle-of-repose-in-matter-js" />
+    <meta property="og:image" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article explains how to simulate the angle of repose for stacked granular materials using the 2D physics engine Matter.js. You will learn which physical properties directly govern pile stability, how to overcome the limitation of rolling circular bo" />
+    <link rel="manifest" href="/matter.js/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/matter.js/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>matter.js</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/matter.js/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="modeling-angle-of-repose-in-matterjs">Modeling Angle of Repose
+in Matter.js</h1>
+<p>This article explains how to simulate the angle of repose for stacked
+granular materials using the 2D physics engine Matter.js. You will learn
+which physical properties directly govern pile stability, how to
+overcome the limitation of rolling circular bodies, how to configure the
+engine for particle stability, and how to write the code required to
+generate a stable, natural granular slope.</p>
+<h2 id="what-governs-the-angle-of-repose-in-matterjs">What Governs the
+Angle of Repose in Matter.js</h2>
+<p>The angle of repose is the steepest angle at which a sloping surface
+of loose material remains stable without sliding down. In real-world
+physics, this angle depends on particle shape, surface roughness,
+interlocking, and moisture.</p>
+<p>Because Matter.js is a rigid-body physics engine rather than a
+discrete element method (DEM) simulator, granular materials must be
+represented by many small, interacting bodies. Achieving a specific
+angle of repose requires tuning several key body properties:</p>
+<ul>
+<li><strong>Kinetic Friction (<code>friction</code>):</strong> Controls
+the resistance between sliding surfaces. Higher values increase shear
+strength, allowing steeper piles.</li>
+<li><strong>Static Friction (<code>frictionStatic</code>):</strong>
+Determines the force required to initiate sliding from a resting state.
+This property must be higher than <code>friction</code> to stabilize the
+internal core of the pile.</li>
+<li><strong>Restitution (<code>restitution</code>):</strong> Represents
+bounciness. For granular materials like sand, soil, or gravel,
+restitution should be close to <code>0</code> to prevent particles from
+scattering upon contact.</li>
+<li><strong>Rolling Resistance:</strong> Standard circular bodies roll
+freely in Matter.js regardless of high friction values, leading to an
+artificially flat pile. You must suppress pure rolling to mimic particle
+interlocking.</li>
+</ul>
+<h2 id="overcoming-the-rolling-problem">Overcoming the Rolling
+Problem</h2>
+<p>If you model sand grains purely as perfect circles
+(<code>Bodies.circle</code>), the pile will collapse and spread wide
+because circles exhibit zero rolling friction. To achieve a realistic
+angle of repose, use one of the following approaches:</p>
+<h3 id="1-polydisperse-polygons">1. Polydisperse Polygons</h3>
+<p>Instead of circles, generate regular or irregular polygons with
+varying vertex counts (e.g., pentagons, hexagons, and septagons). Flat
+facets interlock naturally, dramatically increasing the resting angle.
+Varying particle sizes (polydispersity) also prevents uniform
+crystallization patterns that cause unnatural structural cleavage.</p>
+<h3 id="2-angular-damping--artificial-rolling-friction">2. Angular
+Damping / Artificial Rolling Friction</h3>
+<p>If circles are required for performance reasons, you can simulate
+rolling friction by capping or damping angular velocity. Matter.js does
+not have a native rolling friction parameter, but you can increase
+inertia or manually damp rotation each tick:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a>Matter<span class="op">.</span><span class="at">Events</span><span class="op">.</span><span class="fu">on</span>(engine<span class="op">,</span> <span class="st">&#39;beforeUpdate&#39;</span><span class="op">,</span> () <span class="kw">=&gt;</span> {</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>    particles<span class="op">.</span><span class="fu">forEach</span>(body <span class="kw">=&gt;</span> {</span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>        <span class="co">// Dampen angular velocity to mimic rolling resistance</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>        Matter<span class="op">.</span><span class="at">Body</span><span class="op">.</span><span class="fu">setAngularVelocity</span>(body<span class="op">,</span> body<span class="op">.</span><span class="at">angularVelocity</span> <span class="op">*</span> <span class="fl">0.85</span>)<span class="op">;</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>    })<span class="op">;</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div>
+<p>Alternatively, setting <code>inertia: Infinity</code> on circular
+bodies completely disables rotation, forcing them to interact entirely
+via linear surface friction.</p>
+<h2 id="recommended-particle-settings">Recommended Particle
+Settings</h2>
+<p>For dry, sand-like materials, configure each particle with the
+following parameters:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> particleOptions <span class="op">=</span> {</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>    <span class="dt">friction</span><span class="op">:</span> <span class="fl">0.8</span><span class="op">,</span>         <span class="co">// High surface friction</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>    <span class="dt">frictionStatic</span><span class="op">:</span> <span class="fl">1.0</span><span class="op">,</span>   <span class="co">// High static threshold</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>    <span class="dt">restitution</span><span class="op">:</span> <span class="fl">0.05</span><span class="op">,</span>     <span class="co">// Minimal bounciness</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>    <span class="dt">density</span><span class="op">:</span> <span class="fl">0.002</span><span class="op">,</span>        <span class="co">// Realistic weight distribution</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>    <span class="dt">frictionAir</span><span class="op">:</span> <span class="fl">0.01</span>      <span class="co">// Standard atmospheric drag</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>}<span class="op">;</span></span></code></pre></div>
+<ul>
+<li><strong>Steeper Angle:</strong> Increase <code>friction</code>
+(e.g., <code>0.9</code> to <code>1.0</code>), reduce roundness, or clamp
+angular velocity entirely.</li>
+<li><strong>Shallower Angle:</strong> Decrease <code>friction</code>
+(e.g., <code>0.1</code> to <code>0.3</code>) and allow particles to roll
+freely.</li>
+</ul>
+<h2 id="engine-solver-configuration">Engine Solver Configuration</h2>
+<p>Large stacks of granular bodies create deep contact chains that place
+heavy demands on the constraint solver. If the solver settings are too
+low, the pile will jitter, sink into itself, or act like a fluid.</p>
+<p>Increase the solver fidelity in your <code>Engine.create()</code>
+instance:</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> engine <span class="op">=</span> Matter<span class="op">.</span><span class="at">Engine</span><span class="op">.</span><span class="fu">create</span>({</span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>    <span class="dt">positionIterations</span><span class="op">:</span> <span class="dv">10</span><span class="op">,</span> <span class="co">// Default is 6; higher values stop sinking/jittering</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>    <span class="dt">velocityIterations</span><span class="op">:</span> <span class="dv">8</span>   <span class="co">// Default is 4; improves contact resolution</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div>
+<p>Using a fixed, sub-stepped delta time in your runner ensures
+consistent accumulation without spontaneous explosions from overlapping
+particles:</p>
+<div class="sourceCode" id="cb4"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a>Matter<span class="op">.</span><span class="at">Runner</span><span class="op">.</span><span class="fu">run</span>(runner<span class="op">,</span> engine)<span class="op">;</span></span></code></pre></div>
+<h2 id="implementation-example">Implementation Example</h2>
+<p>The following script sets up an emitter dropping varied polygonal
+particles onto a flat surface to form a natural pile:</p>
+<div class="sourceCode" id="cb5"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> { Engine<span class="op">,</span> Render<span class="op">,</span> Runner<span class="op">,</span> Bodies<span class="op">,</span> Composite<span class="op">,</span> Events } <span class="op">=</span> Matter<span class="op">;</span></span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> engine <span class="op">=</span> Engine<span class="op">.</span><span class="fu">create</span>({ <span class="dt">positionIterations</span><span class="op">:</span> <span class="dv">10</span><span class="op">,</span> <span class="dt">velocityIterations</span><span class="op">:</span> <span class="dv">8</span> })<span class="op">;</span></span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> world <span class="op">=</span> engine<span class="op">.</span><span class="at">world</span><span class="op">;</span></span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> render <span class="op">=</span> Render<span class="op">.</span><span class="fu">create</span>({</span>
+<span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a>    <span class="dt">element</span><span class="op">:</span> <span class="bu">document</span><span class="op">.</span><span class="at">body</span><span class="op">,</span></span>
+<span id="cb5-8"><a href="#cb5-8" aria-hidden="true" tabindex="-1"></a>    <span class="dt">engine</span><span class="op">:</span> engine<span class="op">,</span></span>
+<span id="cb5-9"><a href="#cb5-9" aria-hidden="true" tabindex="-1"></a>    <span class="dt">options</span><span class="op">:</span> { <span class="dt">width</span><span class="op">:</span> <span class="dv">800</span><span class="op">,</span> <span class="dt">height</span><span class="op">:</span> <span class="dv">600</span><span class="op">,</span> <span class="dt">wireframes</span><span class="op">:</span> <span class="kw">false</span> }</span>
+<span id="cb5-10"><a href="#cb5-10" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span>
+<span id="cb5-11"><a href="#cb5-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-12"><a href="#cb5-12" aria-hidden="true" tabindex="-1"></a>Render<span class="op">.</span><span class="fu">run</span>(render)<span class="op">;</span></span>
+<span id="cb5-13"><a href="#cb5-13" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> runner <span class="op">=</span> Runner<span class="op">.</span><span class="fu">create</span>()<span class="op">;</span></span>
+<span id="cb5-14"><a href="#cb5-14" aria-hidden="true" tabindex="-1"></a>Runner<span class="op">.</span><span class="fu">run</span>(runner<span class="op">,</span> engine)<span class="op">;</span></span>
+<span id="cb5-15"><a href="#cb5-15" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-16"><a href="#cb5-16" aria-hidden="true" tabindex="-1"></a><span class="co">// Floor</span></span>
+<span id="cb5-17"><a href="#cb5-17" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> ground <span class="op">=</span> Bodies<span class="op">.</span><span class="fu">rectangle</span>(<span class="dv">400</span><span class="op">,</span> <span class="dv">580</span><span class="op">,</span> <span class="dv">810</span><span class="op">,</span> <span class="dv">40</span><span class="op">,</span> { <span class="dt">isStatic</span><span class="op">:</span> <span class="kw">true</span><span class="op">,</span> <span class="dt">friction</span><span class="op">:</span> <span class="fl">1.0</span> })<span class="op">;</span></span>
+<span id="cb5-18"><a href="#cb5-18" aria-hidden="true" tabindex="-1"></a>Composite<span class="op">.</span><span class="fu">add</span>(world<span class="op">,</span> ground)<span class="op">;</span></span>
+<span id="cb5-19"><a href="#cb5-19" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-20"><a href="#cb5-20" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> particles <span class="op">=</span> []<span class="op">;</span></span>
+<span id="cb5-21"><a href="#cb5-21" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-22"><a href="#cb5-22" aria-hidden="true" tabindex="-1"></a><span class="co">// Drop a granular particle every few frames</span></span>
+<span id="cb5-23"><a href="#cb5-23" aria-hidden="true" tabindex="-1"></a><span class="kw">let</span> frameCount <span class="op">=</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb5-24"><a href="#cb5-24" aria-hidden="true" tabindex="-1"></a>Events<span class="op">.</span><span class="fu">on</span>(engine<span class="op">,</span> <span class="st">&#39;afterUpdate&#39;</span><span class="op">,</span> () <span class="kw">=&gt;</span> {</span>
+<span id="cb5-25"><a href="#cb5-25" aria-hidden="true" tabindex="-1"></a>    frameCount<span class="op">++;</span></span>
+<span id="cb5-26"><a href="#cb5-26" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (frameCount <span class="op">%</span> <span class="dv">5</span> <span class="op">===</span> <span class="dv">0</span> <span class="op">&amp;&amp;</span> particles<span class="op">.</span><span class="at">length</span> <span class="op">&lt;</span> <span class="dv">350</span>) {</span>
+<span id="cb5-27"><a href="#cb5-27" aria-hidden="true" tabindex="-1"></a>        <span class="kw">const</span> x <span class="op">=</span> <span class="dv">400</span> <span class="op">+</span> (<span class="bu">Math</span><span class="op">.</span><span class="fu">random</span>() <span class="op">-</span> <span class="fl">0.5</span>) <span class="op">*</span> <span class="dv">20</span><span class="op">;</span></span>
+<span id="cb5-28"><a href="#cb5-28" aria-hidden="true" tabindex="-1"></a>        <span class="kw">const</span> radius <span class="op">=</span> <span class="dv">6</span> <span class="op">+</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">random</span>() <span class="op">*</span> <span class="dv">4</span><span class="op">;</span></span>
+<span id="cb5-29"><a href="#cb5-29" aria-hidden="true" tabindex="-1"></a>        <span class="kw">const</span> sides <span class="op">=</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">floor</span>(<span class="bu">Math</span><span class="op">.</span><span class="fu">random</span>() <span class="op">*</span> <span class="dv">3</span>) <span class="op">+</span> <span class="dv">5</span><span class="op">;</span> <span class="co">// 5 to 7 sides for interlocking</span></span>
+<span id="cb5-30"><a href="#cb5-30" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-31"><a href="#cb5-31" aria-hidden="true" tabindex="-1"></a>        <span class="kw">const</span> particle <span class="op">=</span> Bodies<span class="op">.</span><span class="fu">polygon</span>(x<span class="op">,</span> <span class="dv">50</span><span class="op">,</span> sides<span class="op">,</span> radius<span class="op">,</span> {</span>
+<span id="cb5-32"><a href="#cb5-32" aria-hidden="true" tabindex="-1"></a>            <span class="dt">friction</span><span class="op">:</span> <span class="fl">0.9</span><span class="op">,</span></span>
+<span id="cb5-33"><a href="#cb5-33" aria-hidden="true" tabindex="-1"></a>            <span class="dt">frictionStatic</span><span class="op">:</span> <span class="fl">1.2</span><span class="op">,</span></span>
+<span id="cb5-34"><a href="#cb5-34" aria-hidden="true" tabindex="-1"></a>            <span class="dt">restitution</span><span class="op">:</span> <span class="fl">0.0</span><span class="op">,</span></span>
+<span id="cb5-35"><a href="#cb5-35" aria-hidden="true" tabindex="-1"></a>            <span class="dt">density</span><span class="op">:</span> <span class="fl">0.005</span></span>
+<span id="cb5-36"><a href="#cb5-36" aria-hidden="true" tabindex="-1"></a>        })<span class="op">;</span></span>
+<span id="cb5-37"><a href="#cb5-37" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-38"><a href="#cb5-38" aria-hidden="true" tabindex="-1"></a>        particles<span class="op">.</span><span class="fu">push</span>(particle)<span class="op">;</span></span>
+<span id="cb5-39"><a href="#cb5-39" aria-hidden="true" tabindex="-1"></a>        Composite<span class="op">.</span><span class="fu">add</span>(world<span class="op">,</span> particle)<span class="op">;</span></span>
+<span id="cb5-40"><a href="#cb5-40" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb5-41"><a href="#cb5-41" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div>
+<p>By substituting smooth circles with irregular polygons, setting
+<code>restitution</code> near zero, and tuning static and dynamic
+friction, you can precisely control the resulting slope angle and build
+stable granular piles in Matter.js.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/matter.js'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/matter.js/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/matter.js/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

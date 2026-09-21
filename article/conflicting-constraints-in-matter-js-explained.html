@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Conflicting Constraints in Matter.js Explained - matter.js</title>
+    <meta name="description" content="When two or more constraints conflict in Matter.js, the physics engine attempts to resolve the opposing positional requirements iteratively, leading to compromises, rapid jitter, or explosive physics instability. Because Matter.js uses an iterative solve">
+    <link rel="canonical" href="https://salivity.github.io/matter.js/article/conflicting-constraints-in-matter-js-explained">
+    <link rel="search" type="application/opensearchdescription+xml" title="matter.js" href="/matter.js/opensearch.xml">
+    <link rel="icon" href="/matter.js/favicon.ico">
+    <link rel="stylesheet" href="/matter.js/css/style.css">
+    <link media="print" rel="stylesheet" href="/matter.js/css/print.css">
+    <script src="/matter.js/js/fuse.min.js"></script>
+    <script src="/matter.js/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Conflicting Constraints in Matter.js Explained - matter.js" />
+    <meta property="og:url" content="https://salivity.github.io/matter.js/article/conflicting-constraints-in-matter-js-explained" />
+    <meta property="og:image" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="When two or more constraints conflict in Matter.js, the physics engine attempts to resolve the opposing positional requirements iteratively, leading to compromises, rapid jitter, or explosive physics instability. Because Matter.js uses an iterative solve" />
+    <link rel="manifest" href="/matter.js/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/matter.js/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>matter.js</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/matter.js/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="conflicting-constraints-in-matterjs-explained">Conflicting
+Constraints in Matter.js Explained</h1>
+<p>When two or more constraints conflict in Matter.js, the physics
+engine attempts to resolve the opposing positional requirements
+iteratively, leading to compromises, rapid jitter, or explosive physics
+instability. Because Matter.js uses an iterative solver rather than an
+exact analytical solver, mutually exclusive constraints force the engine
+to alternate between correcting one constraint and then the other across
+multiple sub-steps per frame. Depending on the stiffness settings,
+engine iteration counts, and body masses, this continuous push-and-pull
+results in either a stable visual tension, high-frequency vibration, or
+an uncontrollable accumulation of kinetic energy that flings bodies
+across the simulation.</p>
+<h3 id="the-iterative-solver-mechanism">The Iterative Solver
+Mechanism</h3>
+<p>Matter.js uses an iterative projection solver to maintain
+constraints. In each simulation step, the engine loops through the
+constraint list multiple times (controlled by
+<code>engine.constraintIterations</code>). For each constraint, the
+engine calculates the positional error between the connected bodies and
+applies an immediate corrective impulse to bring them to their target
+distance.</p>
+<p>When two constraints demand contradictory positions for the same
+body—such as pinning a single body to two immovable anchors placed
+farther apart than the sum of the constraint lengths—the solver cannot
+find a zero-error state. It satisfies the first constraint, which
+subsequently violates the second constraint, and then corrects the
+second, re-violating the first.</p>
+<h3 id="primary-outcomes-of-conflicting-constraints">Primary Outcomes of
+Conflicting Constraints</h3>
+<p>Depending on configuration parameters, conflicting constraints
+produce three distinct behaviors:</p>
+<h4 id="1-elastic-compromise-low-to-moderate-stiffness">1. Elastic
+Compromise (Low to Moderate Stiffness)</h4>
+<p>If constraints have a <code>stiffness</code> value less than
+<code>1</code> (such as <code>0.1</code> to <code>0.7</code>), the
+constraints behave like springs. The engine applies only a fraction of
+the corrective displacement per iteration. In this scenario, the bodies
+settle into a stable mechanical equilibrium where opposing forces
+balance each other out, visually appearing as stretched or compressed
+elastic bands without causing simulation breakdown.</p>
+<h4 id="2-high-frequency-jitter-and-vibration">2. High-Frequency Jitter
+and Vibration</h4>
+<p>When constraints have high stiffness (approaching or equal to
+<code>1</code>), the solver aggressively snaps the bodies into
+compliance on every pass. Because neither constraint can be fully
+satisfied simultaneously, the body rapidly alternates positions across
+frames. This manifests on screen as violent shaking, vibrating textures,
+or visual jitter.</p>
+<h4 id="3-physics-explosions-numerical-instability">3. Physics
+"Explosions" (Numerical Instability)</h4>
+<p>If rigidly conflicting constraints interact with dynamic collision
+bodies, numerical instability occurs. Positional corrections can push
+bodies into overlapping collision states with other geometries. The
+collision solver and the constraint solver then fight simultaneously,
+injecting massive artificial momentum into the system. This exponential
+energy gain causes velocities to skyrocket, often shooting bodies
+off-screen or causing them to tunnel completely through static
+boundaries.</p>
+<h3 id="the-influence-of-order-and-solver-iterations">The Influence of
+Order and Solver Iterations</h3>
+<p>The sequence in which constraints are declared matters. Matter.js
+evaluates constraints sequentially in the order they appear in the
+composite array. At the end of each frame, the constraint evaluated last
+holds the final positional influence, introducing an asymmetric bias
+toward the later constraint.</p>
+<p>Increasing <code>engine.constraintIterations</code> will sharpen the
+conflict. While higher iteration counts improve rigidity for
+non-conflicting setups, they amplify visual jitter and physics
+explosions in conflicting setups by forcing extreme corrections within a
+single animation frame.</p>
+<h3 id="how-to-mitigate-constraint-conflicts">How to Mitigate Constraint
+Conflicts</h3>
+<ul>
+<li><strong>Reduce Stiffness:</strong> Lower the <code>stiffness</code>
+property below <code>1</code> on conflicting constraints to convert
+rigid links into forgiving springs.</li>
+<li><strong>Use Damping:</strong> Increase the <code>damping</code>
+property to absorb oscillating kinetic energy and prevent endless
+micro-bouncing.</li>
+<li><strong>Programmatic Re-linking:</strong> Dynamically destroy or
+disable one constraint before attaching an opposing one instead of
+relying on the physics solver to handle conflicting anchors.</li>
+<li><strong>Composite Assemblies:</strong> Use intermediate pivot bodies
+or universal joints rather than applying multiple direct, fixed-distance
+constraints to a single rigid body.</li>
+</ul></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/matter.js'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/matter.js/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/matter.js/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

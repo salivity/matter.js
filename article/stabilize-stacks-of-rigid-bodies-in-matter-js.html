@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stabilize Stacks of Rigid Bodies in Matter.js - matter.js</title>
+    <meta name="description" content="Stacking rigid bodies in Matter.js often leads to unwanted jittering, sliding, and sudden collapses due to iterative constraint solving limitations. This guide outlines the core engine configurations and body properties required to achieve a rock-solid,">
+    <link rel="canonical" href="https://salivity.github.io/matter.js/article/stabilize-stacks-of-rigid-bodies-in-matter-js">
+    <link rel="search" type="application/opensearchdescription+xml" title="matter.js" href="/matter.js/opensearch.xml">
+    <link rel="icon" href="/matter.js/favicon.ico">
+    <link rel="stylesheet" href="/matter.js/css/style.css">
+    <link media="print" rel="stylesheet" href="/matter.js/css/print.css">
+    <script src="/matter.js/js/fuse.min.js"></script>
+    <script src="/matter.js/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Stabilize Stacks of Rigid Bodies in Matter.js - matter.js" />
+    <meta property="og:url" content="https://salivity.github.io/matter.js/article/stabilize-stacks-of-rigid-bodies-in-matter-js" />
+    <meta property="og:image" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Stacking rigid bodies in Matter.js often leads to unwanted jittering, sliding, and sudden collapses due to iterative constraint solving limitations. This guide outlines the core engine configurations and body properties required to achieve a rock-solid," />
+    <link rel="manifest" href="/matter.js/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/matter.js/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>matter.js</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/matter.js/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="stabilize-stacks-of-rigid-bodies-in-matterjs">Stabilize Stacks
+of Rigid Bodies in Matter.js</h1>
+<p>Stacking rigid bodies in Matter.js often leads to unwanted jittering,
+sliding, and sudden collapses due to iterative constraint solving
+limitations. This guide outlines the core engine configurations and body
+properties required to achieve a rock-solid, stable vertical stack in
+your Matter.js simulations.</p>
+<h3 id="increase-constraint-iterations">Increase Constraint
+Iterations</h3>
+<p>By default, Matter.js prioritizes performance over precision,
+resolving constraints with relatively low solver iterations. Increasing
+these values forces the physics solver to perform more passes to correct
+overlaps and velocities, which dramatically reduces jitter in tall
+stacks.</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> engine <span class="op">=</span> Matter<span class="op">.</span><span class="at">Engine</span><span class="op">.</span><span class="fu">create</span>({</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>  <span class="dt">positionIterations</span><span class="op">:</span> <span class="dv">10</span><span class="op">,</span> <span class="co">// Default is 6</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>  <span class="dt">velocityIterations</span><span class="op">:</span> <span class="dv">8</span>   <span class="co">// Default is 4</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div>
+<p>For exceptionally tall stacks, setting
+<code>positionIterations</code> to 12 or higher will significantly
+improve stability at the cost of some performance.</p>
+<h3 id="use-fixed-time-steps-and-sub-stepping">Use Fixed Time Steps and
+Sub-Stepping</h3>
+<p>Relying on variable frame rates creates inconsistent forces that
+destabilize stacks. Run your simulation with a fixed time step. To
+achieve the highest stability, run multiple smaller engine updates per
+animation frame (sub-stepping) instead of a single large update.</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> fixedDelta <span class="op">=</span> <span class="dv">1000</span> <span class="op">/</span> <span class="dv">60</span><span class="op">;</span> <span class="co">// 60 FPS</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> subSteps <span class="op">=</span> <span class="dv">2</span><span class="op">;</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">tick</span>() {</span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>  <span class="cf">for</span> (<span class="kw">let</span> i <span class="op">=</span> <span class="dv">0</span><span class="op">;</span> i <span class="op">&lt;</span> subSteps<span class="op">;</span> i<span class="op">++</span>) {</span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>    Matter<span class="op">.</span><span class="at">Engine</span><span class="op">.</span><span class="fu">update</span>(engine<span class="op">,</span> fixedDelta <span class="op">/</span> subSteps)<span class="op">;</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>  <span class="fu">requestAnimationFrame</span>(tick)<span class="op">;</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<h3 id="eliminate-restitution-and-increase-friction">Eliminate
+Restitution and Increase Friction</h3>
+<p>Elasticity causes energy to bounce through the stack, magnifying
+oscillations. When creating bodies for stacking:</p>
+<ul>
+<li><strong>Restitution:</strong> Set to <code>0</code> to prevent
+micro-bouncing between adjacent bodies.</li>
+<li><strong>Friction:</strong> Increase regular friction to around
+<code>0.5</code> or higher to resist lateral sliding.</li>
+<li><strong>Static Friction:</strong> Increase
+<code>frictionStatic</code> to <code>1.0</code> or higher to keep
+touching surfaces locked in place until a significant force moves
+them.</li>
+</ul>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> box <span class="op">=</span> Matter<span class="op">.</span><span class="at">Bodies</span><span class="op">.</span><span class="fu">rectangle</span>(x<span class="op">,</span> y<span class="op">,</span> width<span class="op">,</span> height<span class="op">,</span> {</span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>  <span class="dt">restitution</span><span class="op">:</span> <span class="dv">0</span><span class="op">,</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>  <span class="dt">friction</span><span class="op">:</span> <span class="fl">0.8</span><span class="op">,</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>  <span class="dt">frictionStatic</span><span class="op">:</span> <span class="fl">1.2</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div>
+<h3 id="enable-body-sleeping">Enable Body Sleeping</h3>
+<p>Matter.js includes a sleeping mechanism that stops simulating bodies
+that have come to rest. Once a stack settles, sleeping eliminates
+numerical drift and micro-jitters completely.</p>
+<div class="sourceCode" id="cb4"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a>engine<span class="op">.</span><span class="at">enableSleeping</span> <span class="op">=</span> <span class="kw">true</span><span class="op">;</span></span></code></pre></div>
+<p>A sleeping body will remain entirely motionless until another active
+body collides with it.</p>
+<h3 id="adjust-collision-slop">Adjust Collision Slop</h3>
+<p>Every body has a <code>slop</code> property, which defines how much
+overlap is tolerated before the collision solver forces them apart. If
+the slop is too high, bodies will sink into each other; if too low, the
+engine will aggressively push them apart, causing vibration.</p>
+<p>The default slop is <code>0.05</code>. For stacking, slightly
+lowering it (e.g., <code>0.01</code> to <code>0.02</code>) helps prevent
+deep sinking without introducing excessive jitter.</p>
+<div class="sourceCode" id="cb5"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a>Matter<span class="op">.</span><span class="at">Bodies</span><span class="op">.</span><span class="fu">rectangle</span>(x<span class="op">,</span> y<span class="op">,</span> width<span class="op">,</span> height<span class="op">,</span> {</span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a>  <span class="dt">slop</span><span class="op">:</span> <span class="fl">0.02</span></span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div>
+<h3 id="manage-mass-distribution">Manage Mass Distribution</h3>
+<p>A tall stack of identical masses transfers force unevenly down to the
+base. If possible, ensure that lower bodies are slightly heavier than
+upper bodies. Avoid placing large, heavy bodies directly on top of
+small, light bodies, as this creates extreme mass ratios that iterative
+solvers struggle to resolve cleanly.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/matter.js'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/matter.js/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/matter.js/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

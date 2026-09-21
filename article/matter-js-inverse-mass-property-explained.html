@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Matter.js Inverse Mass Property Explained - matter.js</title>
+    <meta name="description" content="In Matter.js, the inverseMass property represents the mathematical reciprocal of an object's mass ($1 / \text{mass}$). Internally, the physics engine relies on this property to optimize computational performance during iterative physics calculations, han">
+    <link rel="canonical" href="https://salivity.github.io/matter.js/article/matter-js-inverse-mass-property-explained">
+    <link rel="search" type="application/opensearchdescription+xml" title="matter.js" href="/matter.js/opensearch.xml">
+    <link rel="icon" href="/matter.js/favicon.ico">
+    <link rel="stylesheet" href="/matter.js/css/style.css">
+    <link media="print" rel="stylesheet" href="/matter.js/css/print.css">
+    <script src="/matter.js/js/fuse.min.js"></script>
+    <script src="/matter.js/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Matter.js Inverse Mass Property Explained - matter.js" />
+    <meta property="og:url" content="https://salivity.github.io/matter.js/article/matter-js-inverse-mass-property-explained" />
+    <meta property="og:image" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="In Matter.js, the inverseMass property represents the mathematical reciprocal of an object's mass ($1 / \text{mass}$). Internally, the physics engine relies on this property to optimize computational performance during iterative physics calculations, han" />
+    <link rel="manifest" href="/matter.js/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/matter.js/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>matter.js</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/matter.js/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="matterjs-inverse-mass-property-explained">Matter.js Inverse Mass
+Property Explained</h1>
+<p>In Matter.js, the <code>inverseMass</code> property represents the
+mathematical reciprocal of an object's mass (<span
+class="math inline">\(1 / \text{mass}\)</span>). Internally, the physics
+engine relies on this property to optimize computational performance
+during iterative physics calculations, handle immovable or static bodies
+without encountering division-by-zero errors, and efficiently resolve
+collision impulses between interacting bodies.</p>
+<h3 id="handling-static-and-immovable-bodies">Handling Static and
+Immovable Bodies</h3>
+<p>In physics simulations, static or fixed bodies (such as floors,
+walls, and immovable obstacles) behave as if they have infinite mass
+because no amount of applied force can move them. Computing with
+infinity in software often leads to arithmetic overflows or
+division-by-zero errors. By using inverse mass, Matter.js represents
+infinite mass simply as <code>0</code>. When calculating movement or
+velocity changes for a static object, multiplying any impulse or force
+by an <code>inverseMass</code> of <code>0</code> cleanly yields zero
+acceleration without requiring special conditional checks.</p>
+<h3 id="impulse-resolution-in-collisions">Impulse Resolution in
+Collisions</h3>
+<p>When two rigid bodies collide, Matter.js calculates an impulse—a
+sudden change in momentum—to separate them and alter their velocities.
+The standard formula for collision impulse requires dividing by the sum
+of the inverse masses of the two interacting bodies:</p>
+<p><span class="math display">\[\text{Impulse} \propto
+\frac{1}{\text{inverseMass}_A + \text{inverseMass}_B}\]</span></p>
+<p>By precomputing and storing <code>inverseMass</code> on each body,
+the engine can execute these impulse calculations directly during the
+collision resolution phase without needing to compute reciprocal values
+for every contact point in every frame.</p>
+<h3 id="computational-performance-optimization">Computational
+Performance Optimization</h3>
+<p>Division is a significantly more CPU-intensive operation than
+multiplication in floating-point arithmetic. Physics engines execute
+constraint and collision solving loops dozens or hundreds of times per
+second across numerous bodies. By caching <span class="math inline">\(1
+/ \text{mass}\)</span> as <code>inverseMass</code>, Matter.js converts
+repeated division operations into faster multiplication operations
+(<span class="math inline">\(F \times \text{inverseMass}\)</span>
+instead of <span class="math inline">\(F / \text{mass}\)</span>) during
+its iterative solver loops.</p>
+<h3 id="constraint-and-position-correction">Constraint and Position
+Correction</h3>
+<p>Matter.js uses constraints to simulate springs, joints, and distance
+limits between objects. When a constraint is violated, the engine
+distributes the corrective displacement between the connected bodies
+proportional to their masses. Bodies with larger mass move less, while
+lighter bodies move more. The engine uses <code>inverseMass</code> as a
+weighting factor to determine exactly what fraction of the positional
+correction each body must absorb.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/matter.js'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/matter.js/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/matter.js/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

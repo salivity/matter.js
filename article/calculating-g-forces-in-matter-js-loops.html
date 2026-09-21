@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Calculating G-Forces in Matter.js Loops - matter.js</title>
+    <meta name="description" content="Calculating the g-forces experienced by a body moving through a loop in Matter.js involves measuring the instantaneous acceleration acting on the body and comparing it to the simulation's standard gravitational acceleration. This article covers the physi">
+    <link rel="canonical" href="https://salivity.github.io/matter.js/article/calculating-g-forces-in-matter-js-loops">
+    <link rel="search" type="application/opensearchdescription+xml" title="matter.js" href="/matter.js/opensearch.xml">
+    <link rel="icon" href="/matter.js/favicon.ico">
+    <link rel="stylesheet" href="/matter.js/css/style.css">
+    <link media="print" rel="stylesheet" href="/matter.js/css/print.css">
+    <script src="/matter.js/js/fuse.min.js"></script>
+    <script src="/matter.js/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Calculating G-Forces in Matter.js Loops - matter.js" />
+    <meta property="og:url" content="https://salivity.github.io/matter.js/article/calculating-g-forces-in-matter-js-loops" />
+    <meta property="og:image" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Calculating the g-forces experienced by a body moving through a loop in Matter.js involves measuring the instantaneous acceleration acting on the body and comparing it to the simulation's standard gravitational acceleration. This article covers the physi" />
+    <link rel="manifest" href="/matter.js/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/matter.js/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>matter.js</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/matter.js/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="calculating-g-forces-in-matterjs-loops">Calculating G-Forces in
+Matter.js Loops</h1>
+<p>Calculating the g-forces experienced by a body moving through a loop
+in Matter.js involves measuring the instantaneous acceleration acting on
+the body and comparing it to the simulation's standard gravitational
+acceleration. This article covers the physical principles of centripetal
+acceleration, details how to extract motion data from the Matter.js
+physics engine, and provides a clear code implementation to calculate
+both positive and lateral g-forces in real time.</p>
+<hr />
+<h3 id="understanding-the-physics-of-a-loop">Understanding the Physics
+of a Loop</h3>
+<p>G-force is not an actual force, but a measurement of acceleration
+relative to free fall, expressed in units of <span
+class="math inline">\(g\)</span> (<span class="math inline">\(1\text{ g}
+\approx 9.81\text{ m/s}^2\)</span> in real-world physics). When an
+object travels through a circular loop, it experiences two primary
+accelerations:</p>
+<ol type="1">
+<li><p><strong>Centripetal Acceleration (<span
+class="math inline">\(a_c\)</span>):</strong> Directed toward the center
+of the curve, calculated as: <span class="math display">\[a_c =
+\frac{v^2}{r}\]</span> where <span class="math inline">\(v\)</span> is
+the tangential speed and <span class="math inline">\(r\)</span> is the
+radius of curvature.</p></li>
+<li><p><strong>Gravitational Acceleration (<span
+class="math inline">\(g\)</span>):</strong> Directed downward according
+to the physics engine settings.</p></li>
+</ol>
+<p>The total felt g-force (apparent weight divided by mass) depends on
+the position within the loop:</p>
+<ul>
+<li><strong>Bottom of the loop:</strong> The track must support the
+object against gravity and push it inward to turn. The accelerations add
+up: <span class="math display">\[G = \frac{\frac{v^2}{r} + g}{g} =
+\frac{v^2}{r \cdot g} + 1\]</span></li>
+<li><strong>Top of the loop (inside):</strong> Gravity acts in the same
+direction as the centripetal acceleration: <span
+class="math display">\[G = \frac{\frac{v^2}{r} - g}{g} = \frac{v^2}{r
+\cdot g} - 1\]</span></li>
+</ul>
+<hr />
+<h3 id="step-1-extract-velocity-and-track-parameters-in-matterjs">Step
+1: Extract Velocity and Track Parameters in Matter.js</h3>
+<p>Matter.js operates using its own internal units (pixels per engine
+tick). To calculate g-forces accurately, identify:</p>
+<ul>
+<li><strong>Speed (<span class="math inline">\(v\)</span>):</strong>
+Obtainable directly via <code>body.speed</code> or the magnitude of
+<code>body.velocity</code>.</li>
+<li><strong>Radius (<span class="math inline">\(r\)</span>):</strong>
+The radius of your track's circular section in pixels.</li>
+<li><strong>Gravity (<span class="math inline">\(g\)</span>):</strong>
+Matter.js defines gravity using <code>engine.gravity.y</code> scaled by
+<code>engine.gravity.scale</code>. The default effective downward
+acceleration is typically
+<code>engine.gravity.y * engine.gravity.scale</code> per tick
+squared.</li>
+</ul>
+<hr />
+<h3 id="step-2-calculate-g-force-for-a-fixed-radius-loop">Step 2:
+Calculate G-Force for a Fixed-Radius Loop</h3>
+<p>If the loop has a known center point <span
+class="math inline">\((x_c, y_c)\)</span> and a fixed radius <span
+class="math inline">\(r\)</span>, the normal vector from the body to the
+center can be derived to find the orientation of the centripetal
+force.</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> Matter <span class="op">=</span> <span class="pp">require</span>(<span class="st">&#39;matter-js&#39;</span>)<span class="op">;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="co">// Given: engine, body, loopCenter = { x: 400, y: 300 }, loopRadius = 150</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>Matter<span class="op">.</span><span class="at">Events</span><span class="op">.</span><span class="fu">on</span>(engine<span class="op">,</span> <span class="st">&#39;afterUpdate&#39;</span><span class="op">,</span> () <span class="kw">=&gt;</span> {</span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> speed <span class="op">=</span> body<span class="op">.</span><span class="at">speed</span><span class="op">;</span> <span class="co">// pixels per tick</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> radius <span class="op">=</span> <span class="dv">150</span><span class="op">;</span>        <span class="co">// pixels</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Centripetal acceleration (pixels / tick^2)</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> a_c <span class="op">=</span> (speed <span class="op">*</span> speed) <span class="op">/</span> radius<span class="op">;</span></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Matter.js default gravity acceleration magnitude</span></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> g <span class="op">=</span> engine<span class="op">.</span><span class="at">gravity</span><span class="op">.</span><span class="at">y</span> <span class="op">*</span> engine<span class="op">.</span><span class="at">gravity</span><span class="op">.</span><span class="at">scale</span><span class="op">;</span></span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Angle of the body relative to the loop center (0 = bottom, PI = top)</span></span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> dx <span class="op">=</span> body<span class="op">.</span><span class="at">position</span><span class="op">.</span><span class="at">x</span> <span class="op">-</span> loopCenter<span class="op">.</span><span class="at">x</span><span class="op">;</span></span>
+<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> dy <span class="op">=</span> body<span class="op">.</span><span class="at">position</span><span class="op">.</span><span class="at">y</span> <span class="op">-</span> loopCenter<span class="op">.</span><span class="at">y</span><span class="op">;</span></span>
+<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> angleFromBottom <span class="op">=</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">atan2</span>(dx<span class="op">,</span> <span class="op">-</span>dy)<span class="op">;</span> <span class="co">// Inverted Y-axis in canvas</span></span>
+<span id="cb1-19"><a href="#cb1-19" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-20"><a href="#cb1-20" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Component of gravity acting perpendicular to the track (inward/outward)</span></span>
+<span id="cb1-21"><a href="#cb1-21" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> gravityComponent <span class="op">=</span> g <span class="op">*</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">cos</span>(angleFromBottom)<span class="op">;</span></span>
+<span id="cb1-22"><a href="#cb1-22" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-23"><a href="#cb1-23" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Normal acceleration felt by the body</span></span>
+<span id="cb1-24"><a href="#cb1-24" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> normalAcceleration <span class="op">=</span> a_c <span class="op">+</span> gravityComponent<span class="op">;</span></span>
+<span id="cb1-25"><a href="#cb1-25" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-26"><a href="#cb1-26" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Convert to G-units</span></span>
+<span id="cb1-27"><a href="#cb1-27" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> gForce <span class="op">=</span> normalAcceleration <span class="op">/</span> g<span class="op">;</span></span>
+<span id="cb1-28"><a href="#cb1-28" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-29"><a href="#cb1-29" aria-hidden="true" tabindex="-1"></a>    <span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(<span class="vs">`Current G-Force: </span><span class="sc">${</span>gForce<span class="op">.</span><span class="fu">toFixed</span>(<span class="dv">2</span>)<span class="sc">}</span><span class="vs"> G`</span>)<span class="op">;</span></span>
+<span id="cb1-30"><a href="#cb1-30" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div>
+<hr />
+<h3 id="step-3-calculate-g-force-for-arbitrary-or-dynamic-curves">Step
+3: Calculate G-Force for Arbitrary or Dynamic Curves</h3>
+<p>If the track is an irregular spline or composite body rather than a
+perfect circle, you cannot rely on a fixed center point. Instead,
+calculate the total acceleration vector directly from the rate of change
+of velocity across frames:</p>
+<ol type="1">
+<li><p><strong>Calculate Linear Acceleration (<span
+class="math inline">\(\vec{a}\)</span>):</strong> <span
+class="math display">\[\vec{a} = \frac{\vec{v}_{\text{current}} -
+\vec{v}_{\text{previous}}}{\Delta t}\]</span></p></li>
+<li><p><strong>Subtract Gravity (<span
+class="math inline">\(\vec{g}\)</span>):</strong> Because an
+accelerometer measures proper acceleration (contact forces, excluding
+free-fall gravity), subtract the gravity vector: <span
+class="math display">\[\vec{a}_{\text{felt}} = \vec{a} -
+\vec{g}\]</span></p></li>
+<li><p><strong>Normalize by <span
+class="math inline">\(g\)</span>:</strong> Divide the magnitude of <span
+class="math inline">\(\vec{a}_{\text{felt}}\)</span> by the baseline
+gravity magnitude:</p></li>
+</ol>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">let</span> previousVelocity <span class="op">=</span> { <span class="dt">x</span><span class="op">:</span> <span class="dv">0</span><span class="op">,</span> <span class="dt">y</span><span class="op">:</span> <span class="dv">0</span> }<span class="op">;</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>Matter<span class="op">.</span><span class="at">Events</span><span class="op">.</span><span class="fu">on</span>(engine<span class="op">,</span> <span class="st">&#39;afterUpdate&#39;</span><span class="op">,</span> (<span class="bu">event</span>) <span class="kw">=&gt;</span> {</span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> delta <span class="op">=</span> <span class="bu">event</span><span class="op">.</span><span class="at">source</span><span class="op">.</span><span class="at">timing</span><span class="op">.</span><span class="at">lastDelta</span> <span class="op">/</span> <span class="dv">1000</span><span class="op">;</span> <span class="co">// Time step in seconds</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (delta <span class="op">&lt;=</span> <span class="dv">0</span>) <span class="cf">return</span><span class="op">;</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Change in velocity</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> dvX <span class="op">=</span> (body<span class="op">.</span><span class="at">velocity</span><span class="op">.</span><span class="at">x</span> <span class="op">-</span> previousVelocity<span class="op">.</span><span class="at">x</span>) <span class="op">/</span> delta<span class="op">;</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> dvY <span class="op">=</span> (body<span class="op">.</span><span class="at">velocity</span><span class="op">.</span><span class="at">y</span> <span class="op">-</span> previousVelocity<span class="op">.</span><span class="at">y</span>) <span class="op">/</span> delta<span class="op">;</span></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Matter.js gravity vector in pixels/s^2 equivalent</span></span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> gY <span class="op">=</span> engine<span class="op">.</span><span class="at">gravity</span><span class="op">.</span><span class="at">y</span> <span class="op">*</span> engine<span class="op">.</span><span class="at">gravity</span><span class="op">.</span><span class="at">scale</span> <span class="op">*</span> (<span class="dv">1000</span> <span class="op">/</span> <span class="bu">event</span><span class="op">.</span><span class="at">source</span><span class="op">.</span><span class="at">timing</span><span class="op">.</span><span class="at">lastDelta</span>)<span class="op">;</span></span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Subtract gravity from vertical acceleration to get felt acceleration</span></span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> feltAx <span class="op">=</span> dvX<span class="op">;</span></span>
+<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> feltAy <span class="op">=</span> dvY <span class="op">-</span> gY<span class="op">;</span></span>
+<span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-18"><a href="#cb2-18" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Calculate magnitude of felt acceleration</span></span>
+<span id="cb2-19"><a href="#cb2-19" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> feltAcceleration <span class="op">=</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">hypot</span>(feltAx<span class="op">,</span> feltAy)<span class="op">;</span></span>
+<span id="cb2-20"><a href="#cb2-20" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-21"><a href="#cb2-21" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Express relative to baseline gravity</span></span>
+<span id="cb2-22"><a href="#cb2-22" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> gForce <span class="op">=</span> feltAcceleration <span class="op">/</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">abs</span>(gY)<span class="op">;</span></span>
+<span id="cb2-23"><a href="#cb2-23" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-24"><a href="#cb2-24" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Store current velocity for the next tick</span></span>
+<span id="cb2-25"><a href="#cb2-25" aria-hidden="true" tabindex="-1"></a>    previousVelocity <span class="op">=</span> { <span class="dt">x</span><span class="op">:</span> body<span class="op">.</span><span class="at">velocity</span><span class="op">.</span><span class="at">x</span><span class="op">,</span> <span class="dt">y</span><span class="op">:</span> body<span class="op">.</span><span class="at">velocity</span><span class="op">.</span><span class="at">y</span> }<span class="op">;</span></span>
+<span id="cb2-26"><a href="#cb2-26" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div>
+<p>Using this vector-based approach allows you to evaluate g-forces on
+clothoids, teardrop loops, banked curves, and freeform roller coaster
+tracks created with Matter.js constraint chains or vertex-based static
+bodies.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/matter.js'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/matter.js/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/matter.js/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

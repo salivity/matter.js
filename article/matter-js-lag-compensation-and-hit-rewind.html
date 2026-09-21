@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Matter.js Lag Compensation and Hit Rewind - matter.js</title>
+    <meta name="description" content="This article explains how to implement server-side lag compensation using state rewind in Matter.js to verify hit registration in multiplayer games. You will learn how to maintain a rolling circular buffer of entity transforms, calculate target historica">
+    <link rel="canonical" href="https://salivity.github.io/matter.js/article/matter-js-lag-compensation-and-hit-rewind">
+    <link rel="search" type="application/opensearchdescription+xml" title="matter.js" href="/matter.js/opensearch.xml">
+    <link rel="icon" href="/matter.js/favicon.ico">
+    <link rel="stylesheet" href="/matter.js/css/style.css">
+    <link media="print" rel="stylesheet" href="/matter.js/css/print.css">
+    <script src="/matter.js/js/fuse.min.js"></script>
+    <script src="/matter.js/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Matter.js Lag Compensation and Hit Rewind - matter.js" />
+    <meta property="og:url" content="https://salivity.github.io/matter.js/article/matter-js-lag-compensation-and-hit-rewind" />
+    <meta property="og:image" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article explains how to implement server-side lag compensation using state rewind in Matter.js to verify hit registration in multiplayer games. You will learn how to maintain a rolling circular buffer of entity transforms, calculate target historica" />
+    <link rel="manifest" href="/matter.js/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/matter.js/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>matter.js</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/matter.js/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="matterjs-lag-compensation-and-hit-rewind">Matter.js Lag
+Compensation and Hit Rewind</h1>
+<p>This article explains how to implement server-side lag compensation
+using state rewind in Matter.js to verify hit registration in
+multiplayer games. You will learn how to maintain a rolling circular
+buffer of entity transforms, calculate target historical timestamps,
+temporarily restore Matter.js bodies to their past positions, execute
+spatial hit tests using Matter.js queries, and restore the physics world
+to the current tick without disrupting the active simulation.</p>
+<hr />
+<h3 id="the-problem-of-latency-in-server-authoritative-physics">The
+Problem of Latency in Server-Authoritative Physics</h3>
+<p>In a server-authoritative multiplayer architecture, clients render
+other players at an interpolated position in the past, while the server
+runs the simulation in real time. When a client fires a weapon at a
+target, they aim at where the target was rendered on their screen.
+Without lag compensation, a shot fired directly at a moving player will
+miss on the server because the target has already moved forward in time
+during the transit of the network packet.</p>
+<p>Lag compensation resolves this by rolling back the hitboxes of
+relevant bodies to match the exact point in time the client fired,
+evaluating the hit, and restoring the physics state to the present.</p>
+<hr />
+<h3 id="step-1-record-historical-world-state">Step 1: Record Historical
+World State</h3>
+<p>Maintain a circular buffer (history buffer) on the server that logs
+the transform of every shootable entity at each fixed tick. Keep roughly
+500ms to 1000ms of history.</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> HistoryBuffer {</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">constructor</span>(maxTicks <span class="op">=</span> <span class="dv">60</span>) {</span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>    <span class="kw">this</span><span class="op">.</span><span class="at">maxTicks</span> <span class="op">=</span> maxTicks<span class="op">;</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>    <span class="kw">this</span><span class="op">.</span><span class="at">frames</span> <span class="op">=</span> []<span class="op">;</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>  <span class="fu">addFrame</span>(timestamp<span class="op">,</span> bodies) {</span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> frame <span class="op">=</span> {</span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>      timestamp<span class="op">,</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>      <span class="dt">entities</span><span class="op">:</span> <span class="kw">new</span> <span class="bu">Map</span>()</span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>    }<span class="op">;</span></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> (<span class="kw">const</span> body <span class="kw">of</span> bodies) {</span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>      frame<span class="op">.</span><span class="at">entities</span><span class="op">.</span><span class="fu">set</span>(body<span class="op">.</span><span class="at">id</span><span class="op">,</span> {</span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a>        <span class="dt">position</span><span class="op">:</span> { <span class="dt">x</span><span class="op">:</span> body<span class="op">.</span><span class="at">position</span><span class="op">.</span><span class="at">x</span><span class="op">,</span> <span class="dt">y</span><span class="op">:</span> body<span class="op">.</span><span class="at">position</span><span class="op">.</span><span class="at">y</span> }<span class="op">,</span></span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a>        <span class="dt">angle</span><span class="op">:</span> body<span class="op">.</span><span class="at">angle</span></span>
+<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a>      })<span class="op">;</span></span>
+<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb1-19"><a href="#cb1-19" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-20"><a href="#cb1-20" aria-hidden="true" tabindex="-1"></a>    <span class="kw">this</span><span class="op">.</span><span class="at">frames</span><span class="op">.</span><span class="fu">push</span>(frame)<span class="op">;</span></span>
+<span id="cb1-21"><a href="#cb1-21" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (<span class="kw">this</span><span class="op">.</span><span class="at">frames</span><span class="op">.</span><span class="at">length</span> <span class="op">&gt;</span> <span class="kw">this</span><span class="op">.</span><span class="at">maxTicks</span>) {</span>
+<span id="cb1-22"><a href="#cb1-22" aria-hidden="true" tabindex="-1"></a>      <span class="kw">this</span><span class="op">.</span><span class="at">frames</span><span class="op">.</span><span class="fu">shift</span>()<span class="op">;</span></span>
+<span id="cb1-23"><a href="#cb1-23" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb1-24"><a href="#cb1-24" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb1-25"><a href="#cb1-25" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-26"><a href="#cb1-26" aria-hidden="true" tabindex="-1"></a>  <span class="fu">getSurroundingFrames</span>(targetTimestamp) {</span>
+<span id="cb1-27"><a href="#cb1-27" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> (<span class="kw">let</span> i <span class="op">=</span> <span class="kw">this</span><span class="op">.</span><span class="at">frames</span><span class="op">.</span><span class="at">length</span> <span class="op">-</span> <span class="dv">1</span><span class="op">;</span> i <span class="op">&gt;=</span> <span class="dv">0</span><span class="op">;</span> i<span class="op">--</span>) {</span>
+<span id="cb1-28"><a href="#cb1-28" aria-hidden="true" tabindex="-1"></a>      <span class="cf">if</span> (<span class="kw">this</span><span class="op">.</span><span class="at">frames</span>[i]<span class="op">.</span><span class="at">timestamp</span> <span class="op">&lt;=</span> targetTimestamp) {</span>
+<span id="cb1-29"><a href="#cb1-29" aria-hidden="true" tabindex="-1"></a>        <span class="kw">const</span> prev <span class="op">=</span> <span class="kw">this</span><span class="op">.</span><span class="at">frames</span>[i]<span class="op">;</span></span>
+<span id="cb1-30"><a href="#cb1-30" aria-hidden="true" tabindex="-1"></a>        <span class="kw">const</span> next <span class="op">=</span> <span class="kw">this</span><span class="op">.</span><span class="at">frames</span>[i <span class="op">+</span> <span class="dv">1</span>] <span class="op">||</span> prev<span class="op">;</span></span>
+<span id="cb1-31"><a href="#cb1-31" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> { prev<span class="op">,</span> next }<span class="op">;</span></span>
+<span id="cb1-32"><a href="#cb1-32" aria-hidden="true" tabindex="-1"></a>      }</span>
+<span id="cb1-33"><a href="#cb1-33" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb1-34"><a href="#cb1-34" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="kw">null</span><span class="op">;</span></span>
+<span id="cb1-35"><a href="#cb1-35" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb1-36"><a href="#cb1-36" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<p>Run this recording step immediately after each server physics
+step:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Run after Matter.Engine.update(engine, delta)</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>historyBuffer<span class="op">.</span><span class="fu">addFrame</span>(<span class="bu">Date</span><span class="op">.</span><span class="fu">now</span>()<span class="op">,</span> targetBodies)<span class="op">;</span></span></code></pre></div>
+<hr />
+<h3 id="step-2-calculate-the-target-timestamp">Step 2: Calculate the
+Target Timestamp</h3>
+<p>When receiving a fire action from the client, determine the exact
+historical moment the client observed:</p>
+<p><span class="math display">\[\text{Target Timestamp} = \text{Current
+Server Time} - \text{One-Way Latency (Half Ping)} - \text{Client
+Interpolation Delay}\]</span></p>
+<p>Validate this timestamp to prevent cheat injection. Clamp the
+timestamp so it cannot be further back than the maximum size of your
+history buffer or in the future:</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">getValidatedTargetTime</span>(clientTimestamp<span class="op">,</span> rtt<span class="op">,</span> interpDelay<span class="op">,</span> maxRewindMs <span class="op">=</span> <span class="dv">500</span>) {</span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> now <span class="op">=</span> <span class="bu">Date</span><span class="op">.</span><span class="fu">now</span>()<span class="op">;</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> halfPing <span class="op">=</span> rtt <span class="op">/</span> <span class="dv">2</span><span class="op">;</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> estimatedClientRenderTime <span class="op">=</span> now <span class="op">-</span> halfPing <span class="op">-</span> interpDelay<span class="op">;</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>  <span class="co">// Prevent values outside the historical tracking window or in the future</span></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>  <span class="cf">return</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">max</span>(now <span class="op">-</span> maxRewindMs<span class="op">,</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">min</span>(now<span class="op">,</span> estimatedClientRenderTime))<span class="op">;</span></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<hr />
+<h3 id="step-3-interpolate-and-rewind-matterjs-bodies">Step 3:
+Interpolate and Rewind Matter.js Bodies</h3>
+<p>Retrieve the two bounding snapshots from the buffer and compute a
+linear interpolation factor (<span class="math inline">\(t\)</span>) to
+match the target time accurately.</p>
+<p>Before applying the historical data, cache the current positions and
+angles of the active Matter.js bodies. Use
+<code>Matter.Body.setPosition</code> and
+<code>Matter.Body.setAngle</code> to apply the rewind:</p>
+<div class="sourceCode" id="cb4"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> Matter <span class="im">from</span> <span class="st">&#39;matter-js&#39;</span><span class="op">;</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">lerp</span>(start<span class="op">,</span> end<span class="op">,</span> t) {</span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>  <span class="cf">return</span> start <span class="op">+</span> (end <span class="op">-</span> start) <span class="op">*</span> t<span class="op">;</span></span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">rewindBodies</span>(historyBuffer<span class="op">,</span> targetTime<span class="op">,</span> activeBodies) {</span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> surrounding <span class="op">=</span> historyBuffer<span class="op">.</span><span class="fu">getSurroundingFrames</span>(targetTime)<span class="op">;</span></span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (<span class="op">!</span>surrounding) <span class="cf">return</span> <span class="kw">null</span><span class="op">;</span></span>
+<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> { prev<span class="op">,</span> next } <span class="op">=</span> surrounding<span class="op">;</span></span>
+<span id="cb4-12"><a href="#cb4-12" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> range <span class="op">=</span> next<span class="op">.</span><span class="at">timestamp</span> <span class="op">-</span> prev<span class="op">.</span><span class="at">timestamp</span><span class="op">;</span></span>
+<span id="cb4-13"><a href="#cb4-13" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> factor <span class="op">=</span> range <span class="op">&gt;</span> <span class="dv">0</span> <span class="op">?</span> (targetTime <span class="op">-</span> prev<span class="op">.</span><span class="at">timestamp</span>) <span class="op">/</span> range <span class="op">:</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb4-14"><a href="#cb4-14" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-15"><a href="#cb4-15" aria-hidden="true" tabindex="-1"></a>  <span class="co">// Store present states to restore later</span></span>
+<span id="cb4-16"><a href="#cb4-16" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> presentState <span class="op">=</span> <span class="kw">new</span> <span class="bu">Map</span>()<span class="op">;</span></span>
+<span id="cb4-17"><a href="#cb4-17" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-18"><a href="#cb4-18" aria-hidden="true" tabindex="-1"></a>  <span class="cf">for</span> (<span class="kw">const</span> body <span class="kw">of</span> activeBodies) {</span>
+<span id="cb4-19"><a href="#cb4-19" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> prevSnap <span class="op">=</span> prev<span class="op">.</span><span class="at">entities</span><span class="op">.</span><span class="fu">get</span>(body<span class="op">.</span><span class="at">id</span>)<span class="op">;</span></span>
+<span id="cb4-20"><a href="#cb4-20" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> nextSnap <span class="op">=</span> next<span class="op">.</span><span class="at">entities</span><span class="op">.</span><span class="fu">get</span>(body<span class="op">.</span><span class="at">id</span>)<span class="op">;</span></span>
+<span id="cb4-21"><a href="#cb4-21" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-22"><a href="#cb4-22" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (prevSnap <span class="op">&amp;&amp;</span> nextSnap) {</span>
+<span id="cb4-23"><a href="#cb4-23" aria-hidden="true" tabindex="-1"></a>      presentState<span class="op">.</span><span class="fu">set</span>(body<span class="op">.</span><span class="at">id</span><span class="op">,</span> {</span>
+<span id="cb4-24"><a href="#cb4-24" aria-hidden="true" tabindex="-1"></a>        <span class="dt">position</span><span class="op">:</span> { <span class="dt">x</span><span class="op">:</span> body<span class="op">.</span><span class="at">position</span><span class="op">.</span><span class="at">x</span><span class="op">,</span> <span class="dt">y</span><span class="op">:</span> body<span class="op">.</span><span class="at">position</span><span class="op">.</span><span class="at">y</span> }<span class="op">,</span></span>
+<span id="cb4-25"><a href="#cb4-25" aria-hidden="true" tabindex="-1"></a>        <span class="dt">angle</span><span class="op">:</span> body<span class="op">.</span><span class="at">angle</span></span>
+<span id="cb4-26"><a href="#cb4-26" aria-hidden="true" tabindex="-1"></a>      })<span class="op">;</span></span>
+<span id="cb4-27"><a href="#cb4-27" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-28"><a href="#cb4-28" aria-hidden="true" tabindex="-1"></a>      <span class="kw">const</span> interpolatedPos <span class="op">=</span> {</span>
+<span id="cb4-29"><a href="#cb4-29" aria-hidden="true" tabindex="-1"></a>        <span class="dt">x</span><span class="op">:</span> <span class="fu">lerp</span>(prevSnap<span class="op">.</span><span class="at">position</span><span class="op">.</span><span class="at">x</span><span class="op">,</span> nextSnap<span class="op">.</span><span class="at">position</span><span class="op">.</span><span class="at">x</span><span class="op">,</span> factor)<span class="op">,</span></span>
+<span id="cb4-30"><a href="#cb4-30" aria-hidden="true" tabindex="-1"></a>        <span class="dt">y</span><span class="op">:</span> <span class="fu">lerp</span>(prevSnap<span class="op">.</span><span class="at">position</span><span class="op">.</span><span class="at">y</span><span class="op">,</span> nextSnap<span class="op">.</span><span class="at">position</span><span class="op">.</span><span class="at">y</span><span class="op">,</span> factor)</span>
+<span id="cb4-31"><a href="#cb4-31" aria-hidden="true" tabindex="-1"></a>      }<span class="op">;</span></span>
+<span id="cb4-32"><a href="#cb4-32" aria-hidden="true" tabindex="-1"></a>      <span class="kw">const</span> interpolatedAngle <span class="op">=</span> <span class="fu">lerp</span>(prevSnap<span class="op">.</span><span class="at">angle</span><span class="op">,</span> nextSnap<span class="op">.</span><span class="at">angle</span><span class="op">,</span> factor)<span class="op">;</span></span>
+<span id="cb4-33"><a href="#cb4-33" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-34"><a href="#cb4-34" aria-hidden="true" tabindex="-1"></a>      Matter<span class="op">.</span><span class="at">Body</span><span class="op">.</span><span class="fu">setPosition</span>(body<span class="op">,</span> interpolatedPos)<span class="op">;</span></span>
+<span id="cb4-35"><a href="#cb4-35" aria-hidden="true" tabindex="-1"></a>      Matter<span class="op">.</span><span class="at">Body</span><span class="op">.</span><span class="fu">setAngle</span>(body<span class="op">,</span> interpolatedAngle)<span class="op">;</span></span>
+<span id="cb4-36"><a href="#cb4-36" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb4-37"><a href="#cb4-37" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb4-38"><a href="#cb4-38" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-39"><a href="#cb4-39" aria-hidden="true" tabindex="-1"></a>  <span class="cf">return</span> presentState<span class="op">;</span></span>
+<span id="cb4-40"><a href="#cb4-40" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<hr />
+<h3 id="step-4-perform-raycast-and-hit-validation">Step 4: Perform
+Raycast and Hit Validation</h3>
+<p>With target bodies rewound to the historical state, perform the hit
+test. Use <code>Matter.Query.ray</code> to find intersections along the
+bullet path:</p>
+<div class="sourceCode" id="cb5"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">verifyHit</span>(targetBodies<span class="op">,</span> rayStart<span class="op">,</span> rayEnd<span class="op">,</span> rayWidth <span class="op">=</span> <span class="dv">2</span>) {</span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a>  <span class="co">// Query bodies along the line segment</span></span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> collisions <span class="op">=</span> Matter<span class="op">.</span><span class="at">Query</span><span class="op">.</span><span class="fu">ray</span>(targetBodies<span class="op">,</span> rayStart<span class="op">,</span> rayEnd<span class="op">,</span> rayWidth)<span class="op">;</span></span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (collisions<span class="op">.</span><span class="at">length</span> <span class="op">&gt;</span> <span class="dv">0</span>) {</span>
+<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Sort hits by distance to origin to find the first body struck</span></span>
+<span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a>    collisions<span class="op">.</span><span class="fu">sort</span>((a<span class="op">,</span> b) <span class="kw">=&gt;</span> {</span>
+<span id="cb5-8"><a href="#cb5-8" aria-hidden="true" tabindex="-1"></a>      <span class="kw">const</span> distA <span class="op">=</span> Matter<span class="op">.</span><span class="at">Vector</span><span class="op">.</span><span class="fu">magnitudeSquared</span>(Matter<span class="op">.</span><span class="at">Vector</span><span class="op">.</span><span class="fu">sub</span>(a<span class="op">.</span><span class="at">body</span><span class="op">.</span><span class="at">position</span><span class="op">,</span> rayStart))<span class="op">;</span></span>
+<span id="cb5-9"><a href="#cb5-9" aria-hidden="true" tabindex="-1"></a>      <span class="kw">const</span> distB <span class="op">=</span> Matter<span class="op">.</span><span class="at">Vector</span><span class="op">.</span><span class="fu">magnitudeSquared</span>(Matter<span class="op">.</span><span class="at">Vector</span><span class="op">.</span><span class="fu">sub</span>(b<span class="op">.</span><span class="at">body</span><span class="op">.</span><span class="at">position</span><span class="op">,</span> rayStart))<span class="op">;</span></span>
+<span id="cb5-10"><a href="#cb5-10" aria-hidden="true" tabindex="-1"></a>      <span class="cf">return</span> distA <span class="op">-</span> distB<span class="op">;</span></span>
+<span id="cb5-11"><a href="#cb5-11" aria-hidden="true" tabindex="-1"></a>    })<span class="op">;</span></span>
+<span id="cb5-12"><a href="#cb5-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-13"><a href="#cb5-13" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> collisions[<span class="dv">0</span>]<span class="op">.</span><span class="at">body</span><span class="op">;</span></span>
+<span id="cb5-14"><a href="#cb5-14" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb5-15"><a href="#cb5-15" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-16"><a href="#cb5-16" aria-hidden="true" tabindex="-1"></a>  <span class="cf">return</span> <span class="kw">null</span><span class="op">;</span></span>
+<span id="cb5-17"><a href="#cb5-17" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<hr />
+<h3 id="step-5-restore-bodies-to-the-present">Step 5: Restore Bodies to
+the Present</h3>
+<p>Instantly restore all modified bodies back to their present positions
+using the saved state cache. This must happen synchronously in the same
+tick before the physics engine steps forward:</p>
+<div class="sourceCode" id="cb6"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">restoreBodies</span>(presentState<span class="op">,</span> activeBodies) {</span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a>  <span class="cf">for</span> (<span class="kw">const</span> body <span class="kw">of</span> activeBodies) {</span>
+<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> original <span class="op">=</span> presentState<span class="op">.</span><span class="fu">get</span>(body<span class="op">.</span><span class="at">id</span>)<span class="op">;</span></span>
+<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (original) {</span>
+<span id="cb6-5"><a href="#cb6-5" aria-hidden="true" tabindex="-1"></a>      Matter<span class="op">.</span><span class="at">Body</span><span class="op">.</span><span class="fu">setPosition</span>(body<span class="op">,</span> original<span class="op">.</span><span class="at">position</span>)<span class="op">;</span></span>
+<span id="cb6-6"><a href="#cb6-6" aria-hidden="true" tabindex="-1"></a>      Matter<span class="op">.</span><span class="at">Body</span><span class="op">.</span><span class="fu">setAngle</span>(body<span class="op">,</span> original<span class="op">.</span><span class="at">angle</span>)<span class="op">;</span></span>
+<span id="cb6-7"><a href="#cb6-7" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb6-8"><a href="#cb6-8" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb6-9"><a href="#cb6-9" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<hr />
+<h3 id="complete-verification-pipeline">Complete Verification
+Pipeline</h3>
+<p>Combine all steps into an atomic validation call:</p>
+<div class="sourceCode" id="cb7"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">handlePlayerShot</span>(shooter<span class="op">,</span> shotData<span class="op">,</span> historyBuffer<span class="op">,</span> targets) {</span>
+<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> targetTimestamp <span class="op">=</span> <span class="fu">getValidatedTargetTime</span>(</span>
+<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a>    shotData<span class="op">.</span><span class="at">clientTimestamp</span><span class="op">,</span></span>
+<span id="cb7-4"><a href="#cb7-4" aria-hidden="true" tabindex="-1"></a>    shooter<span class="op">.</span><span class="at">rtt</span><span class="op">,</span></span>
+<span id="cb7-5"><a href="#cb7-5" aria-hidden="true" tabindex="-1"></a>    shooter<span class="op">.</span><span class="at">interpDelay</span></span>
+<span id="cb7-6"><a href="#cb7-6" aria-hidden="true" tabindex="-1"></a>  )<span class="op">;</span></span>
+<span id="cb7-7"><a href="#cb7-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-8"><a href="#cb7-8" aria-hidden="true" tabindex="-1"></a>  <span class="co">// 1. Rewind</span></span>
+<span id="cb7-9"><a href="#cb7-9" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> presentState <span class="op">=</span> <span class="fu">rewindBodies</span>(historyBuffer<span class="op">,</span> targetTimestamp<span class="op">,</span> targets)<span class="op">;</span></span>
+<span id="cb7-10"><a href="#cb7-10" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (<span class="op">!</span>presentState) <span class="cf">return</span><span class="op">;</span></span>
+<span id="cb7-11"><a href="#cb7-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-12"><a href="#cb7-12" aria-hidden="true" tabindex="-1"></a>  <span class="co">// 2. Validate hit in rewound state</span></span>
+<span id="cb7-13"><a href="#cb7-13" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> hitBody <span class="op">=</span> <span class="fu">verifyHit</span>(targets<span class="op">,</span> shotData<span class="op">.</span><span class="at">origin</span><span class="op">,</span> shotData<span class="op">.</span><span class="at">direction</span>)<span class="op">;</span></span>
+<span id="cb7-14"><a href="#cb7-14" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-15"><a href="#cb7-15" aria-hidden="true" tabindex="-1"></a>  <span class="co">// 3. Restore immediately</span></span>
+<span id="cb7-16"><a href="#cb7-16" aria-hidden="true" tabindex="-1"></a>  <span class="fu">restoreBodies</span>(presentState<span class="op">,</span> targets)<span class="op">;</span></span>
+<span id="cb7-17"><a href="#cb7-17" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-18"><a href="#cb7-18" aria-hidden="true" tabindex="-1"></a>  <span class="co">// 4. Apply damage if hit was confirmed</span></span>
+<span id="cb7-19"><a href="#cb7-19" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (hitBody) {</span>
+<span id="cb7-20"><a href="#cb7-20" aria-hidden="true" tabindex="-1"></a>    <span class="fu">applyDamage</span>(hitBody<span class="op">,</span> shooter)<span class="op">;</span></span>
+<span id="cb7-21"><a href="#cb7-21" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb7-22"><a href="#cb7-22" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<p>Executing the rewind, raycast, and restoration synchronously within
+the same event loop tick prevents side effects on the ongoing
+simulation. Velocities, angular velocities, and force accumulators
+remain intact, while collision broadphases stay synchronized with the
+active tick.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/matter.js'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/matter.js/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/matter.js/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

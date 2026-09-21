@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How Matter.js Body Count Impacts Frame Rate - matter.js</title>
+    <meta name="description" content="In Matter.js, the total number of active rigid bodies directly determines the computational workload required for each physics step, heavily influencing the rendering frame rate. As the body count increases, the engine must perform exponentially more cal">
+    <link rel="canonical" href="https://salivity.github.io/matter.js/article/how-matter-js-body-count-impacts-frame-rate">
+    <link rel="search" type="application/opensearchdescription+xml" title="matter.js" href="/matter.js/opensearch.xml">
+    <link rel="icon" href="/matter.js/favicon.ico">
+    <link rel="stylesheet" href="/matter.js/css/style.css">
+    <link media="print" rel="stylesheet" href="/matter.js/css/print.css">
+    <script src="/matter.js/js/fuse.min.js"></script>
+    <script src="/matter.js/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How Matter.js Body Count Impacts Frame Rate - matter.js" />
+    <meta property="og:url" content="https://salivity.github.io/matter.js/article/how-matter-js-body-count-impacts-frame-rate" />
+    <meta property="og:image" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="In Matter.js, the total number of active rigid bodies directly determines the computational workload required for each physics step, heavily influencing the rendering frame rate. As the body count increases, the engine must perform exponentially more cal" />
+    <link rel="manifest" href="/matter.js/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/matter.js/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>matter.js</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/matter.js/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="how-matterjs-body-count-impacts-frame-rate">How Matter.js Body
+Count Impacts Frame Rate</h1>
+<p>In Matter.js, the total number of active rigid bodies directly
+determines the computational workload required for each physics step,
+heavily influencing the rendering frame rate. As the body count
+increases, the engine must perform exponentially more calculations for
+collision detection, constraint resolution, and vector integration
+within a strict 16.6-millisecond window to maintain 60 frames per second
+(FPS). This article explores the relationship between rigid body counts
+and frame rate performance in Matter.js, identifies where performance
+bottlenecks occur, and outlines practical methods to optimize simulation
+performance.</p>
+<h2 id="the-physics-step-and-the-166ms-frame-budget">The Physics Step
+and the 16.6ms Frame Budget</h2>
+<p>Matter.js operates primarily on the main JavaScript execution thread,
+sharing resources with DOM updates, event handling, and rendering
+engines like Canvas or WebGL. To maintain a smooth frame rate of 60 FPS,
+all physics calculations and visual renders combined must complete
+within approximately 16.6 milliseconds per frame. If the physics engine
+takes longer than this budget to compute an update, frames will drop,
+resulting in stuttering and reduced FPS.</p>
+<h2 id="collision-detection-bottlenecks">Collision Detection
+Bottlenecks</h2>
+<p>The primary performance cost associated with increasing body count
+occurs during collision detection, which happens in two primary
+phases:</p>
+<ol type="1">
+<li><strong>Broadphase Detection:</strong> The engine sorts bodies into
+spatial grids or bounding volume hierarchies (AABBs) to eliminate pairs
+that are too far apart to touch. While Matter.js optimizes this step to
+scale better than a raw <span class="math inline">\(O(n^2)\)</span>
+algorithm, increasing the total number of bodies still increases the
+time required to sort and query spatial structures.</li>
+<li><strong>Narrowphase Detection:</strong> When broadphase indicates
+potential contact, the engine must compute detailed vertex-by-vertex
+intersection checks (using algorithms such as the Separating Axis
+Theorem). If hundreds of bodies clump together in close proximity, the
+broadphase cannot filter them out, forcing the engine to run heavy
+mathematical checks across dozens or hundreds of overlapping pairs
+simultaneously.</li>
+</ol>
+<h2 id="typical-thresholds-and-scaling">Typical Thresholds and
+Scaling</h2>
+<p>Performance depends heavily on the user's hardware, but standard
+desktop environments typically exhibit the following patterns:</p>
+<ul>
+<li><strong>1 to 200 bodies:</strong> Usually runs at a stable 60 FPS
+with minimal optimization, provided shapes are simple (circles or convex
+rectangles).</li>
+<li><strong>200 to 600 bodies:</strong> The physics engine begins
+consuming a larger share of the frame budget. Frame rates may fluctuate
+during dense collision events or when large stacks collapse.</li>
+<li><strong>600+ bodies:</strong> Noticeable frame rate drops frequently
+occur on standard hardware unless significant optimizations, such as
+body sleeping or simplified collision geometry, are applied.</li>
+</ul>
+<h2 id="factors-that-amplify-frame-drops">Factors That Amplify Frame
+Drops</h2>
+<p>The raw number of bodies is not the only metric that affects FPS.
+Several body-related properties compound the CPU load:</p>
+<ul>
+<li><strong>Geometry Complexity:</strong> Concave shapes or polygons
+with dozens of vertices require significantly more calculations during
+the narrowphase than circles or boxes.</li>
+<li><strong>Constraints and Joints:</strong> Each constraint (e.g.,
+springs, ropes, pin joints) requires iterative solving. Adding multiple
+constraints across numerous bodies significantly increases execution
+time per frame.</li>
+<li><strong>Engine Iterations:</strong> By default, Matter.js runs
+multiple position and velocity iterations per tick to maintain physical
+stability. Multiplying these iterations across a high body count quickly
+exhausts the frame budget.</li>
+</ul>
+<h2 id="methods-to-maintain-high-frame-rates">Methods to Maintain High
+Frame Rates</h2>
+<p>To support higher body counts without degrading frame rates:</p>
+<ul>
+<li><strong>Enable Body Sleeping:</strong> Setting
+<code>enableSleeping: true</code> on the engine allows bodies at rest to
+stop calculating physics, effectively reducing the active body count to
+only those currently in motion.</li>
+<li><strong>Optimize Collision Filtering:</strong> Use collision masks
+and category bitfields to prevent non-interacting bodies from entering
+narrowphase calculations entirely.</li>
+<li><strong>Reduce Iteration Counts:</strong> Lowering
+<code>engine.positionIterations</code> and
+<code>engine.velocityIterations</code> reduces CPU overhead at the cost
+of slightly softer physical contacts.</li>
+<li><strong>Simplify Geometries:</strong> Use compound circular or
+rectangular colliders rather than high-vertex custom polygons.</li>
+<li><strong>Offload Computation:</strong> For heavy simulation needs,
+run the Matter.js physics loop inside a dedicated Web Worker to prevent
+physics calculations from blocking UI rendering on the main thread.</li>
+</ul></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/matter.js'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/matter.js/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/matter.js/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Running Matter.js in a Web Worker - matter.js</title>
+    <meta name="description" content="Yes, Matter.js can run inside a Web Worker. By isolating the physics engine from the main browser thread, developers can prevent intensive collision checks and rigid-body calculations from freezing the user interface or dropping rendering frame rates. Th">
+    <link rel="canonical" href="https://salivity.github.io/matter.js/article/running-matter-js-in-a-web-worker">
+    <link rel="search" type="application/opensearchdescription+xml" title="matter.js" href="/matter.js/opensearch.xml">
+    <link rel="icon" href="/matter.js/favicon.ico">
+    <link rel="stylesheet" href="/matter.js/css/style.css">
+    <link media="print" rel="stylesheet" href="/matter.js/css/print.css">
+    <script src="/matter.js/js/fuse.min.js"></script>
+    <script src="/matter.js/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Running Matter.js in a Web Worker - matter.js" />
+    <meta property="og:url" content="https://salivity.github.io/matter.js/article/running-matter-js-in-a-web-worker" />
+    <meta property="og:image" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Yes, Matter.js can run inside a Web Worker. By isolating the physics engine from the main browser thread, developers can prevent intensive collision checks and rigid-body calculations from freezing the user interface or dropping rendering frame rates. Th" />
+    <link rel="manifest" href="/matter.js/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/matter.js/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>matter.js</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/matter.js/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="running-matterjs-in-a-web-worker">Running Matter.js in a Web
+Worker</h1>
+<p>Yes, Matter.js can run inside a Web Worker. By isolating the physics
+engine from the main browser thread, developers can prevent intensive
+collision checks and rigid-body calculations from freezing the user
+interface or dropping rendering frame rates. This guide explains how to
+decouple Matter.js from the Document Object Model (DOM), manage the
+physics simulation loop inside a worker, and synchronize body states
+back to the main thread for rendering.</p>
+<h2 id="why-use-a-web-worker-for-matterjs">Why Use a Web Worker for
+Matter.js?</h2>
+<p>In standard browser environments, JavaScript runs on a single thread.
+Complex physics calculations involving hundreds of interacting bodies,
+complex shapes, or continuous collision detection can cause noticeable
+lag. Offloading Matter.js to a Web Worker delegates these heavy CPU
+calculations to a background thread, ensuring that animations, user
+interactions, and UI rendering on the main thread remain smooth and
+responsive.</p>
+<h2 id="the-core-challenge-decoupling-rendering">The Core Challenge:
+Decoupling Rendering</h2>
+<p>The standard Matter.js setup includes modules like
+<code>Matter.Render</code> and <code>Matter.Runner</code>, both of which
+rely on DOM access:</p>
+<ul>
+<li><strong><code>Matter.Render</code></strong> interacts directly with
+an HTML <code>&lt;canvas&gt;</code> element and
+<code>window</code>.</li>
+<li><strong><code>Matter.Runner</code></strong> uses
+<code>window.requestAnimationFrame</code>.</li>
+</ul>
+<p>Because Web Workers do not have access to the <code>window</code>
+object or the DOM, you cannot use <code>Matter.Render</code> directly
+inside a worker. Instead, the physics engine must be run purely as a
+headless mathematical simulation.</p>
+<h2 id="how-to-implement-headless-matterjs-in-a-worker">How to Implement
+Headless Matter.js in a Worker</h2>
+<p>Running Matter.js in a Web Worker requires three key steps: headless
+simulation, a custom tick loop, and data serialization.</p>
+<h3 id="1-initialize-only-physics-modules">1. Initialize Only Physics
+Modules</h3>
+<p>Inside the worker script, import Matter.js and only instantiate the
+mathematical modules: <code>Engine</code>, <code>World</code>,
+<code>Bodies</code>, and <code>Composite</code>. Do not initialize
+<code>Render</code>.</p>
+<h3 id="2-manage-the-update-loop">2. Manage the Update Loop</h3>
+<p>Since <code>requestAnimationFrame</code> is not traditionally
+designed for background workers without an attached canvas, you can
+drive the engine update using a fixed timestep with
+<code>setInterval</code> or self-calling <code>setTimeout</code>
+loops:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> Matter <span class="im">from</span> <span class="st">&#39;matter-js&#39;</span><span class="op">;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> { Engine<span class="op">,</span> World<span class="op">,</span> Bodies<span class="op">,</span> Composite } <span class="op">=</span> Matter<span class="op">;</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> engine <span class="op">=</span> Engine<span class="op">.</span><span class="fu">create</span>()<span class="op">;</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> world <span class="op">=</span> engine<span class="op">.</span><span class="at">world</span><span class="op">;</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a><span class="co">// Add bodies to the world</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> ground <span class="op">=</span> Bodies<span class="op">.</span><span class="fu">rectangle</span>(<span class="dv">400</span><span class="op">,</span> <span class="dv">600</span><span class="op">,</span> <span class="dv">810</span><span class="op">,</span> <span class="dv">60</span><span class="op">,</span> { <span class="dt">isStatic</span><span class="op">:</span> <span class="kw">true</span> })<span class="op">;</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> box <span class="op">=</span> Bodies<span class="op">.</span><span class="fu">rectangle</span>(<span class="dv">400</span><span class="op">,</span> <span class="dv">200</span><span class="op">,</span> <span class="dv">80</span><span class="op">,</span> <span class="dv">80</span>)<span class="op">;</span></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>Composite<span class="op">.</span><span class="fu">add</span>(world<span class="op">,</span> [ground<span class="op">,</span> box])<span class="op">;</span></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> frameRate <span class="op">=</span> <span class="dv">1000</span> <span class="op">/</span> <span class="dv">60</span><span class="op">;</span> <span class="co">// 60 FPS</span></span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">updatePhysics</span>() {</span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a>  Engine<span class="op">.</span><span class="fu">update</span>(engine<span class="op">,</span> frameRate)<span class="op">;</span></span>
+<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a>  <span class="co">// Extract minimal data to send back</span></span>
+<span id="cb1-19"><a href="#cb1-19" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> state <span class="op">=</span> {</span>
+<span id="cb1-20"><a href="#cb1-20" aria-hidden="true" tabindex="-1"></a>    <span class="dt">bodies</span><span class="op">:</span> [</span>
+<span id="cb1-21"><a href="#cb1-21" aria-hidden="true" tabindex="-1"></a>      { <span class="dt">id</span><span class="op">:</span> box<span class="op">.</span><span class="at">id</span><span class="op">,</span> <span class="dt">x</span><span class="op">:</span> box<span class="op">.</span><span class="at">position</span><span class="op">.</span><span class="at">x</span><span class="op">,</span> <span class="dt">y</span><span class="op">:</span> box<span class="op">.</span><span class="at">position</span><span class="op">.</span><span class="at">y</span><span class="op">,</span> <span class="dt">angle</span><span class="op">:</span> box<span class="op">.</span><span class="at">angle</span> }</span>
+<span id="cb1-22"><a href="#cb1-22" aria-hidden="true" tabindex="-1"></a>    ]</span>
+<span id="cb1-23"><a href="#cb1-23" aria-hidden="true" tabindex="-1"></a>  }<span class="op">;</span></span>
+<span id="cb1-24"><a href="#cb1-24" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-25"><a href="#cb1-25" aria-hidden="true" tabindex="-1"></a>  self<span class="op">.</span><span class="fu">postMessage</span>(state)<span class="op">;</span></span>
+<span id="cb1-26"><a href="#cb1-26" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb1-27"><a href="#cb1-27" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-28"><a href="#cb1-28" aria-hidden="true" tabindex="-1"></a><span class="pp">setInterval</span>(updatePhysics<span class="op">,</span> frameRate)<span class="op">;</span></span></code></pre></div>
+<h3 id="3-handle-rendering-on-the-main-thread">3. Handle Rendering on
+the Main Thread</h3>
+<p>The main thread receives the coordinate data via the worker's
+<code>onmessage</code> handler and renders the graphics using a 2D
+Canvas context, WebGL, Pixi.js, or Three.js:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> worker <span class="op">=</span> <span class="kw">new</span> <span class="bu">Worker</span>(<span class="st">&#39;physics-worker.js&#39;</span>)<span class="op">;</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>worker<span class="op">.</span><span class="at">onmessage</span> <span class="op">=</span> <span class="kw">function</span> (e) {</span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> { bodies } <span class="op">=</span> e<span class="op">.</span><span class="at">data</span><span class="op">;</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">renderScene</span>(bodies)<span class="op">;</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>}<span class="op">;</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">renderScene</span>(bodies) {</span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>  <span class="co">// Update canvas or graphical elements using received x, y, and angle values</span></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<h2 id="handling-user-input-and-forces">Handling User Input and
+Forces</h2>
+<p>Interactive elements, such as mouse drags, clicks, or keyboard
+controls, must be captured on the main thread and transmitted to the
+worker. For instance, when a user applies a force:</p>
+<ol type="1">
+<li>The main thread detects the <code>mousedown</code> or
+<code>keydown</code> event.</li>
+<li>The main thread sends an action message containing coordinates or
+vector data:
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a>worker<span class="op">.</span><span class="fu">postMessage</span>({ <span class="dt">type</span><span class="op">:</span> <span class="st">&#39;APPLY_FORCE&#39;</span><span class="op">,</span> <span class="dt">bodyId</span><span class="op">:</span> targetId<span class="op">,</span> <span class="dt">force</span><span class="op">:</span> { <span class="dt">x</span><span class="op">:</span> <span class="fl">0.05</span><span class="op">,</span> <span class="dt">y</span><span class="op">:</span> <span class="op">-</span><span class="fl">0.05</span> } })<span class="op">;</span></span></code></pre></div></li>
+<li>The worker listens for incoming messages and applies the appropriate
+physics method:
+<div class="sourceCode" id="cb4"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a>self<span class="op">.</span><span class="at">onmessage</span> <span class="op">=</span> <span class="kw">function</span> (e) {</span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (e<span class="op">.</span><span class="at">data</span><span class="op">.</span><span class="at">type</span> <span class="op">===</span> <span class="st">&#39;APPLY_FORCE&#39;</span>) {</span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> body <span class="op">=</span> Composite<span class="op">.</span><span class="fu">get</span>(world<span class="op">,</span> e<span class="op">.</span><span class="at">data</span><span class="op">.</span><span class="at">bodyId</span><span class="op">,</span> <span class="st">&#39;body&#39;</span>)<span class="op">;</span></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (body) {</span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>      Matter<span class="op">.</span><span class="at">Body</span><span class="op">.</span><span class="fu">applyForce</span>(body<span class="op">,</span> body<span class="op">.</span><span class="at">position</span><span class="op">,</span> e<span class="op">.</span><span class="at">data</span><span class="op">.</span><span class="at">force</span>)<span class="op">;</span></span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a>}<span class="op">;</span></span></code></pre></div></li>
+</ol>
+<h2 id="rendering-with-offscreencanvas">Rendering with
+OffscreenCanvas</h2>
+<p>Modern browsers support <code>OffscreenCanvas</code>, which allows
+canvas rendering commands to execute directly inside a Web Worker. By
+transferring control of a canvas from the main thread using
+<code>canvas.transferControlToOffscreen()</code>, you can run custom
+rendering routines directly within the worker alongside Matter.js,
+eliminating the need to continuously post position data across threads.
+However, native <code>Matter.Render</code> still requires adaptations to
+work without the global DOM window.</p>
+<h2 id="performance-considerations">Performance Considerations</h2>
+<ul>
+<li><strong>Minimize Message Payload:</strong> Avoid sending complete
+Matter.js body objects across threads. Serialize only the required
+transformations (<code>x</code>, <code>y</code>, <code>angle</code>, and
+an identifier).</li>
+<li><strong>Use Typed Arrays:</strong> For simulations with hundreds of
+objects, serialize data into <code>Float32Array</code> buffers and use
+transferable objects with <code>postMessage</code> to eliminate
+serialization and cloning overhead.</li>
+</ul></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/matter.js'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/matter.js/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/matter.js/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

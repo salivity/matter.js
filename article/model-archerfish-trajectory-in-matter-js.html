@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Model Archerfish Trajectory in Matter.js - matter.js</title>
+    <meta name="description" content="This guide explains how to simulate an archerfish hunting aerial prey by modeling water droplet ballistic trajectories within the Matter.js 2D physics engine. You will learn the mechanics of calculating targeting velocities against hovering targets, acco">
+    <link rel="canonical" href="https://salivity.github.io/matter.js/article/model-archerfish-trajectory-in-matter-js">
+    <link rel="search" type="application/opensearchdescription+xml" title="matter.js" href="/matter.js/opensearch.xml">
+    <link rel="icon" href="/matter.js/favicon.ico">
+    <link rel="stylesheet" href="/matter.js/css/style.css">
+    <link media="print" rel="stylesheet" href="/matter.js/css/print.css">
+    <script src="/matter.js/js/fuse.min.js"></script>
+    <script src="/matter.js/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Model Archerfish Trajectory in Matter.js - matter.js" />
+    <meta property="og:url" content="https://salivity.github.io/matter.js/article/model-archerfish-trajectory-in-matter-js" />
+    <meta property="og:image" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This guide explains how to simulate an archerfish hunting aerial prey by modeling water droplet ballistic trajectories within the Matter.js 2D physics engine. You will learn the mechanics of calculating targeting velocities against hovering targets, acco" />
+    <link rel="manifest" href="/matter.js/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/matter.js/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>matter.js</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/matter.js/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="model-archerfish-trajectory-in-matterjs">Model Archerfish
+Trajectory in Matter.js</h1>
+<p>This guide explains how to simulate an archerfish hunting aerial prey
+by modeling water droplet ballistic trajectories within the Matter.js 2D
+physics engine. You will learn the mechanics of calculating targeting
+velocities against hovering targets, accounting for Matter.js gravity
+and air resistance, modeling the projectile's behavior, and handling
+collision events when the droplet knocks the insect down.</p>
+<h3 id="setting-up-the-environment">Setting Up the Environment</h3>
+<p>To begin, initialize a standard Matter.js simulation containing the
+engine, renderer, and world. The scene requires three primary elements:
+the water surface, the underwater archerfish (the launch origin), and an
+aerial insect (the target body).</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> { Engine<span class="op">,</span> Render<span class="op">,</span> Runner<span class="op">,</span> Bodies<span class="op">,</span> Composite<span class="op">,</span> Body<span class="op">,</span> Events<span class="op">,</span> Vector } <span class="op">=</span> Matter<span class="op">;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> engine <span class="op">=</span> Engine<span class="op">.</span><span class="fu">create</span>()<span class="op">;</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> world <span class="op">=</span> engine<span class="op">.</span><span class="at">world</span><span class="op">;</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a><span class="co">// Standard gravity in Matter.js acts downwards along the Y-axis</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>engine<span class="op">.</span><span class="at">gravity</span><span class="op">.</span><span class="at">y</span> <span class="op">=</span> <span class="dv">1</span><span class="op">;</span> </span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> render <span class="op">=</span> Render<span class="op">.</span><span class="fu">create</span>({</span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>    <span class="dt">element</span><span class="op">:</span> <span class="bu">document</span><span class="op">.</span><span class="at">body</span><span class="op">,</span></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>    <span class="dt">engine</span><span class="op">:</span> engine<span class="op">,</span></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>    <span class="dt">options</span><span class="op">:</span> { <span class="dt">width</span><span class="op">:</span> <span class="dv">800</span><span class="op">,</span> <span class="dt">height</span><span class="op">:</span> <span class="dv">600</span><span class="op">,</span> <span class="dt">wireframes</span><span class="op">:</span> <span class="kw">false</span> }</span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a>Render<span class="op">.</span><span class="fu">run</span>(render)<span class="op">;</span></span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a>Runner<span class="op">.</span><span class="fu">run</span>(Runner<span class="op">.</span><span class="fu">create</span>()<span class="op">,</span> engine)<span class="op">;</span></span>
+<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a><span class="co">// Define the insect perched above the water</span></span>
+<span id="cb1-19"><a href="#cb1-19" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> insect <span class="op">=</span> Bodies<span class="op">.</span><span class="fu">circle</span>(<span class="dv">600</span><span class="op">,</span> <span class="dv">150</span><span class="op">,</span> <span class="dv">10</span><span class="op">,</span> {</span>
+<span id="cb1-20"><a href="#cb1-20" aria-hidden="true" tabindex="-1"></a>    <span class="dt">isStatic</span><span class="op">:</span> <span class="kw">true</span><span class="op">,</span></span>
+<span id="cb1-21"><a href="#cb1-21" aria-hidden="true" tabindex="-1"></a>    <span class="dt">render</span><span class="op">:</span> { <span class="dt">fillStyle</span><span class="op">:</span> <span class="st">&#39;#e74c3c&#39;</span> }</span>
+<span id="cb1-22"><a href="#cb1-22" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span>
+<span id="cb1-23"><a href="#cb1-23" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-24"><a href="#cb1-24" aria-hidden="true" tabindex="-1"></a>Composite<span class="op">.</span><span class="fu">add</span>(world<span class="op">,</span> insect)<span class="op">;</span></span></code></pre></div>
+<h3 id="calculating-the-launch-trajectory">Calculating the Launch
+Trajectory</h3>
+<p>Archerfish must compensate for gravity to hit prey above the water
+surface. In physics simulations, the most reliable way to hit a target
+at coordinates <span class="math inline">\((x_t, y_t)\)</span> from
+launch point <span class="math inline">\((x_0, y_0)\)</span> is using a
+fixed time-of-flight equation.</p>
+<p>Given time <span class="math inline">\(t\)</span> in frames or
+seconds, gravity <span class="math inline">\(g\)</span>, horizontal
+displacement <span class="math inline">\(\Delta x = x_t - x_0\)</span>,
+and vertical displacement <span class="math inline">\(\Delta y = y_t -
+y_0\)</span>:</p>
+<p><span class="math display">\[v_x = \frac{\Delta x}{t}\]</span> <span
+class="math display">\[v_y = \frac{\Delta y - \frac{1}{2} g
+t^2}{t}\]</span></p>
+<p>In Matter.js, gravity scale defaults to <code>0.001</code> per engine
+update step. When working with body velocities via
+<code>Body.setVelocity</code>, velocities are expressed in units of
+pixels per step.</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">calculateLaunchVelocity</span>(origin<span class="op">,</span> target<span class="op">,</span> flightTime) {</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> gravity <span class="op">=</span> engine<span class="op">.</span><span class="at">gravity</span><span class="op">.</span><span class="at">y</span> <span class="op">*</span> engine<span class="op">.</span><span class="at">gravity</span><span class="op">.</span><span class="at">scale</span><span class="op">;</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> deltaX <span class="op">=</span> target<span class="op">.</span><span class="at">x</span> <span class="op">-</span> origin<span class="op">.</span><span class="at">x</span><span class="op">;</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> deltaY <span class="op">=</span> target<span class="op">.</span><span class="at">y</span> <span class="op">-</span> origin<span class="op">.</span><span class="at">y</span><span class="op">;</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> vx <span class="op">=</span> deltaX <span class="op">/</span> flightTime<span class="op">;</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> vy <span class="op">=</span> (deltaY <span class="op">-</span> <span class="fl">0.5</span> <span class="op">*</span> gravity <span class="op">*</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">pow</span>(flightTime<span class="op">,</span> <span class="dv">2</span>)) <span class="op">/</span> flightTime<span class="op">;</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> { <span class="dt">x</span><span class="op">:</span> vx<span class="op">,</span> <span class="dt">y</span><span class="op">:</span> vy }<span class="op">;</span></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<h3 id="simulating-droplet-characteristics">Simulating Droplet
+Characteristics</h3>
+<p>A single jet of water fired by an archerfish behaves as a compact
+mass that experiences aerodynamic drag before impact. Create the droplet
+body at the mouth coordinate and set its properties accordingly:</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">shootDroplet</span>(mouthPosition<span class="op">,</span> targetPosition) {</span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> flightTime <span class="op">=</span> <span class="dv">45</span><span class="op">;</span> <span class="co">// Time in engine ticks to reach target</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> velocity <span class="op">=</span> <span class="fu">calculateLaunchVelocity</span>(mouthPosition<span class="op">,</span> targetPosition<span class="op">,</span> flightTime)<span class="op">;</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> droplet <span class="op">=</span> Bodies<span class="op">.</span><span class="fu">circle</span>(mouthPosition<span class="op">.</span><span class="at">x</span><span class="op">,</span> mouthPosition<span class="op">.</span><span class="at">y</span><span class="op">,</span> <span class="dv">6</span><span class="op">,</span> {</span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>        <span class="dt">density</span><span class="op">:</span> <span class="fl">0.001</span><span class="op">,</span></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>        <span class="dt">frictionAir</span><span class="op">:</span> <span class="fl">0.005</span><span class="op">,</span> <span class="co">// Minimal drag for high-cohesion jet</span></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>        <span class="dt">restitution</span><span class="op">:</span> <span class="fl">0.1</span><span class="op">,</span></span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a>        <span class="dt">label</span><span class="op">:</span> <span class="st">&#39;waterDroplet&#39;</span><span class="op">,</span></span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a>        <span class="dt">render</span><span class="op">:</span> { <span class="dt">fillStyle</span><span class="op">:</span> <span class="st">&#39;#3498db&#39;</span> }</span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a>    })<span class="op">;</span></span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a>    Composite<span class="op">.</span><span class="fu">add</span>(world<span class="op">,</span> droplet)<span class="op">;</span></span>
+<span id="cb3-14"><a href="#cb3-14" aria-hidden="true" tabindex="-1"></a>    Body<span class="op">.</span><span class="fu">setVelocity</span>(droplet<span class="op">,</span> velocity)<span class="op">;</span></span>
+<span id="cb3-15"><a href="#cb3-15" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<p>If drag (<code>frictionAir</code>) is greater than zero, slightly
+increase initial velocities to offset speed decay, or decrease
+<code>flightTime</code> to minimize air resistance interference.</p>
+<h3 id="optical-refraction-offset">Optical Refraction Offset</h3>
+<p>Real archerfish adapt their aim to optical refraction at the
+air-water interface. If the fish is submerged and viewing an aerial
+target through water, Snell's Law shifts the virtual image of the
+insect:</p>
+<div class="sourceCode" id="cb4"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">getApparentPosition</span>(fishPos<span class="op">,</span> targetPos<span class="op">,</span> waterLevel) {</span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> nWater <span class="op">=</span> <span class="fl">1.333</span><span class="op">;</span> <span class="co">// Refractive index of water</span></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> nAir <span class="op">=</span> <span class="fl">1.0</span><span class="op">;</span>     <span class="co">// Refractive index of air</span></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Calculate angle of incidence and adjust virtual target</span></span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> dx <span class="op">=</span> targetPos<span class="op">.</span><span class="at">x</span> <span class="op">-</span> fishPos<span class="op">.</span><span class="at">x</span><span class="op">;</span></span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> dy <span class="op">=</span> targetPos<span class="op">.</span><span class="at">y</span> <span class="op">-</span> waterLevel<span class="op">;</span></span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> apparentAngle <span class="op">=</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">atan2</span>(dx<span class="op">,</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">abs</span>(dy))<span class="op">;</span></span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> trueAngle <span class="op">=</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">asin</span>((nAir <span class="op">/</span> nWater) <span class="op">*</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">sin</span>(apparentAngle))<span class="op">;</span></span>
+<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Corrected coordinate for direct ballistic firing</span></span>
+<span id="cb4-12"><a href="#cb4-12" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> {</span>
+<span id="cb4-13"><a href="#cb4-13" aria-hidden="true" tabindex="-1"></a>        <span class="dt">x</span><span class="op">:</span> fishPos<span class="op">.</span><span class="at">x</span> <span class="op">+</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">tan</span>(trueAngle) <span class="op">*</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">abs</span>(targetPos<span class="op">.</span><span class="at">y</span> <span class="op">-</span> fishPos<span class="op">.</span><span class="at">y</span>)<span class="op">,</span></span>
+<span id="cb4-14"><a href="#cb4-14" aria-hidden="true" tabindex="-1"></a>        <span class="dt">y</span><span class="op">:</span> targetPos<span class="op">.</span><span class="at">y</span></span>
+<span id="cb4-15"><a href="#cb4-15" aria-hidden="true" tabindex="-1"></a>    }<span class="op">;</span></span>
+<span id="cb4-16"><a href="#cb4-16" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<h3 id="handling-impact-and-target-dislodgement">Handling Impact and
+Target Dislodgement</h3>
+<p>Listen for collisions to simulate the insect being knocked off its
+perch into the water. Upon impact, set the insect to non-static and
+transfer the droplet's linear momentum.</p>
+<div class="sourceCode" id="cb5"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a>Events<span class="op">.</span><span class="fu">on</span>(engine<span class="op">,</span> <span class="st">&#39;collisionStart&#39;</span><span class="op">,</span> (<span class="bu">event</span>) <span class="kw">=&gt;</span> {</span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a>    <span class="bu">event</span><span class="op">.</span><span class="at">pairs</span><span class="op">.</span><span class="fu">forEach</span>((pair) <span class="kw">=&gt;</span> {</span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a>        <span class="kw">const</span> { bodyA<span class="op">,</span> bodyB } <span class="op">=</span> pair<span class="op">;</span></span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> (</span>
+<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a>            (bodyA<span class="op">.</span><span class="at">label</span> <span class="op">===</span> <span class="st">&#39;waterDroplet&#39;</span> <span class="op">&amp;&amp;</span> bodyB <span class="op">===</span> insect) <span class="op">||</span></span>
+<span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a>            (bodyB<span class="op">.</span><span class="at">label</span> <span class="op">===</span> <span class="st">&#39;waterDroplet&#39;</span> <span class="op">&amp;&amp;</span> bodyA <span class="op">===</span> insect)</span>
+<span id="cb5-8"><a href="#cb5-8" aria-hidden="true" tabindex="-1"></a>        ) {</span>
+<span id="cb5-9"><a href="#cb5-9" aria-hidden="true" tabindex="-1"></a>            <span class="co">// Dislodge the target</span></span>
+<span id="cb5-10"><a href="#cb5-10" aria-hidden="true" tabindex="-1"></a>            Body<span class="op">.</span><span class="fu">setStatic</span>(insect<span class="op">,</span> <span class="kw">false</span>)<span class="op">;</span></span>
+<span id="cb5-11"><a href="#cb5-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-12"><a href="#cb5-12" aria-hidden="true" tabindex="-1"></a>            <span class="co">// Apply impact impulse</span></span>
+<span id="cb5-13"><a href="#cb5-13" aria-hidden="true" tabindex="-1"></a>            <span class="kw">const</span> droplet <span class="op">=</span> bodyA<span class="op">.</span><span class="at">label</span> <span class="op">===</span> <span class="st">&#39;waterDroplet&#39;</span> <span class="op">?</span> bodyA <span class="op">:</span> bodyB<span class="op">;</span></span>
+<span id="cb5-14"><a href="#cb5-14" aria-hidden="true" tabindex="-1"></a>            Body<span class="op">.</span><span class="fu">applyForce</span>(insect<span class="op">,</span> insect<span class="op">.</span><span class="at">position</span><span class="op">,</span> {</span>
+<span id="cb5-15"><a href="#cb5-15" aria-hidden="true" tabindex="-1"></a>                <span class="dt">x</span><span class="op">:</span> droplet<span class="op">.</span><span class="at">velocity</span><span class="op">.</span><span class="at">x</span> <span class="op">*</span> <span class="fl">0.002</span><span class="op">,</span></span>
+<span id="cb5-16"><a href="#cb5-16" aria-hidden="true" tabindex="-1"></a>                <span class="dt">y</span><span class="op">:</span> droplet<span class="op">.</span><span class="at">velocity</span><span class="op">.</span><span class="at">y</span> <span class="op">*</span> <span class="fl">0.002</span></span>
+<span id="cb5-17"><a href="#cb5-17" aria-hidden="true" tabindex="-1"></a>            })<span class="op">;</span></span>
+<span id="cb5-18"><a href="#cb5-18" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-19"><a href="#cb5-19" aria-hidden="true" tabindex="-1"></a>            <span class="co">// Remove droplet from world after impact</span></span>
+<span id="cb5-20"><a href="#cb5-20" aria-hidden="true" tabindex="-1"></a>            Composite<span class="op">.</span><span class="fu">remove</span>(world<span class="op">,</span> droplet)<span class="op">;</span></span>
+<span id="cb5-21"><a href="#cb5-21" aria-hidden="true" tabindex="-1"></a>        }</span>
+<span id="cb5-22"><a href="#cb5-22" aria-hidden="true" tabindex="-1"></a>    })<span class="op">;</span></span>
+<span id="cb5-23"><a href="#cb5-23" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div>
+<p>Using this architecture, the droplet follows a parabolic path across
+the air-water boundary and delivers kinetic energy sufficient to knock
+the prey out of equilibrium.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/matter.js'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/matter.js/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/matter.js/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

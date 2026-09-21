@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Handling Cargo Center of Mass Shifts in Matter.js - matter.js</title>
+    <meta name="description" content="Simulating shifting cargo inside a vehicle or container requires managing how sudden shifts in the center of mass (COM) affect stability, trajectory, and rotation. In Matter.js, this problem is typically solved either by modeling cargo as autonomous bodi">
+    <link rel="canonical" href="https://salivity.github.io/matter.js/article/handling-cargo-center-of-mass-shifts-in-matter-js">
+    <link rel="search" type="application/opensearchdescription+xml" title="matter.js" href="/matter.js/opensearch.xml">
+    <link rel="icon" href="/matter.js/favicon.ico">
+    <link rel="stylesheet" href="/matter.js/css/style.css">
+    <link media="print" rel="stylesheet" href="/matter.js/css/print.css">
+    <script src="/matter.js/js/fuse.min.js"></script>
+    <script src="/matter.js/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Handling Cargo Center of Mass Shifts in Matter.js - matter.js" />
+    <meta property="og:url" content="https://salivity.github.io/matter.js/article/handling-cargo-center-of-mass-shifts-in-matter-js" />
+    <meta property="og:image" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Simulating shifting cargo inside a vehicle or container requires managing how sudden shifts in the center of mass (COM) affect stability, trajectory, and rotation. In Matter.js, this problem is typically solved either by modeling cargo as autonomous bodi" />
+    <link rel="manifest" href="/matter.js/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/matter.js/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>matter.js</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/matter.js/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="handling-cargo-center-of-mass-shifts-in-matterjs">Handling Cargo
+Center of Mass Shifts in Matter.js</h1>
+<p>Simulating shifting cargo inside a vehicle or container requires
+managing how sudden shifts in the center of mass (COM) affect stability,
+trajectory, and rotation. In Matter.js, this problem is typically solved
+either by modeling cargo as autonomous bodies colliding inside a hollow
+container or by dynamically recalculating and dampening the center of
+mass on a single compound body. This guide explains how to implement
+both techniques while mitigating physical instability, unexpected
+rotational acceleration, and velocity spikes.</p>
+<h2 id="approach-1-physical-internal-cargo-hollow-container">Approach 1:
+Physical Internal Cargo (Hollow Container)</h2>
+<p>The most physically accurate method lets Matter.js handle the mass
+distribution naturally by building a hollow container out of composite
+walls and placing free-moving cargo bodies inside.</p>
+<h3 id="1-build-the-container">1. Build the Container</h3>
+<p>Create a hollow vessel using multiple static or dynamic rectangle
+bodies held together using
+<code>Body.create({ parts: [...] })</code>:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> wallThickness <span class="op">=</span> <span class="dv">10</span><span class="op">;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> width <span class="op">=</span> <span class="dv">200</span><span class="op">;</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> height <span class="op">=</span> <span class="dv">100</span><span class="op">;</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> bottom <span class="op">=</span> Bodies<span class="op">.</span><span class="fu">rectangle</span>(x<span class="op">,</span> y <span class="op">+</span> height <span class="op">/</span> <span class="dv">2</span><span class="op">,</span> width<span class="op">,</span> wallThickness)<span class="op">;</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> left <span class="op">=</span> Bodies<span class="op">.</span><span class="fu">rectangle</span>(x <span class="op">-</span> width <span class="op">/</span> <span class="dv">2</span><span class="op">,</span> y<span class="op">,</span> wallThickness<span class="op">,</span> height)<span class="op">;</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> right <span class="op">=</span> Bodies<span class="op">.</span><span class="fu">rectangle</span>(x <span class="op">+</span> width <span class="op">/</span> <span class="dv">2</span><span class="op">,</span> y<span class="op">,</span> wallThickness<span class="op">,</span> height)<span class="op">;</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> top <span class="op">=</span> Bodies<span class="op">.</span><span class="fu">rectangle</span>(x<span class="op">,</span> y <span class="op">-</span> height <span class="op">/</span> <span class="dv">2</span><span class="op">,</span> width<span class="op">,</span> wallThickness)<span class="op">;</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> container <span class="op">=</span> Body<span class="op">.</span><span class="fu">create</span>({</span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>  <span class="dt">parts</span><span class="op">:</span> [bottom<span class="op">,</span> left<span class="op">,</span> right<span class="op">,</span> top]<span class="op">,</span></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>  <span class="dt">friction</span><span class="op">:</span> <span class="fl">0.8</span></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div>
+<h3 id="2-add-shifting-cargo-inside">2. Add Shifting Cargo Inside</h3>
+<p>Add smaller bodies inside the cavity. Give them mass, friction, and
+restitution:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> cargo <span class="op">=</span> Bodies<span class="op">.</span><span class="fu">rectangle</span>(x<span class="op">,</span> y<span class="op">,</span> <span class="dv">40</span><span class="op">,</span> <span class="dv">40</span><span class="op">,</span> {</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>  <span class="dt">mass</span><span class="op">:</span> <span class="dv">10</span><span class="op">,</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>  <span class="dt">friction</span><span class="op">:</span> <span class="fl">0.4</span><span class="op">,</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>  <span class="dt">restitution</span><span class="op">:</span> <span class="fl">0.1</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>Composite<span class="op">.</span><span class="fu">add</span>(world<span class="op">,</span> [container<span class="op">,</span> cargo])<span class="op">;</span></span></code></pre></div>
+<p>Because the cargo moves independently, the total center of mass of
+the system shifts automatically as forces act on the container.</p>
+<hr />
+<h2
+id="approach-2-abstracted-center-of-mass-updates-via-bodysetcentre">Approach
+2: Abstracted Center of Mass Updates via
+<code>Body.setCentre</code></h2>
+<p>If modeling individual internal items is too computationally
+expensive or causes clipping issues, you can simulate cargo shifts
+programmatically by manipulating the container's center of mass using
+<code>Matter.Body.setCentre</code>.</p>
+<h3 id="1-the-offset-problem">1. The Offset Problem</h3>
+<p>Calling <code>Body.setCentre(body, offset, true)</code> changes the
+anchor around which the body rotates. However, applying a sudden shift
+instantly teleports the geometric origin and causes an abrupt surge in
+angular velocity due to the conservation of angular momentum.</p>
+<h3 id="2-smooth-transitions-using-interpolation">2. Smooth Transitions
+Using Interpolation</h3>
+<p>Never snap the center of mass directly to a new point during a cargo
+shift. Instead, step it toward the target offset gradually each engine
+tick:</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Current offset state</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="kw">let</span> currentOffset <span class="op">=</span> { <span class="dt">x</span><span class="op">:</span> <span class="dv">0</span><span class="op">,</span> <span class="dt">y</span><span class="op">:</span> <span class="dv">0</span> }<span class="op">;</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a><span class="kw">let</span> targetOffset <span class="op">=</span> { <span class="dt">x</span><span class="op">:</span> <span class="dv">50</span><span class="op">,</span> <span class="dt">y</span><span class="op">:</span> <span class="dv">0</span> }<span class="op">;</span> <span class="co">// Cargo shifted to the right</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>Events<span class="op">.</span><span class="fu">on</span>(engine<span class="op">,</span> <span class="st">&#39;beforeUpdate&#39;</span><span class="op">,</span> () <span class="kw">=&gt;</span> {</span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>  <span class="co">// Linear interpolation (lerp) factor</span></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> lerpFactor <span class="op">=</span> <span class="fl">0.05</span><span class="op">;</span></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> dx <span class="op">=</span> (targetOffset<span class="op">.</span><span class="at">x</span> <span class="op">-</span> currentOffset<span class="op">.</span><span class="at">x</span>) <span class="op">*</span> lerpFactor<span class="op">;</span></span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> dy <span class="op">=</span> (targetOffset<span class="op">.</span><span class="at">y</span> <span class="op">-</span> currentOffset<span class="op">.</span><span class="at">y</span>) <span class="op">*</span> lerpFactor<span class="op">;</span></span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (<span class="bu">Math</span><span class="op">.</span><span class="fu">abs</span>(dx) <span class="op">&gt;</span> <span class="fl">0.001</span> <span class="op">||</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">abs</span>(dy) <span class="op">&gt;</span> <span class="fl">0.001</span>) {</span>
+<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a>    currentOffset<span class="op">.</span><span class="at">x</span> <span class="op">+=</span> dx<span class="op">;</span></span>
+<span id="cb3-14"><a href="#cb3-14" aria-hidden="true" tabindex="-1"></a>    currentOffset<span class="op">.</span><span class="at">y</span> <span class="op">+=</span> dy<span class="op">;</span></span>
+<span id="cb3-15"><a href="#cb3-15" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-16"><a href="#cb3-16" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Apply the incremental center shift relative to the body</span></span>
+<span id="cb3-17"><a href="#cb3-17" aria-hidden="true" tabindex="-1"></a>    Body<span class="op">.</span><span class="fu">setCentre</span>(containerBody<span class="op">,</span> { <span class="dt">x</span><span class="op">:</span> dx<span class="op">,</span> <span class="dt">y</span><span class="op">:</span> dy }<span class="op">,</span> <span class="kw">true</span>)<span class="op">;</span></span>
+<span id="cb3-18"><a href="#cb3-18" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb3-19"><a href="#cb3-19" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div>
+<hr />
+<h2 id="mitigating-instabilities-and-spikes">Mitigating Instabilities
+and Spikes</h2>
+<p>Sudden center of mass changes can introduce non-physical forces that
+flip or vibrate the body. Apply the following corrections:</p>
+<h3 id="clamp-angular-velocity">Clamp Angular Velocity</h3>
+<p>When mass shifts, clamp <code>body.angularVelocity</code> to prevent
+high-speed flipping:</p>
+<div class="sourceCode" id="cb4"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> MAX_ANGULAR_VELOCITY <span class="op">=</span> <span class="fl">0.15</span><span class="op">;</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>Events<span class="op">.</span><span class="fu">on</span>(engine<span class="op">,</span> <span class="st">&#39;afterUpdate&#39;</span><span class="op">,</span> () <span class="kw">=&gt;</span> {</span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (<span class="bu">Math</span><span class="op">.</span><span class="fu">abs</span>(containerBody<span class="op">.</span><span class="at">angularVelocity</span>) <span class="op">&gt;</span> MAX_ANGULAR_VELOCITY) {</span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>    Body<span class="op">.</span><span class="fu">setAngularVelocity</span>(</span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a>      containerBody<span class="op">,</span></span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a>      <span class="bu">Math</span><span class="op">.</span><span class="fu">sign</span>(containerBody<span class="op">.</span><span class="at">angularVelocity</span>) <span class="op">*</span> MAX_ANGULAR_VELOCITY</span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a>    )<span class="op">;</span></span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div>
+<h3 id="adjust-moment-of-inertia">Adjust Moment of Inertia</h3>
+<p>A body whose mass moves outward gains rotational resistance. Update
+the body's inertia proportionally to the distance of the cargo from the
+center:</p>
+<div class="sourceCode" id="cb5"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Base inertia plus additional rotational resistance: I = I_base + m * d^2</span></span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> cargoMass <span class="op">=</span> <span class="dv">10</span><span class="op">;</span></span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> distanceSq <span class="op">=</span> currentOffset<span class="op">.</span><span class="at">x</span> <span class="op">**</span> <span class="dv">2</span> <span class="op">+</span> currentOffset<span class="op">.</span><span class="at">y</span> <span class="op">**</span> <span class="dv">2</span><span class="op">;</span></span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> adjustedInertia <span class="op">=</span> baseInertia <span class="op">+</span> cargoMass <span class="op">*</span> distanceSq<span class="op">;</span></span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a>Body<span class="op">.</span><span class="fu">setInertia</span>(containerBody<span class="op">,</span> adjustedInertia)<span class="op">;</span></span></code></pre></div>
+<h3 id="increase-solver-iterations">Increase Solver Iterations</h3>
+<p>If loose cargo inside a container tunnels through walls during
+high-speed shifts, increase solver precision on the Engine:</p>
+<div class="sourceCode" id="cb6"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a>engine<span class="op">.</span><span class="at">positionIterations</span> <span class="op">=</span> <span class="dv">10</span><span class="op">;</span></span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a>engine<span class="op">.</span><span class="at">velocityIterations</span> <span class="op">=</span> <span class="dv">8</span><span class="op">;</span></span></code></pre></div></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/matter.js'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/matter.js/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/matter.js/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

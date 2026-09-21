@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Verify Matter.js Collision Events in Automated Tests - matter.js</title>
+    <meta name="description" content="Verifying collision events in Matter.js within an automated test suite requires configuring a headless physics engine, registering event listeners to capture collision lifecycle triggers, stepping the engine deterministically, and asserting that the expe">
+    <link rel="canonical" href="https://salivity.github.io/matter.js/article/verify-matter-js-collision-events-in-automated-tests">
+    <link rel="search" type="application/opensearchdescription+xml" title="matter.js" href="/matter.js/opensearch.xml">
+    <link rel="icon" href="/matter.js/favicon.ico">
+    <link rel="stylesheet" href="/matter.js/css/style.css">
+    <link media="print" rel="stylesheet" href="/matter.js/css/print.css">
+    <script src="/matter.js/js/fuse.min.js"></script>
+    <script src="/matter.js/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Verify Matter.js Collision Events in Automated Tests - matter.js" />
+    <meta property="og:url" content="https://salivity.github.io/matter.js/article/verify-matter-js-collision-events-in-automated-tests" />
+    <meta property="og:image" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Verifying collision events in Matter.js within an automated test suite requires configuring a headless physics engine, registering event listeners to capture collision lifecycle triggers, stepping the engine deterministically, and asserting that the expe" />
+    <link rel="manifest" href="/matter.js/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/matter.js/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>matter.js</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/matter.js/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="verify-matterjs-collision-events-in-automated-tests">Verify
+Matter.js Collision Events in Automated Tests</h1>
+<p>Verifying collision events in Matter.js within an automated test
+suite requires configuring a headless physics engine, registering event
+listeners to capture collision lifecycle triggers, stepping the engine
+deterministically, and asserting that the expected collision pairs were
+detected. This guide explains how to isolate the physics simulation from
+the browser rendering loop and use test runners like Jest or Vitest to
+reliably assert <code>collisionStart</code>,
+<code>collisionActive</code>, and <code>collisionEnd</code> events.</p>
+<h2 id="setting-up-a-headless-physics-simulation">Setting Up a Headless
+Physics Simulation</h2>
+<p>Automated test suites typically run in environments without a DOM or
+display, such as Node.js. Matter.js is modular, meaning you do not need
+<code>Matter.Render</code> or <code>Matter.Runner</code> to simulate
+physics. You only need <code>Matter.Engine</code>,
+<code>Matter.World</code>, and <code>Matter.Bodies</code>.</p>
+<p>To begin, initialize an engine and disable gravity if you want total
+control over body movements:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> Matter <span class="im">from</span> <span class="st">&#39;matter-js&#39;</span><span class="op">;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> { Engine<span class="op">,</span> World<span class="op">,</span> Bodies<span class="op">,</span> Events } <span class="op">=</span> Matter<span class="op">;</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> engine <span class="op">=</span> Engine<span class="op">.</span><span class="fu">create</span>({</span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>  <span class="dt">gravity</span><span class="op">:</span> { <span class="dt">x</span><span class="op">:</span> <span class="dv">0</span><span class="op">,</span> <span class="dt">y</span><span class="op">:</span> <span class="dv">0</span><span class="op">,</span> <span class="dt">scale</span><span class="op">:</span> <span class="dv">0</span> }</span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div>
+<h2 id="registering-event-listeners-with-test-spies">Registering Event
+Listeners with Test Spies</h2>
+<p>Matter.js dispatches collision events via
+<code>Matter.Events.on(engine, eventName, callback)</code>. The primary
+events are:</p>
+<ul>
+<li><code>collisionStart</code>: Fired at the first frame where two
+bodies overlap.</li>
+<li><code>collisionActive</code>: Fired for every frame bodies continue
+to touch.</li>
+<li><code>collisionEnd</code>: Fired immediately after bodies
+separate.</li>
+</ul>
+<p>Attach a test spy or mock function (such as <code>jest.fn()</code> or
+<code>vi.fn()</code>) to the target collision event to record
+occurrences and payload data.</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> onCollisionStart <span class="op">=</span> jest<span class="op">.</span><span class="fu">fn</span>()<span class="op">;</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>Events<span class="op">.</span><span class="fu">on</span>(engine<span class="op">,</span> <span class="st">&#39;collisionStart&#39;</span><span class="op">,</span> onCollisionStart)<span class="op">;</span></span></code></pre></div>
+<h2 id="stepping-the-engine-manually">Stepping the Engine Manually</h2>
+<p>In production, <code>Matter.Runner</code> synchronizes simulation
+steps with the browser frame rate. In automated tests, you should
+advance physics deterministically using
+<code>Engine.update(engine, delta)</code>.</p>
+<p>Provide a fixed delta time (typically <code>1000 / 60</code> for 60
+FPS) to simulate frames:</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Step the simulation forward by one frame (~16.67ms)</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>Engine<span class="op">.</span><span class="fu">update</span>(engine<span class="op">,</span> <span class="dv">1000</span> <span class="op">/</span> <span class="dv">60</span>)<span class="op">;</span></span></code></pre></div>
+<h2 id="complete-test-example">Complete Test Example</h2>
+<p>Below is a complete test using Jest/Vitest that positions two bodies
+directly over each other, steps the engine, and verifies that the
+<code>collisionStart</code> event fired with the correct bodies.</p>
+<div class="sourceCode" id="cb4"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> Matter <span class="im">from</span> <span class="st">&#39;matter-js&#39;</span><span class="op">;</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a><span class="fu">describe</span>(<span class="st">&#39;Matter.js Collision Verification&#39;</span><span class="op">,</span> () <span class="kw">=&gt;</span> {</span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>  <span class="kw">let</span> engine<span class="op">;</span></span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>  <span class="kw">let</span> world<span class="op">;</span></span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a>  <span class="fu">beforeEach</span>(() <span class="kw">=&gt;</span> {</span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a>    engine <span class="op">=</span> Matter<span class="op">.</span><span class="at">Engine</span><span class="op">.</span><span class="fu">create</span>({</span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a>      <span class="dt">gravity</span><span class="op">:</span> { <span class="dt">x</span><span class="op">:</span> <span class="dv">0</span><span class="op">,</span> <span class="dt">y</span><span class="op">:</span> <span class="dv">0</span><span class="op">,</span> <span class="dt">scale</span><span class="op">:</span> <span class="dv">0</span> }</span>
+<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a>    })<span class="op">;</span></span>
+<span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a>    world <span class="op">=</span> engine<span class="op">.</span><span class="at">world</span><span class="op">;</span></span>
+<span id="cb4-12"><a href="#cb4-12" aria-hidden="true" tabindex="-1"></a>  })<span class="op">;</span></span>
+<span id="cb4-13"><a href="#cb4-13" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-14"><a href="#cb4-14" aria-hidden="true" tabindex="-1"></a>  <span class="fu">test</span>(<span class="st">&#39;should fire collisionStart event when bodies intersect&#39;</span><span class="op">,</span> () <span class="kw">=&gt;</span> {</span>
+<span id="cb4-15"><a href="#cb4-15" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> collisionSpy <span class="op">=</span> jest<span class="op">.</span><span class="fu">fn</span>()<span class="op">;</span></span>
+<span id="cb4-16"><a href="#cb4-16" aria-hidden="true" tabindex="-1"></a>    Matter<span class="op">.</span><span class="at">Events</span><span class="op">.</span><span class="fu">on</span>(engine<span class="op">,</span> <span class="st">&#39;collisionStart&#39;</span><span class="op">,</span> collisionSpy)<span class="op">;</span></span>
+<span id="cb4-17"><a href="#cb4-17" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-18"><a href="#cb4-18" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Create two overlapping bodies</span></span>
+<span id="cb4-19"><a href="#cb4-19" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> bodyA <span class="op">=</span> Matter<span class="op">.</span><span class="at">Bodies</span><span class="op">.</span><span class="fu">rectangle</span>(<span class="dv">100</span><span class="op">,</span> <span class="dv">100</span><span class="op">,</span> <span class="dv">50</span><span class="op">,</span> <span class="dv">50</span><span class="op">,</span> { <span class="dt">label</span><span class="op">:</span> <span class="st">&#39;BoxA&#39;</span> })<span class="op">;</span></span>
+<span id="cb4-20"><a href="#cb4-20" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> bodyB <span class="op">=</span> Matter<span class="op">.</span><span class="at">Bodies</span><span class="op">.</span><span class="fu">rectangle</span>(<span class="dv">110</span><span class="op">,</span> <span class="dv">100</span><span class="op">,</span> <span class="dv">50</span><span class="op">,</span> <span class="dv">50</span><span class="op">,</span> { <span class="dt">label</span><span class="op">:</span> <span class="st">&#39;BoxB&#39;</span> })<span class="op">;</span></span>
+<span id="cb4-21"><a href="#cb4-21" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-22"><a href="#cb4-22" aria-hidden="true" tabindex="-1"></a>    Matter<span class="op">.</span><span class="at">World</span><span class="op">.</span><span class="fu">add</span>(world<span class="op">,</span> [bodyA<span class="op">,</span> bodyB])<span class="op">;</span></span>
+<span id="cb4-23"><a href="#cb4-23" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-24"><a href="#cb4-24" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Advance engine by one step</span></span>
+<span id="cb4-25"><a href="#cb4-25" aria-hidden="true" tabindex="-1"></a>    Matter<span class="op">.</span><span class="at">Engine</span><span class="op">.</span><span class="fu">update</span>(engine<span class="op">,</span> <span class="dv">1000</span> <span class="op">/</span> <span class="dv">60</span>)<span class="op">;</span></span>
+<span id="cb4-26"><a href="#cb4-26" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-27"><a href="#cb4-27" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Assert that the collision listener was triggered</span></span>
+<span id="cb4-28"><a href="#cb4-28" aria-hidden="true" tabindex="-1"></a>    <span class="fu">expect</span>(collisionSpy)<span class="op">.</span><span class="fu">toHaveBeenCalledTimes</span>(<span class="dv">1</span>)<span class="op">;</span></span>
+<span id="cb4-29"><a href="#cb4-29" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-30"><a href="#cb4-30" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Inspect the collision event payload</span></span>
+<span id="cb4-31"><a href="#cb4-31" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> eventPayload <span class="op">=</span> collisionSpy<span class="op">.</span><span class="at">mock</span><span class="op">.</span><span class="at">calls</span>[<span class="dv">0</span>][<span class="dv">0</span>]<span class="op">;</span></span>
+<span id="cb4-32"><a href="#cb4-32" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> pair <span class="op">=</span> eventPayload<span class="op">.</span><span class="at">pairs</span>[<span class="dv">0</span>]<span class="op">;</span></span>
+<span id="cb4-33"><a href="#cb4-33" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-34"><a href="#cb4-34" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Matter.js normalizes pairs, so verify both participating bodies</span></span>
+<span id="cb4-35"><a href="#cb4-35" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> bodiesInvolved <span class="op">=</span> [pair<span class="op">.</span><span class="at">bodyA</span><span class="op">.</span><span class="at">label</span><span class="op">,</span> pair<span class="op">.</span><span class="at">bodyB</span><span class="op">.</span><span class="at">label</span>]<span class="op">;</span></span>
+<span id="cb4-36"><a href="#cb4-36" aria-hidden="true" tabindex="-1"></a>    <span class="fu">expect</span>(bodiesInvolved)<span class="op">.</span><span class="fu">toContain</span>(<span class="st">&#39;BoxA&#39;</span>)<span class="op">;</span></span>
+<span id="cb4-37"><a href="#cb4-37" aria-hidden="true" tabindex="-1"></a>    <span class="fu">expect</span>(bodiesInvolved)<span class="op">.</span><span class="fu">toContain</span>(<span class="st">&#39;BoxB&#39;</span>)<span class="op">;</span></span>
+<span id="cb4-38"><a href="#cb4-38" aria-hidden="true" tabindex="-1"></a>  })<span class="op">;</span></span>
+<span id="cb4-39"><a href="#cb4-39" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-40"><a href="#cb4-40" aria-hidden="true" tabindex="-1"></a>  <span class="fu">test</span>(<span class="st">&#39;should fire collisionEnd when bodies separate&#39;</span><span class="op">,</span> () <span class="kw">=&gt;</span> {</span>
+<span id="cb4-41"><a href="#cb4-41" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> collisionEndSpy <span class="op">=</span> jest<span class="op">.</span><span class="fu">fn</span>()<span class="op">;</span></span>
+<span id="cb4-42"><a href="#cb4-42" aria-hidden="true" tabindex="-1"></a>    Matter<span class="op">.</span><span class="at">Events</span><span class="op">.</span><span class="fu">on</span>(engine<span class="op">,</span> <span class="st">&#39;collisionEnd&#39;</span><span class="op">,</span> collisionEndSpy)<span class="op">;</span></span>
+<span id="cb4-43"><a href="#cb4-43" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-44"><a href="#cb4-44" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> bodyA <span class="op">=</span> Matter<span class="op">.</span><span class="at">Bodies</span><span class="op">.</span><span class="fu">rectangle</span>(<span class="dv">100</span><span class="op">,</span> <span class="dv">100</span><span class="op">,</span> <span class="dv">50</span><span class="op">,</span> <span class="dv">50</span>)<span class="op">;</span></span>
+<span id="cb4-45"><a href="#cb4-45" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> bodyB <span class="op">=</span> Matter<span class="op">.</span><span class="at">Bodies</span><span class="op">.</span><span class="fu">rectangle</span>(<span class="dv">100</span><span class="op">,</span> <span class="dv">100</span><span class="op">,</span> <span class="dv">50</span><span class="op">,</span> <span class="dv">50</span>)<span class="op">;</span></span>
+<span id="cb4-46"><a href="#cb4-46" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-47"><a href="#cb4-47" aria-hidden="true" tabindex="-1"></a>    Matter<span class="op">.</span><span class="at">World</span><span class="op">.</span><span class="fu">add</span>(world<span class="op">,</span> [bodyA<span class="op">,</span> bodyB])<span class="op">;</span></span>
+<span id="cb4-48"><a href="#cb4-48" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-49"><a href="#cb4-49" aria-hidden="true" tabindex="-1"></a>    <span class="co">// First step triggers collisionStart</span></span>
+<span id="cb4-50"><a href="#cb4-50" aria-hidden="true" tabindex="-1"></a>    Matter<span class="op">.</span><span class="at">Engine</span><span class="op">.</span><span class="fu">update</span>(engine<span class="op">,</span> <span class="dv">1000</span> <span class="op">/</span> <span class="dv">60</span>)<span class="op">;</span></span>
+<span id="cb4-51"><a href="#cb4-51" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-52"><a href="#cb4-52" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Move bodyB away to resolve the collision</span></span>
+<span id="cb4-53"><a href="#cb4-53" aria-hidden="true" tabindex="-1"></a>    Matter<span class="op">.</span><span class="at">Body</span><span class="op">.</span><span class="fu">setPosition</span>(bodyB<span class="op">,</span> { <span class="dt">x</span><span class="op">:</span> <span class="dv">500</span><span class="op">,</span> <span class="dt">y</span><span class="op">:</span> <span class="dv">500</span> })<span class="op">;</span></span>
+<span id="cb4-54"><a href="#cb4-54" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-55"><a href="#cb4-55" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Next step detects separation and triggers collisionEnd</span></span>
+<span id="cb4-56"><a href="#cb4-56" aria-hidden="true" tabindex="-1"></a>    Matter<span class="op">.</span><span class="at">Engine</span><span class="op">.</span><span class="fu">update</span>(engine<span class="op">,</span> <span class="dv">1000</span> <span class="op">/</span> <span class="dv">60</span>)<span class="op">;</span></span>
+<span id="cb4-57"><a href="#cb4-57" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-58"><a href="#cb4-58" aria-hidden="true" tabindex="-1"></a>    <span class="fu">expect</span>(collisionEndSpy)<span class="op">.</span><span class="fu">toHaveBeenCalledTimes</span>(<span class="dv">1</span>)<span class="op">;</span></span>
+<span id="cb4-59"><a href="#cb4-59" aria-hidden="true" tabindex="-1"></a>  })<span class="op">;</span></span>
+<span id="cb4-60"><a href="#cb4-60" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div>
+<h2 id="best-practices-for-test-reliability">Best Practices for Test
+Reliability</h2>
+<ul>
+<li><strong>Normalize Pair Matching:</strong> When validating
+collisions, do not assume <code>pair.bodyA</code> is your first object
+and <code>pair.bodyB</code> is your second. Matter.js sorts pairs
+internally by body ID. Always assert that the pair contains both items
+regardless of order.</li>
+<li><strong>Assign Labels:</strong> Use the <code>label</code> property
+when creating bodies (e.g.,
+<code>Bodies.rectangle(x, y, w, h, { label: 'Player' })</code>) to make
+test failure logs and assertions readable.</li>
+<li><strong>Isolate Tests:</strong> Re-create the <code>Engine</code>
+instance in a <code>beforeEach</code> hook to avoid state leakage from
+residual bodies or collision pairs between tests.</li>
+</ul></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/matter.js'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/matter.js/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/matter.js/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

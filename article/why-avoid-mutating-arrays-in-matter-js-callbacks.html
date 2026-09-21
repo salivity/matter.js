@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Why Avoid Mutating Arrays in Matter.js Callbacks - matter.js</title>
+    <meta name="description" content="Mutating array lengths directly inside Matter.js event callbacks can destabilize your physics simulation, cause skipped collision checks, and trigger unexpected runtime errors. During events such as collisionStart, collisionActive, or beforeUpdate, the p">
+    <link rel="canonical" href="https://salivity.github.io/matter.js/article/why-avoid-mutating-arrays-in-matter-js-callbacks">
+    <link rel="search" type="application/opensearchdescription+xml" title="matter.js" href="/matter.js/opensearch.xml">
+    <link rel="icon" href="/matter.js/favicon.ico">
+    <link rel="stylesheet" href="/matter.js/css/style.css">
+    <link media="print" rel="stylesheet" href="/matter.js/css/print.css">
+    <script src="/matter.js/js/fuse.min.js"></script>
+    <script src="/matter.js/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Why Avoid Mutating Arrays in Matter.js Callbacks - matter.js" />
+    <meta property="og:url" content="https://salivity.github.io/matter.js/article/why-avoid-mutating-arrays-in-matter-js-callbacks" />
+    <meta property="og:image" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Mutating array lengths directly inside Matter.js event callbacks can destabilize your physics simulation, cause skipped collision checks, and trigger unexpected runtime errors. During events such as collisionStart, collisionActive, or beforeUpdate, the p" />
+    <link rel="manifest" href="/matter.js/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/matter.js/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>matter.js</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/matter.js/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="why-avoid-mutating-arrays-in-matterjs-callbacks">Why Avoid
+Mutating Arrays in Matter.js Callbacks</h1>
+<p>Mutating array lengths directly inside Matter.js event callbacks can
+destabilize your physics simulation, cause skipped collision checks, and
+trigger unexpected runtime errors. During events such as
+<code>collisionStart</code>, <code>collisionActive</code>, or
+<code>beforeUpdate</code>, the physics engine is actively traversing its
+internal lists of bodies, pairs, and constraints. Altering the size of
+these collections mid-iteration disrupts the engine's internal pointers
+and state tracking. To maintain simulation integrity and avoid silent
+failures, any operations that add or remove physics bodies should be
+deferred until the current update step completes.</p>
+<h3 id="how-matterjs-iterates-over-collections">How Matter.js Iterates
+Over Collections</h3>
+<p>Matter.js relies on deterministic loops to process physical
+interactions. In a typical frame, the engine performs several sequential
+phases:</p>
+<ol type="1">
+<li><strong>Broadphase and Narrowphase Detection:</strong> Finding
+potential and actual overlapping body pairs.</li>
+<li><strong>Event Dispatching:</strong> Triggering callbacks like
+<code>collisionStart</code> with a list of active collision pairs.</li>
+<li><strong>Constraint and Velocity Resolution:</strong> Calculating
+impulses and updating body positions.</li>
+</ol>
+<p>When you listen to an event such as <code>collisionStart</code>, the
+engine passes an <code>event</code> object containing an array of
+collision pairs. The engine is either in the middle of looping through
+this collection or preparing to read from linked composite arrays
+immediately afterward.</p>
+<h3 id="the-consequences-of-mutating-array-lengths-mid-callback">The
+Consequences of Mutating Array Lengths Mid-Callback</h3>
+<p>Modifying array lengths inside a callback—either by directly splicing
+an array or calling
+<code>Composite.remove(world, body)</code>—introduces several critical
+problems:</p>
+<ul>
+<li><strong>Index Shifting and Skipped Elements:</strong> If an array is
+being iterated forward with a standard counter and an element is removed
+via <code>splice()</code>, all subsequent elements shift left by one
+index. The iterator then advances past the next immediate element
+without processing it, resulting in dropped collision events and missed
+physics logic.</li>
+<li><strong>Undefined Property Access:</strong> If the engine or your
+custom listener relies on a cached array length, reducing the array size
+causes subsequent loop iterations to look for elements that no longer
+exist. This frequently results in
+<code>TypeError: Cannot read properties of undefined</code>
+crashes.</li>
+<li><strong>Corrupted Broadphase and Pair Caches:</strong> Matter.js
+maintains internal mapping tables (such as <code>pair.id</code>) to
+track collisions across frames. Removing a body or pair directly during
+collision resolution can leave dangling references in the collision
+detector, preventing new collisions from registering or causing
+persistent "ghost" collisions.</li>
+</ul>
+<h3 id="the-deferred-mutation-pattern">The Deferred Mutation
+Pattern</h3>
+<p>The correct approach to adding or removing bodies during an event
+callback is to defer the mutation until the engine has finished
+resolving the current tick.</p>
+<p>Instead of removing an entity immediately inside the callback,
+collect the target entities in a queue, then remove them during the
+<code>afterUpdate</code> event.</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> bodiesToRemove <span class="op">=</span> <span class="kw">new</span> <span class="bu">Set</span>()<span class="op">;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="co">// 1. Mark bodies for removal inside the collision callback</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>Matter<span class="op">.</span><span class="at">Events</span><span class="op">.</span><span class="fu">on</span>(engine<span class="op">,</span> <span class="st">&#39;collisionStart&#39;</span><span class="op">,</span> (<span class="bu">event</span>) <span class="kw">=&gt;</span> {</span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>    <span class="bu">event</span><span class="op">.</span><span class="at">pairs</span><span class="op">.</span><span class="fu">forEach</span>((pair) <span class="kw">=&gt;</span> {</span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> (pair<span class="op">.</span><span class="at">bodyA</span><span class="op">.</span><span class="at">label</span> <span class="op">===</span> <span class="st">&#39;projectile&#39;</span> <span class="op">||</span> pair<span class="op">.</span><span class="at">bodyB</span><span class="op">.</span><span class="at">label</span> <span class="op">===</span> <span class="st">&#39;projectile&#39;</span>) {</span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>            bodiesToRemove<span class="op">.</span><span class="fu">add</span>(pair<span class="op">.</span><span class="at">bodyA</span>)<span class="op">;</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>            bodiesToRemove<span class="op">.</span><span class="fu">add</span>(pair<span class="op">.</span><span class="at">bodyB</span>)<span class="op">;</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>        }</span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>    })<span class="op">;</span></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a><span class="co">// 2. Safely mutate the world array after the physics step completes</span></span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>Matter<span class="op">.</span><span class="at">Events</span><span class="op">.</span><span class="fu">on</span>(engine<span class="op">,</span> <span class="st">&#39;afterUpdate&#39;</span><span class="op">,</span> () <span class="kw">=&gt;</span> {</span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (bodiesToRemove<span class="op">.</span><span class="at">size</span> <span class="op">&gt;</span> <span class="dv">0</span>) {</span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a>        bodiesToRemove<span class="op">.</span><span class="fu">forEach</span>((body) <span class="kw">=&gt;</span> {</span>
+<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a>            Matter<span class="op">.</span><span class="at">Composite</span><span class="op">.</span><span class="fu">remove</span>(engine<span class="op">.</span><span class="at">world</span><span class="op">,</span> body)<span class="op">;</span></span>
+<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a>        })<span class="op">;</span></span>
+<span id="cb1-19"><a href="#cb1-19" aria-hidden="true" tabindex="-1"></a>        bodiesToRemove<span class="op">.</span><span class="fu">clear</span>()<span class="op">;</span></span>
+<span id="cb1-20"><a href="#cb1-20" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb1-21"><a href="#cb1-21" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div>
+<p>Using a <code>Set</code> instead of an array for the removal queue
+automatically handles duplicates if a body is involved in multiple
+collisions during the same tick. Processing removals within
+<code>afterUpdate</code> guarantees that the physics engine has finished
+all loop iterations, position updates, and collision dispatches for the
+current frame, ensuring smooth and error-free execution.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/matter.js'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/matter.js/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/matter.js/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

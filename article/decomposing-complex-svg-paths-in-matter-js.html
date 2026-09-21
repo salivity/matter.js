@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Decomposing Complex SVG Paths in Matter.js - matter.js</title>
+    <meta name="description" content="This guide explains how to convert complex, concave SVG paths into functional rigid bodies in Matter.js using automated convex decomposition. Because 2D physics engines struggle with concave collision detection, complex SVG paths must be converted into c">
+    <link rel="canonical" href="https://salivity.github.io/matter.js/article/decomposing-complex-svg-paths-in-matter-js">
+    <link rel="search" type="application/opensearchdescription+xml" title="matter.js" href="/matter.js/opensearch.xml">
+    <link rel="icon" href="/matter.js/favicon.ico">
+    <link rel="stylesheet" href="/matter.js/css/style.css">
+    <link media="print" rel="stylesheet" href="/matter.js/css/print.css">
+    <script src="/matter.js/js/fuse.min.js"></script>
+    <script src="/matter.js/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Decomposing Complex SVG Paths in Matter.js - matter.js" />
+    <meta property="og:url" content="https://salivity.github.io/matter.js/article/decomposing-complex-svg-paths-in-matter-js" />
+    <meta property="og:image" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This guide explains how to convert complex, concave SVG paths into functional rigid bodies in Matter.js using automated convex decomposition. Because 2D physics engines struggle with concave collision detection, complex SVG paths must be converted into c" />
+    <link rel="manifest" href="/matter.js/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/matter.js/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>matter.js</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/matter.js/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="decomposing-complex-svg-paths-in-matterjs">Decomposing Complex
+SVG Paths in Matter.js</h1>
+<p>This guide explains how to convert complex, concave SVG paths into
+functional rigid bodies in Matter.js using automated convex
+decomposition. Because 2D physics engines struggle with concave
+collision detection, complex SVG paths must be converted into coordinate
+samples and broken down into sets of convex sub-polygons. By integrating
+the <code>poly-decomp</code> library with Matter.js's native vertex and
+SVG modules, you can dynamically transform raw SVG path strings into
+optimized, multi-part compound bodies directly within your
+simulation.</p>
+<h3 id="1-enable-the-convex-decomposition-engine">1. Enable the Convex
+Decomposition Engine</h3>
+<p>Matter.js relies on an external library called
+<code>poly-decomp</code> to execute the Bayazit or Greene decomposition
+algorithms. You must provide <code>poly-decomp</code> to the window
+object or inject it directly into Matter.js before creating bodies from
+non-convex vertices.</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> Matter <span class="im">from</span> <span class="st">&#39;matter-js&#39;</span><span class="op">;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> decomp <span class="im">from</span> <span class="st">&#39;poly-decomp&#39;</span><span class="op">;</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="co">// Attach poly-decomp to Matter.js</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>Matter<span class="op">.</span><span class="at">Common</span><span class="op">.</span><span class="fu">setDecomp</span>(decomp)<span class="op">;</span></span></code></pre></div>
+<p>If using browser <code>&lt;script&gt;</code> tags, ensure
+<code>poly-decomp.js</code> is loaded before <code>matter.js</code>,
+which allows Matter.js to detect it automatically on
+<code>window.decomp</code>.</p>
+<h3 id="2-extract-vertices-from-svg-path-data">2. Extract Vertices from
+SVG Path Data</h3>
+<p>To convert an SVG path string into coordinate data that Matter.js can
+interpret, dynamically create an SVG path element in memory and pass it
+to <code>Matter.Svg.pathToVertices</code>.</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">parseSVGPathToVertices</span>(pathData<span class="op">,</span> sampleResolution <span class="op">=</span> <span class="dv">15</span>) {</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>  <span class="co">// Create an in-memory SVG path element</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> pathElement <span class="op">=</span> <span class="bu">document</span><span class="op">.</span><span class="fu">createElementNS</span>(<span class="st">&#39;http://www.w3.org/2000/svg&#39;</span><span class="op">,</span> <span class="st">&#39;path&#39;</span>)<span class="op">;</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>  pathElement<span class="op">.</span><span class="fu">setAttribute</span>(<span class="st">&#39;d&#39;</span><span class="op">,</span> pathData)<span class="op">;</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>  <span class="co">// Sample points along the SVG path</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>  <span class="co">// Lower sampleResolution means fewer points and better performance</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>  <span class="cf">return</span> Matter<span class="op">.</span><span class="at">Svg</span><span class="op">.</span><span class="fu">pathToVertices</span>(pathElement<span class="op">,</span> sampleResolution)<span class="op">;</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<p><code>sampleResolution</code> determines the distance interval
+between sampled points along the curve. Lowering this value creates
+smoother boundaries at the cost of generating more vertices and
+increasing collision calculation overhead.</p>
+<h3 id="3-generate-the-convex-decomposed-rigid-body">3. Generate the
+Convex Decomposed Rigid Body</h3>
+<p>Pass the generated vertex list to
+<code>Matter.Bodies.fromVertices()</code>. Matter.js uses the injected
+decomposition library to automatically divide concave vertex loops into
+a collection of convex collision hulls, binding them into a single
+compound body.</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">createBodyFromSVG</span>(x<span class="op">,</span> y<span class="op">,</span> pathData<span class="op">,</span> options <span class="op">=</span> {}) {</span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> vertices <span class="op">=</span> <span class="fu">parseSVGPathToVertices</span>(pathData)<span class="op">;</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>  <span class="co">// Automatically decompose concave loops into a compound convex body</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> body <span class="op">=</span> Matter<span class="op">.</span><span class="at">Bodies</span><span class="op">.</span><span class="fu">fromVertices</span>(x<span class="op">,</span> y<span class="op">,</span> vertices<span class="op">,</span> options<span class="op">,</span> <span class="kw">true</span>)<span class="op">;</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>  <span class="cf">return</span> body<span class="op">;</span></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<p>Passing <code>true</code> as the fifth argument
+(<code>flagInternal</code>) marks the internal edges created by the
+decomposition as non-colliding, preventing neighboring convex parts of
+the same body from snagging on edges during collisions.</p>
+<h3 id="4-correct-for-center-of-mass-offsets">4. Correct for Center of
+Mass Offsets</h3>
+<p>When <code>Matter.Bodies.fromVertices</code> calculates a compound
+body, it computes the center of mass based on the geometry and
+automatically resets the origin to that point. This shifts the internal
+body position away from the initial <code>(x, y)</code> target
+coordinates.</p>
+<p>To position the body accurately in relation to your original SVG
+canvas coordinates:</p>
+<div class="sourceCode" id="cb4"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">createAlignedBodyFromSVG</span>(x<span class="op">,</span> y<span class="op">,</span> pathData<span class="op">,</span> options <span class="op">=</span> {}) {</span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> vertices <span class="op">=</span> <span class="fu">parseSVGPathToVertices</span>(pathData)<span class="op">;</span></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> body <span class="op">=</span> Matter<span class="op">.</span><span class="at">Bodies</span><span class="op">.</span><span class="fu">fromVertices</span>(x<span class="op">,</span> y<span class="op">,</span> vertices<span class="op">,</span> options<span class="op">,</span> <span class="kw">true</span>)<span class="op">;</span></span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a>  <span class="co">// Compute the offset between the geometric bounds and the calculated center of mass</span></span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> bounds <span class="op">=</span> Matter<span class="op">.</span><span class="at">Bounds</span><span class="op">.</span><span class="fu">create</span>(vertices)<span class="op">;</span></span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> width <span class="op">=</span> bounds<span class="op">.</span><span class="at">max</span><span class="op">.</span><span class="at">x</span> <span class="op">-</span> bounds<span class="op">.</span><span class="at">min</span><span class="op">.</span><span class="at">x</span><span class="op">;</span></span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> height <span class="op">=</span> bounds<span class="op">.</span><span class="at">max</span><span class="op">.</span><span class="at">y</span> <span class="op">-</span> bounds<span class="op">.</span><span class="at">min</span><span class="op">.</span><span class="at">y</span><span class="op">;</span></span>
+<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a>  <span class="co">// Set the body precisely at the intended coordinates relative to its top-left bound</span></span>
+<span id="cb4-12"><a href="#cb4-12" aria-hidden="true" tabindex="-1"></a>  Matter<span class="op">.</span><span class="at">Body</span><span class="op">.</span><span class="fu">setPosition</span>(body<span class="op">,</span> {</span>
+<span id="cb4-13"><a href="#cb4-13" aria-hidden="true" tabindex="-1"></a>    <span class="dt">x</span><span class="op">:</span> x <span class="op">+</span> width <span class="op">/</span> <span class="dv">2</span><span class="op">,</span></span>
+<span id="cb4-14"><a href="#cb4-14" aria-hidden="true" tabindex="-1"></a>    <span class="dt">y</span><span class="op">:</span> y <span class="op">+</span> height <span class="op">/</span> <span class="dv">2</span></span>
+<span id="cb4-15"><a href="#cb4-15" aria-hidden="true" tabindex="-1"></a>  })<span class="op">;</span></span>
+<span id="cb4-16"><a href="#cb4-16" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-17"><a href="#cb4-17" aria-hidden="true" tabindex="-1"></a>  <span class="cf">return</span> body<span class="op">;</span></span>
+<span id="cb4-18"><a href="#cb4-18" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<h3 id="complete-dynamic-implementation">Complete Dynamic
+Implementation</h3>
+<div class="sourceCode" id="cb5"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> Matter <span class="im">from</span> <span class="st">&#39;matter-js&#39;</span><span class="op">;</span></span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> decomp <span class="im">from</span> <span class="st">&#39;poly-decomp&#39;</span><span class="op">;</span></span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a>Matter<span class="op">.</span><span class="at">Common</span><span class="op">.</span><span class="fu">setDecomp</span>(decomp)<span class="op">;</span></span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> { Engine<span class="op">,</span> Render<span class="op">,</span> Runner<span class="op">,</span> Composite<span class="op">,</span> Bodies<span class="op">,</span> Svg } <span class="op">=</span> Matter<span class="op">;</span></span>
+<span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-8"><a href="#cb5-8" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> engine <span class="op">=</span> Engine<span class="op">.</span><span class="fu">create</span>()<span class="op">;</span></span>
+<span id="cb5-9"><a href="#cb5-9" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> world <span class="op">=</span> engine<span class="op">.</span><span class="at">world</span><span class="op">;</span></span>
+<span id="cb5-10"><a href="#cb5-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-11"><a href="#cb5-11" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> starSVGPath <span class="op">=</span> <span class="st">&quot;M 50,5 L 64,36 L 98,36 L 70,57 L 81,91 L 50,70 L 19,91 L 30,57 L 2,36 L 36,36 Z&quot;</span><span class="op">;</span></span>
+<span id="cb5-12"><a href="#cb5-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-13"><a href="#cb5-13" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">createDecomposedSVG</span>(pathString<span class="op">,</span> x<span class="op">,</span> y<span class="op">,</span> options <span class="op">=</span> {}) {</span>
+<span id="cb5-14"><a href="#cb5-14" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> path <span class="op">=</span> <span class="bu">document</span><span class="op">.</span><span class="fu">createElementNS</span>(<span class="st">&#39;http://www.w3.org/2000/svg&#39;</span><span class="op">,</span> <span class="st">&#39;path&#39;</span>)<span class="op">;</span></span>
+<span id="cb5-15"><a href="#cb5-15" aria-hidden="true" tabindex="-1"></a>  path<span class="op">.</span><span class="fu">setAttribute</span>(<span class="st">&#39;d&#39;</span><span class="op">,</span> pathString)<span class="op">;</span></span>
+<span id="cb5-16"><a href="#cb5-16" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb5-17"><a href="#cb5-17" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> vertices <span class="op">=</span> Svg<span class="op">.</span><span class="fu">pathToVertices</span>(path<span class="op">,</span> <span class="dv">10</span>)<span class="op">;</span></span>
+<span id="cb5-18"><a href="#cb5-18" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb5-19"><a href="#cb5-19" aria-hidden="true" tabindex="-1"></a>  <span class="cf">return</span> Bodies<span class="op">.</span><span class="fu">fromVertices</span>(x<span class="op">,</span> y<span class="op">,</span> vertices<span class="op">,</span> {</span>
+<span id="cb5-20"><a href="#cb5-20" aria-hidden="true" tabindex="-1"></a>    <span class="dt">isStatic</span><span class="op">:</span> <span class="kw">false</span><span class="op">,</span></span>
+<span id="cb5-21"><a href="#cb5-21" aria-hidden="true" tabindex="-1"></a>    <span class="dt">restitution</span><span class="op">:</span> <span class="fl">0.5</span><span class="op">,</span></span>
+<span id="cb5-22"><a href="#cb5-22" aria-hidden="true" tabindex="-1"></a>    <span class="op">...</span>options</span>
+<span id="cb5-23"><a href="#cb5-23" aria-hidden="true" tabindex="-1"></a>  }<span class="op">,</span> <span class="kw">true</span>)<span class="op">;</span></span>
+<span id="cb5-24"><a href="#cb5-24" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb5-25"><a href="#cb5-25" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-26"><a href="#cb5-26" aria-hidden="true" tabindex="-1"></a><span class="co">// Add decomposed SVG body to the simulation</span></span>
+<span id="cb5-27"><a href="#cb5-27" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> dynamicBody <span class="op">=</span> <span class="fu">createDecomposedSVG</span>(starSVGPath<span class="op">,</span> <span class="dv">400</span><span class="op">,</span> <span class="dv">100</span>)<span class="op">;</span></span>
+<span id="cb5-28"><a href="#cb5-28" aria-hidden="true" tabindex="-1"></a>Composite<span class="op">.</span><span class="fu">add</span>(world<span class="op">,</span> dynamicBody)<span class="op">;</span></span></code></pre></div></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/matter.js'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/matter.js/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/matter.js/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

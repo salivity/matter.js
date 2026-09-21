@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Maximum Safe Projectile Speed in Matter.js - matter.js</title>
+    <meta name="description" content="This article explains the maximum safe speed for projectiles in a standard Matter.js physics engine setup, detailing why high-speed objects phase through barriers and how to calculate safe velocity limits. Because Matter.js uses discrete collision detect">
+    <link rel="canonical" href="https://salivity.github.io/matter.js/article/maximum-safe-projectile-speed-in-matter-js">
+    <link rel="search" type="application/opensearchdescription+xml" title="matter.js" href="/matter.js/opensearch.xml">
+    <link rel="icon" href="/matter.js/favicon.ico">
+    <link rel="stylesheet" href="/matter.js/css/style.css">
+    <link media="print" rel="stylesheet" href="/matter.js/css/print.css">
+    <script src="/matter.js/js/fuse.min.js"></script>
+    <script src="/matter.js/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Maximum Safe Projectile Speed in Matter.js - matter.js" />
+    <meta property="og:url" content="https://salivity.github.io/matter.js/article/maximum-safe-projectile-speed-in-matter-js" />
+    <meta property="og:image" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article explains the maximum safe speed for projectiles in a standard Matter.js physics engine setup, detailing why high-speed objects phase through barriers and how to calculate safe velocity limits. Because Matter.js uses discrete collision detect" />
+    <link rel="manifest" href="/matter.js/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/matter.js/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>matter.js</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/matter.js/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="maximum-safe-projectile-speed-in-matterjs">Maximum Safe
+Projectile Speed in Matter.js</h1>
+<p>This article explains the maximum safe speed for projectiles in a
+standard Matter.js physics engine setup, detailing why high-speed
+objects phase through barriers and how to calculate safe velocity
+limits. Because Matter.js uses discrete collision detection by default,
+the safe speed limit is not a fixed universal constant; instead, it is
+directly determined by your simulation frame rate and the physical
+dimensions of the projectile and target colliders.</p>
+<h2 id="the-discrete-collision-limit-tunneling">The Discrete Collision
+Limit (Tunneling)</h2>
+<p>Matter.js relies on discrete collision detection. In each update
+cycle (step), the engine calculates an object's new position based on
+its velocity and immediately checks for overlaps with other bodies. It
+does not trace the path between the old position and the new
+position.</p>
+<p>If an object travels fast enough to move completely through an
+obstacle within a single frame, the engine never detects an overlap.
+This artifact is known as "tunneling." Consequently, the maximum safe
+speed is the threshold where an object cannot jump over another collider
+between two consecutive updates.</p>
+<h2 id="the-safe-speed-formula">The Safe Speed Formula</h2>
+<p>To prevent tunneling without third-party continuous collision
+detection (CCD) plugins, an object's displacement per update must be
+smaller than the minimum thickness of the barrier it is colliding with
+plus the size of the projectile itself.</p>
+<p>The mathematical condition for absolute safety is:</p>
+<p><span class="math display">\[\text{Displacement Per Step} &lt;
+\text{Target Thickness} + \text{Projectile Thickness}\]</span></p>
+<p>Expressed in terms of velocity:</p>
+<p><span class="math display">\[V_{\text{safe}} &lt;
+\frac{T_{\text{target}} + T_{\text{projectile}}}{\Delta t}\]</span></p>
+<p>Where:</p>
+<ul>
+<li><strong><span
+class="math inline">\(V_{\text{safe}}\)</span></strong> is the speed in
+pixels per second.</li>
+<li><strong><span
+class="math inline">\(T_{\text{target}}\)</span></strong> is the
+thickness of the obstacle in pixels along the trajectory.</li>
+<li><strong><span
+class="math inline">\(T_{\text{projectile}}\)</span></strong> is the
+depth or radius of the moving projectile in pixels.</li>
+<li><strong><span class="math inline">\(\Delta t\)</span></strong> is
+the time elapsed per frame in seconds (typically <span
+class="math inline">\(1/60 \approx 0.0167\text{ s}\)</span> for a
+standard 60 Hz display).</li>
+</ul>
+<h2 id="practical-baseline-in-a-default-setup">Practical Baseline in a
+Default Setup</h2>
+<p>In a default browser configuration running at 60 frames per second
+(<span class="math inline">\(\Delta t \approx 16.67\text{
+ms}\)</span>):</p>
+<ul>
+<li><strong>Small Projectile (10px wide) against a standard wall (20px
+wide):</strong> The maximum combined thickness is 30 pixels. The maximum
+speed must stay strictly below <span class="math inline">\(30 \text{ px}
+/ 0.0167 \text{ s} \approx 1800 \text{ px/second}\)</span> (or 30 pixels
+per frame).</li>
+<li><strong>Conservative Rule of Thumb:</strong> To guarantee stable
+collision resolution and bounce physics without penetration glitches, an
+object should not move more than its own radius or half the wall's
+thickness in a single frame. In practice, keeping projectile
+displacement below <strong>10 to 15 pixels per frame</strong> (600 to
+900 pixels per second) provides reliable collisions in standard
+environments.</li>
+</ul>
+<h2 id="how-to-increase-safe-projectile-speeds">How to Increase Safe
+Projectile Speeds</h2>
+<p>If your game mechanics require speeds higher than standard discrete
+limits allow, you can increase the threshold using several
+techniques:</p>
+<ol type="1">
+<li><strong>Substepping:</strong> Instead of running
+<code>Engine.update(engine, 1000 / 60)</code> once per frame, execute
+the update multiple times per frame with a smaller delta (e.g., three
+updates of <span class="math inline">\(\approx 5.55\text{ ms}\)</span>).
+This reduces the per-step displacement by two-thirds without altering
+visual scale.</li>
+<li><strong>Thicker Colliders:</strong> Increase the thickness of
+stationary walls while keeping their visible render sprites thin.
+Alternatively, place invisible buffer sensors around boundaries.</li>
+<li><strong>Swept Volumes and Raycasting:</strong> For extreme
+velocities (such as bullets or laser beams), bypass rigid body
+translation entirely. Cast a ray or generate a temporary polygon
+covering the swept area from the previous frame to the current frame to
+detect impacts before updating positions.</li>
+</ol></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/matter.js'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/matter.js/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/matter.js/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

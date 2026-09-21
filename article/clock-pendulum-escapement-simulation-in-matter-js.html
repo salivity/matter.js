@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Clock Pendulum Escapement Simulation in Matter.js - matter.js</title>
+    <meta name="description" content="This guide explains how to model and simulate a functional clock escapement mechanism driven by a swinging pendulum using Matter.js. You will learn how to construct the escape wheel, assemble the rigid pendulum-anchor body, apply continuous driving torqu">
+    <link rel="canonical" href="https://salivity.github.io/matter.js/article/clock-pendulum-escapement-simulation-in-matter-js">
+    <link rel="search" type="application/opensearchdescription+xml" title="matter.js" href="/matter.js/opensearch.xml">
+    <link rel="icon" href="/matter.js/favicon.ico">
+    <link rel="stylesheet" href="/matter.js/css/style.css">
+    <link media="print" rel="stylesheet" href="/matter.js/css/print.css">
+    <script src="/matter.js/js/fuse.min.js"></script>
+    <script src="/matter.js/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Clock Pendulum Escapement Simulation in Matter.js - matter.js" />
+    <meta property="og:url" content="https://salivity.github.io/matter.js/article/clock-pendulum-escapement-simulation-in-matter-js" />
+    <meta property="og:image" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This guide explains how to model and simulate a functional clock escapement mechanism driven by a swinging pendulum using Matter.js. You will learn how to construct the escape wheel, assemble the rigid pendulum-anchor body, apply continuous driving torqu" />
+    <link rel="manifest" href="/matter.js/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/matter.js/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>matter.js</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/matter.js/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="clock-pendulum-escapement-simulation-in-matterjs">Clock Pendulum
+Escapement Simulation in Matter.js</h1>
+<p>This guide explains how to model and simulate a functional clock
+escapement mechanism driven by a swinging pendulum using Matter.js. You
+will learn how to construct the escape wheel, assemble the rigid
+pendulum-anchor body, apply continuous driving torque, and tune
+collision parameters to maintain sustained periodic oscillation without
+jamming.</p>
+<hr />
+<h3 id="1-conceptual-architecture">1. Conceptual Architecture</h3>
+<p>A mechanical clock escapement consists of two primary interacting
+components:</p>
+<ul>
+<li><strong>The Escape Wheel:</strong> A toothed gear driven by a
+constant clockwise or counterclockwise torque (simulating a hanging
+weight or coiled spring).</li>
+<li><strong>The Pendulum and Anchor Assembly:</strong> A pendulum
+connected rigidly to an anchor with two pallets (entry and exit). As the
+pendulum swings, the pallets alternately lock and release the teeth of
+the escape wheel. During each release, the tooth slides along the
+impulse face of the pallet, pushing it and transferring enough kinetic
+energy to the pendulum to overcome friction.</li>
+</ul>
+<p>In Matter.js, achieving this requires rigid-body compounding, pin
+constraints, collision filtering, and continuous torque application.</p>
+<hr />
+<h3 id="2-creating-the-escape-wheel">2. Creating the Escape Wheel</h3>
+<p>The escape wheel needs distinct, asymmetrical teeth that can push
+against the anchor pallets.</p>
+<ol type="1">
+<li><strong>Compound Geometry:</strong> Generate an array of angled
+teeth using <code>Matter.Bodies.rectangle</code> or
+<code>Matter.Bodies.fromVertices</code>, positioned radially around a
+central hub.</li>
+<li><strong>Combine into a Single Body:</strong> Use
+<code>Matter.Body.create({ parts: [...] })</code> to bind the hub and
+teeth into one rigid body.</li>
+<li><strong>Pin the Wheel:</strong> Fasten the wheel to the canvas with
+a zero-length <code>Matter.Constraint</code> with high stiffness
+(<code>stiffness: 1</code>) to act as a central axle.</li>
+</ol>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> wheelRadius <span class="op">=</span> <span class="dv">100</span><span class="op">;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> teethCount <span class="op">=</span> <span class="dv">12</span><span class="op">;</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> teethParts <span class="op">=</span> [Matter<span class="op">.</span><span class="at">Bodies</span><span class="op">.</span><span class="fu">circle</span>(centerX<span class="op">,</span> centerY<span class="op">,</span> wheelRadius <span class="op">*</span> <span class="fl">0.8</span>)]<span class="op">;</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> (<span class="kw">let</span> i <span class="op">=</span> <span class="dv">0</span><span class="op">;</span> i <span class="op">&lt;</span> teethCount<span class="op">;</span> i<span class="op">++</span>) {</span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> angle <span class="op">=</span> (i <span class="op">/</span> teethCount) <span class="op">*</span> <span class="bu">Math</span><span class="op">.</span><span class="cn">PI</span> <span class="op">*</span> <span class="dv">2</span><span class="op">;</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> x <span class="op">=</span> centerX <span class="op">+</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">cos</span>(angle) <span class="op">*</span> wheelRadius<span class="op">;</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> y <span class="op">=</span> centerY <span class="op">+</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">sin</span>(angle) <span class="op">*</span> wheelRadius<span class="op">;</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> tooth <span class="op">=</span> Matter<span class="op">.</span><span class="at">Bodies</span><span class="op">.</span><span class="fu">rectangle</span>(x<span class="op">,</span> y<span class="op">,</span> <span class="dv">10</span><span class="op">,</span> <span class="dv">25</span><span class="op">,</span> {</span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>        <span class="dt">angle</span><span class="op">:</span> angle <span class="op">+</span> <span class="fl">0.4</span> <span class="co">// slant the teeth to create an impulse face</span></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>    })<span class="op">;</span></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>    teethParts<span class="op">.</span><span class="fu">push</span>(tooth)<span class="op">;</span></span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> escapeWheel <span class="op">=</span> Matter<span class="op">.</span><span class="at">Body</span><span class="op">.</span><span class="fu">create</span>({</span>
+<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a>    <span class="dt">parts</span><span class="op">:</span> teethParts<span class="op">,</span></span>
+<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a>    <span class="dt">friction</span><span class="op">:</span> <span class="fl">0.05</span><span class="op">,</span></span>
+<span id="cb1-19"><a href="#cb1-19" aria-hidden="true" tabindex="-1"></a>    <span class="dt">restitution</span><span class="op">:</span> <span class="fl">0.0</span></span>
+<span id="cb1-20"><a href="#cb1-20" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span>
+<span id="cb1-21"><a href="#cb1-21" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-22"><a href="#cb1-22" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> wheelAxle <span class="op">=</span> Matter<span class="op">.</span><span class="at">Constraint</span><span class="op">.</span><span class="fu">create</span>({</span>
+<span id="cb1-23"><a href="#cb1-23" aria-hidden="true" tabindex="-1"></a>    <span class="dt">pointA</span><span class="op">:</span> { <span class="dt">x</span><span class="op">:</span> centerX<span class="op">,</span> centerY }<span class="op">,</span></span>
+<span id="cb1-24"><a href="#cb1-24" aria-hidden="true" tabindex="-1"></a>    <span class="dt">bodyB</span><span class="op">:</span> escapeWheel<span class="op">,</span></span>
+<span id="cb1-25"><a href="#cb1-25" aria-hidden="true" tabindex="-1"></a>    <span class="dt">pointB</span><span class="op">:</span> { <span class="dt">x</span><span class="op">:</span> <span class="dv">0</span><span class="op">,</span> <span class="dt">y</span><span class="op">:</span> <span class="dv">0</span> }<span class="op">,</span></span>
+<span id="cb1-26"><a href="#cb1-26" aria-hidden="true" tabindex="-1"></a>    <span class="dt">stiffness</span><span class="op">:</span> <span class="dv">1</span><span class="op">,</span></span>
+<span id="cb1-27"><a href="#cb1-27" aria-hidden="true" tabindex="-1"></a>    <span class="dt">length</span><span class="op">:</span> <span class="dv">0</span></span>
+<span id="cb1-28"><a href="#cb1-28" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div>
+<hr />
+<h3 id="3-assembling-the-pendulum-and-anchor">3. Assembling the Pendulum
+and Anchor</h3>
+<p>The anchor and pendulum must move as a unified rigid unit around a
+single pivot located directly above the escape wheel.</p>
+<ol type="1">
+<li><strong>Pendulum Structure:</strong> Build a long rod and a dense
+bob using <code>Matter.Bodies.rectangle</code> and
+<code>Matter.Bodies.circle</code>.</li>
+<li><strong>Anchor Pallets:</strong> Attach two curved or angled arms
+extending across the top of the escape wheel. The geometry must ensure
+that when the left pallet clears a tooth, the right pallet catches
+another.</li>
+<li><strong>Unified Body:</strong> Combine the anchor, rod, and bob into
+a single body using <code>Matter.Body.create()</code>.</li>
+<li><strong>Pivot Point:</strong> Anchor the assembly slightly above the
+escape wheel with a revolute constraint.</li>
+</ol>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> pivotX <span class="op">=</span> centerX<span class="op">;</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> pivotY <span class="op">=</span> centerY <span class="op">-</span> <span class="dv">120</span><span class="op">;</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a><span class="co">// Pallet arms spanning the wheel</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> leftPallet <span class="op">=</span> Matter<span class="op">.</span><span class="at">Bodies</span><span class="op">.</span><span class="fu">rectangle</span>(pivotX <span class="op">-</span> <span class="dv">50</span><span class="op">,</span> pivotY <span class="op">+</span> <span class="dv">40</span><span class="op">,</span> <span class="dv">12</span><span class="op">,</span> <span class="dv">35</span><span class="op">,</span> { <span class="dt">angle</span><span class="op">:</span> <span class="op">-</span><span class="fl">0.6</span> })<span class="op">;</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> rightPallet <span class="op">=</span> Matter<span class="op">.</span><span class="at">Bodies</span><span class="op">.</span><span class="fu">rectangle</span>(pivotX <span class="op">+</span> <span class="dv">50</span><span class="op">,</span> pivotY <span class="op">+</span> <span class="dv">40</span><span class="op">,</span> <span class="dv">12</span><span class="op">,</span> <span class="dv">35</span><span class="op">,</span> { <span class="dt">angle</span><span class="op">:</span> <span class="fl">0.6</span> })<span class="op">;</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> pendulumRod <span class="op">=</span> Matter<span class="op">.</span><span class="at">Bodies</span><span class="op">.</span><span class="fu">rectangle</span>(pivotX<span class="op">,</span> pivotY <span class="op">+</span> <span class="dv">150</span><span class="op">,</span> <span class="dv">6</span><span class="op">,</span> <span class="dv">300</span>)<span class="op">;</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> pendulumBob <span class="op">=</span> Matter<span class="op">.</span><span class="at">Bodies</span><span class="op">.</span><span class="fu">circle</span>(pivotX<span class="op">,</span> pivotY <span class="op">+</span> <span class="dv">300</span><span class="op">,</span> <span class="dv">30</span><span class="op">,</span> { <span class="dt">density</span><span class="op">:</span> <span class="fl">0.05</span> })<span class="op">;</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> pendulumAssembly <span class="op">=</span> Matter<span class="op">.</span><span class="at">Body</span><span class="op">.</span><span class="fu">create</span>({</span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>    <span class="dt">parts</span><span class="op">:</span> [leftPallet<span class="op">,</span> rightPallet<span class="op">,</span> pendulumRod<span class="op">,</span> pendulumBob]<span class="op">,</span></span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>    <span class="dt">friction</span><span class="op">:</span> <span class="fl">0.05</span><span class="op">,</span></span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>    <span class="dt">restitution</span><span class="op">:</span> <span class="fl">0.0</span></span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> pendulumPivot <span class="op">=</span> Matter<span class="op">.</span><span class="at">Constraint</span><span class="op">.</span><span class="fu">create</span>({</span>
+<span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a>    <span class="dt">pointA</span><span class="op">:</span> { <span class="dt">x</span><span class="op">:</span> pivotX<span class="op">,</span> <span class="dt">y</span><span class="op">:</span> pivotY }<span class="op">,</span></span>
+<span id="cb2-18"><a href="#cb2-18" aria-hidden="true" tabindex="-1"></a>    <span class="dt">bodyB</span><span class="op">:</span> pendulumAssembly<span class="op">,</span></span>
+<span id="cb2-19"><a href="#cb2-19" aria-hidden="true" tabindex="-1"></a>    <span class="dt">pointB</span><span class="op">:</span> { <span class="dt">x</span><span class="op">:</span> <span class="dv">0</span><span class="op">,</span> <span class="dt">y</span><span class="op">:</span> <span class="op">-</span><span class="dv">150</span> }<span class="op">,</span> <span class="co">// relative offset to pivot position</span></span>
+<span id="cb2-20"><a href="#cb2-20" aria-hidden="true" tabindex="-1"></a>    <span class="dt">stiffness</span><span class="op">:</span> <span class="dv">1</span><span class="op">,</span></span>
+<span id="cb2-21"><a href="#cb2-21" aria-hidden="true" tabindex="-1"></a>    <span class="dt">length</span><span class="op">:</span> <span class="dv">0</span></span>
+<span id="cb2-22"><a href="#cb2-22" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div>
+<hr />
+<h3 id="4-driving-the-mechanism">4. Driving the Mechanism</h3>
+<p>A standard physics simulation quickly loses momentum due to numerical
+damping and friction. To keep the clock running, you must simulate the
+clockwork drive force.</p>
+<p>Use the <code>beforeUpdate</code> engine event to apply continuous
+torque to the escape wheel:</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a>Matter<span class="op">.</span><span class="at">Events</span><span class="op">.</span><span class="fu">on</span>(engine<span class="op">,</span> <span class="st">&#39;beforeUpdate&#39;</span><span class="op">,</span> () <span class="kw">=&gt;</span> {</span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Apply constant rotational drive to the escape wheel</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>    escapeWheel<span class="op">.</span><span class="at">torque</span> <span class="op">=</span> <span class="fl">0.15</span><span class="op">;</span> </span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div>
+<p>When the wheel's tooth slides across the pallet, this torque delivers
+a mechanical impulse directly to the pendulum.</p>
+<hr />
+<h3 id="5-critical-tuning-parameters">5. Critical Tuning Parameters</h3>
+<ol type="1">
+<li><strong>Restitution (Bounciness):</strong> Set
+<code>restitution: 0.0</code> or near-zero on both the wheel teeth and
+the anchor pallets. High restitution causes the anchor to bounce
+erratically off the teeth, causing phase errors or jams.</li>
+<li><strong>Friction:</strong> Keep static and kinetic friction low
+(<code>0.01</code> to <code>0.05</code>) between the pallets and the
+teeth to prevent the escape wheel from binding.</li>
+<li><strong>Engine Iterations:</strong> In complex high-speed contacts,
+vertices can tunnel through thin geometry. Increase simulation fidelity
+to prevent the teeth from passing through the pallets:
+<div class="sourceCode" id="cb4"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a>engine<span class="op">.</span><span class="at">positionIterations</span> <span class="op">=</span> <span class="dv">12</span><span class="op">;</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>engine<span class="op">.</span><span class="at">velocityIterations</span> <span class="op">=</span> <span class="dv">10</span><span class="op">;</span></span></code></pre></div></li>
+<li><strong>Pendulum Periodicity:</strong> The swing period (<span
+class="math inline">\(T\)</span>) relies primarily on the distance
+between the pivot and the center of mass of the pendulum assembly,
+governed by the pendulum equation <span class="math inline">\(T \approx
+2\pi\sqrt{L/g}\)</span>. Adjust the length of the pendulum rod and the
+bob's mass to control the beat rate of your clock.</li>
+</ol></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/matter.js'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/matter.js/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/matter.js/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

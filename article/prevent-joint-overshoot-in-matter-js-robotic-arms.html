@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Prevent Joint Overshoot in Matter.js Robotic Arms - matter.js</title>
+    <meta name="description" content="Simulating robotic arm joints in Matter.js often leads to aggressive overshoot and high-frequency hunting oscillations due to rigid-body constraint stiffness, discretized integration steps, and poorly tuned control loops. This article covers the fundamen">
+    <link rel="canonical" href="https://salivity.github.io/matter.js/article/prevent-joint-overshoot-in-matter-js-robotic-arms">
+    <link rel="search" type="application/opensearchdescription+xml" title="matter.js" href="/matter.js/opensearch.xml">
+    <link rel="icon" href="/matter.js/favicon.ico">
+    <link rel="stylesheet" href="/matter.js/css/style.css">
+    <link media="print" rel="stylesheet" href="/matter.js/css/print.css">
+    <script src="/matter.js/js/fuse.min.js"></script>
+    <script src="/matter.js/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Prevent Joint Overshoot in Matter.js Robotic Arms - matter.js" />
+    <meta property="og:url" content="https://salivity.github.io/matter.js/article/prevent-joint-overshoot-in-matter-js-robotic-arms" />
+    <meta property="og:image" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Simulating robotic arm joints in Matter.js often leads to aggressive overshoot and high-frequency hunting oscillations due to rigid-body constraint stiffness, discretized integration steps, and poorly tuned control loops. This article covers the fundamen" />
+    <link rel="manifest" href="/matter.js/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/matter.js/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>matter.js</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/matter.js/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="prevent-joint-overshoot-in-matterjs-robotic-arms">Prevent Joint
+Overshoot in Matter.js Robotic Arms</h1>
+<p>Simulating robotic arm joints in Matter.js often leads to aggressive
+overshoot and high-frequency hunting oscillations due to rigid-body
+constraint stiffness, discretized integration steps, and poorly tuned
+control loops. This article covers the fundamental strategies to
+stabilize your joints, including configuring constraint damping,
+applying an error deadband, implementing a derivative-damped control
+loop, and refining the Matter.js solver settings.</p>
+<h3 id="1-tune-constraint-stiffness-and-damping">1. Tune Constraint
+Stiffness and Damping</h3>
+<p>When connecting links of a robotic arm using Matter.js
+<code>Constraint</code> instances, high stiffness without sufficient
+damping causes energy to persist in the system indefinitely. By default,
+constraints act like near-perfect springs.</p>
+<ul>
+<li><strong>Lower the Stiffness:</strong> Avoid setting
+<code>stiffness: 1.0</code> unless using an external custom velocity
+controller. Instead, set <code>stiffness</code> to a value between
+<code>0.1</code> and <code>0.6</code> to allow minor elasticity that
+absorbs sudden shock loads.</li>
+<li><strong>Increase Constraint Damping:</strong> Set the
+<code>damping</code> property explicitly (e.g., between
+<code>0.05</code> and <code>0.2</code>). This dissipates kinetic energy
+as the constraint approaches its rest length or angle, preventing the
+joint from snapping back and forth.</li>
+</ul>
+<h3 id="2-introduce-a-target-deadband">2. Introduce a Target
+Deadband</h3>
+<p>Hunting oscillations frequently occur when a controller continuously
+tries to correct micro-errors smaller than the physics engine's
+positional precision. When the joint reaches the target, a tiny
+numerical discrepancy causes the controller to reverse direction,
+creating an endless jitter.</p>
+<p>To eliminate hunting, apply an angular deadband threshold:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> angleError <span class="op">=</span> targetAngle <span class="op">-</span> currentAngle<span class="op">;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> deadband <span class="op">=</span> <span class="fl">0.005</span><span class="op">;</span> <span class="co">// Radians (~0.3 degrees)</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> (<span class="bu">Math</span><span class="op">.</span><span class="fu">abs</span>(angleError) <span class="op">&lt;</span> deadband) {</span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Disable torque application when within the threshold</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>    Matter<span class="op">.</span><span class="at">Body</span><span class="op">.</span><span class="fu">setAngularVelocity</span>(jointBody<span class="op">,</span> <span class="dv">0</span>)<span class="op">;</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>} <span class="cf">else</span> {</span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Apply normal control logic</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<h3 id="3-implement-a-pd-proportional-derivative-control-loop">3.
+Implement a PD (Proportional-Derivative) Control Loop</h3>
+<p>If you control joints by directly applying torque
+(<code>body.torque</code>) or setting angular velocity, a purely
+proportional (P) response will consistently overshoot the target
+position. Adding a derivative (D) term acts as a predictive brake by
+measuring the rate of change of the error.</p>
+<ul>
+<li><strong>Proportional Term (<span
+class="math inline">\(K_p\)</span>):</strong> Drives the arm toward the
+target based on distance.</li>
+<li><strong>Derivative Term (<span
+class="math inline">\(K_d\)</span>):</strong> Counteracts movement as
+the current angle rapidly approaches the target, slowing the joint down
+smoothly before contact.</li>
+</ul>
+<p>Clamp the maximum output torque or angular velocity to ensure large
+position errors do not inject uncontrollable impulses into the physics
+engine.</p>
+<h3 id="4-adjust-matterjs-engine-iterations-and-timesteps">4. Adjust
+Matter.js Engine Iterations and Timesteps</h3>
+<p>Matter.js relies on iterative constraint solving. If the engine
+cannot resolve constraint positions within the default number of
+iterations, the remaining positional error gets carried over to the next
+frame as unexpected kinetic energy, exacerbating oscillations.</p>
+<ul>
+<li><strong>Increase Solver Iterations:</strong> Update the engine
+configuration to use higher iteration counts for more rigid, stable
+joints:
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a>engine<span class="op">.</span><span class="at">positionIterations</span> <span class="op">=</span> <span class="dv">10</span><span class="op">;</span> <span class="co">// Default is 6</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>engine<span class="op">.</span><span class="at">velocityIterations</span> <span class="op">=</span> <span class="dv">8</span><span class="op">;</span>  <span class="co">// Default is 4</span></span></code></pre></div></li>
+<li><strong>Use Fixed Timesteps:</strong> Avoid variable delta times
+derived from <code>requestAnimationFrame</code>. Pass a fixed delta
+(e.g., <code>1000 / 60</code> for 60Hz) to
+<code>Engine.update(engine, delta)</code> to keep the integration math
+predictable and free from frame-rate-dependent spikes.</li>
+</ul></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/matter.js'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/matter.js/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/matter.js/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

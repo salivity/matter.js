@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Orbital Insertion Delta-V Maneuvers in Matter.js - matter.js</title>
+    <meta name="description" content="This article explains how to calculate and execute orbital insertion delta-v maneuvers within the Matter.js 2D physics engine. You will learn the underlying orbital mechanics required to determine the necessary velocity change ($\Delta v$) for capture, h">
+    <link rel="canonical" href="https://salivity.github.io/matter.js/article/orbital-insertion-delta-v-maneuvers-in-matter-js">
+    <link rel="search" type="application/opensearchdescription+xml" title="matter.js" href="/matter.js/opensearch.xml">
+    <link rel="icon" href="/matter.js/favicon.ico">
+    <link rel="stylesheet" href="/matter.js/css/style.css">
+    <link media="print" rel="stylesheet" href="/matter.js/css/print.css">
+    <script src="/matter.js/js/fuse.min.js"></script>
+    <script src="/matter.js/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Orbital Insertion Delta-V Maneuvers in Matter.js - matter.js" />
+    <meta property="og:url" content="https://salivity.github.io/matter.js/article/orbital-insertion-delta-v-maneuvers-in-matter-js" />
+    <meta property="og:image" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article explains how to calculate and execute orbital insertion delta-v maneuvers within the Matter.js 2D physics engine. You will learn the underlying orbital mechanics required to determine the necessary velocity change ($\Delta v$) for capture, h" />
+    <link rel="manifest" href="/matter.js/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/matter.js/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>matter.js</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/matter.js/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="orbital-insertion-delta-v-maneuvers-in-matterjs">Orbital
+Insertion Delta-V Maneuvers in Matter.js</h1>
+<p>This article explains how to calculate and execute orbital insertion
+delta-v maneuvers within the Matter.js 2D physics engine. You will learn
+the underlying orbital mechanics required to determine the necessary
+velocity change (<span class="math inline">\(\Delta v\)</span>) for
+capture, how to determine burn direction, and how to translate those
+calculations into body impulses using the Matter.js API.</p>
+<hr />
+<h3 id="1-setting-up-the-gravitational-model">1. Setting Up the
+Gravitational Model</h3>
+<p>Matter.js defaults to uniform downward gravity. For orbital
+mechanics, disable the world's default gravity and apply a radial
+gravitational force toward a central body (such as a planet) on every
+engine update:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a>engine<span class="op">.</span><span class="at">gravity</span><span class="op">.</span><span class="at">scale</span> <span class="op">=</span> <span class="dv">0</span><span class="op">;</span> <span class="co">// Disable default gravity</span></span></code></pre></div>
+<p>Apply Newton's law of universal gravitation inside an event
+listener:</p>
+<p><span class="math display">\[\vec{F}_g = - \frac{G \cdot M \cdot
+m}{r^2} \hat{r}\]</span></p>
+<p>In Matter.js code:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a>Matter<span class="op">.</span><span class="at">Events</span><span class="op">.</span><span class="fu">on</span>(engine<span class="op">,</span> <span class="st">&#39;beforeUpdate&#39;</span><span class="op">,</span> () <span class="kw">=&gt;</span> {</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> rVector <span class="op">=</span> {</span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>        <span class="dt">x</span><span class="op">:</span> planet<span class="op">.</span><span class="at">position</span><span class="op">.</span><span class="at">x</span> <span class="op">-</span> craft<span class="op">.</span><span class="at">position</span><span class="op">.</span><span class="at">x</span><span class="op">,</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>        <span class="dt">y</span><span class="op">:</span> planet<span class="op">.</span><span class="at">position</span><span class="op">.</span><span class="at">y</span> <span class="op">-</span> craft<span class="op">.</span><span class="at">position</span><span class="op">.</span><span class="at">y</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>    }<span class="op">;</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> distance <span class="op">=</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">hypot</span>(rVector<span class="op">.</span><span class="at">x</span><span class="op">,</span> rVector<span class="op">.</span><span class="at">y</span>)<span class="op">;</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> forceMagnitude <span class="op">=</span> (G <span class="op">*</span> planet<span class="op">.</span><span class="at">mass</span> <span class="op">*</span> craft<span class="op">.</span><span class="at">mass</span>) <span class="op">/</span> (distance <span class="op">*</span> distance)<span class="op">;</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> force <span class="op">=</span> {</span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>        <span class="dt">x</span><span class="op">:</span> (rVector<span class="op">.</span><span class="at">x</span> <span class="op">/</span> distance) <span class="op">*</span> forceMagnitude<span class="op">,</span></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>        <span class="dt">y</span><span class="op">:</span> (rVector<span class="op">.</span><span class="at">y</span> <span class="op">/</span> distance) <span class="op">*</span> forceMagnitude</span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>    }<span class="op">;</span></span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a>    Matter<span class="op">.</span><span class="at">Body</span><span class="op">.</span><span class="fu">applyForce</span>(craft<span class="op">,</span> craft<span class="op">.</span><span class="at">position</span><span class="op">,</span> force)<span class="op">;</span></span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div>
+<p>Here, <span class="math inline">\(\mu = G \cdot M\)</span> represents
+the standard gravitational parameter of the central attractor.</p>
+<hr />
+<h3 id="2-calculating-the-required-delta-v">2. Calculating the Required
+Delta-V</h3>
+<p>An orbital insertion maneuver transitions a spacecraft from an
+unbound trajectory (hyperbolic) or an eccentric transfer orbit into a
+stable, closed orbit (typically circular or elliptical) around the
+target body.</p>
+<p>The velocity <span class="math inline">\(v\)</span> at any point in a
+Keplerian orbit is given by the Vis-viva equation:</p>
+<p><span class="math display">\[v = \sqrt{\mu \left( \frac{2}{r} -
+\frac{1}{a} \right)}\]</span></p>
+<p>Where:</p>
+<ul>
+<li><span class="math inline">\(\mu\)</span> is the gravitational
+parameter (<span class="math inline">\(G \times
+\text{planet.mass}\)</span>).</li>
+<li><span class="math inline">\(r\)</span> is the current distance to
+the planet center.</li>
+<li><span class="math inline">\(a\)</span> is the semi-major axis of the
+target orbit.</li>
+</ul>
+<h4 id="case-circular-orbit-insertion-at-periapsis">Case: Circular Orbit
+Insertion at Periapsis</h4>
+<p>To capture into a circular orbit at the current radius <span
+class="math inline">\(r\)</span>, the target semi-major axis is <span
+class="math inline">\(a = r\)</span>. The required circular velocity
+<span class="math inline">\(v_{circ}\)</span> is:</p>
+<p><span class="math display">\[v_{circ} =
+\sqrt{\frac{\mu}{r}}\]</span></p>
+<p>If your spacecraft arrives at periapsis with a scalar speed <span
+class="math inline">\(v_{current}\)</span>, the magnitude of the
+required delta-v is:</p>
+<p><span class="math display">\[\Delta v = v_{circ} -
+v_{current}\]</span></p>
+<p>Because <span class="math inline">\(v_{current} &gt;
+v_{circ}\)</span>, <span class="math inline">\(\Delta v\)</span> will be
+negative, meaning a retrograde (braking) burn is required.</p>
+<hr />
+<h3 id="3-converting-delta-v-to-a-matterjs-impulse">3. Converting
+Delta-V to a Matter.js Impulse</h3>
+<p>An impulse (<span class="math inline">\(\vec{J}\)</span>) represents
+an instantaneous change in linear momentum:</p>
+<p><span class="math display">\[\vec{J} = m \cdot \Delta
+\vec{v}\]</span></p>
+<p>Where:</p>
+<ul>
+<li><span class="math inline">\(m\)</span> is the craft’s mass
+(<code>craft.mass</code>).</li>
+<li><span class="math inline">\(\Delta \vec{v}\)</span> is the delta-v
+vector aligned with or against the craft's current velocity vector.</li>
+</ul>
+<h4 id="step-by-step-implementation">Step-by-Step Implementation</h4>
+<ol type="1">
+<li><strong>Calculate the current speed and unit vector:</strong></li>
+</ol>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> vx <span class="op">=</span> craft<span class="op">.</span><span class="at">velocity</span><span class="op">.</span><span class="at">x</span><span class="op">;</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> vy <span class="op">=</span> craft<span class="op">.</span><span class="at">velocity</span><span class="op">.</span><span class="at">y</span><span class="op">;</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> currentSpeed <span class="op">=</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">hypot</span>(vx<span class="op">,</span> vy)<span class="op">;</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a><span class="co">// Tangential unit vector (prograde)</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> progradeUnit <span class="op">=</span> {</span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>    <span class="dt">x</span><span class="op">:</span> vx <span class="op">/</span> currentSpeed<span class="op">,</span></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>    <span class="dt">y</span><span class="op">:</span> vy <span class="op">/</span> currentSpeed</span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a>}<span class="op">;</span></span></code></pre></div>
+<ol start="2" type="1">
+<li><strong>Compute the delta-v scalar:</strong></li>
+</ol>
+<div class="sourceCode" id="cb4"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> distance <span class="op">=</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">hypot</span>(</span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>    planet<span class="op">.</span><span class="at">position</span><span class="op">.</span><span class="at">x</span> <span class="op">-</span> craft<span class="op">.</span><span class="at">position</span><span class="op">.</span><span class="at">x</span><span class="op">,</span></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>    planet<span class="op">.</span><span class="at">position</span><span class="op">.</span><span class="at">y</span> <span class="op">-</span> craft<span class="op">.</span><span class="at">position</span><span class="op">.</span><span class="at">y</span></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>)<span class="op">;</span></span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> mu <span class="op">=</span> G <span class="op">*</span> planet<span class="op">.</span><span class="at">mass</span><span class="op">;</span></span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> targetSpeed <span class="op">=</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">sqrt</span>(mu <span class="op">/</span> distance)<span class="op">;</span> <span class="co">// Circular insertion speed</span></span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> deltaV <span class="op">=</span> targetSpeed <span class="op">-</span> currentSpeed<span class="op">;</span> <span class="co">// Negative value for retrograde</span></span></code></pre></div>
+<ol start="3" type="1">
+<li><strong>Apply the impulse vector to the body:</strong></li>
+</ol>
+<p>In Matter.js, an impulse can be applied either by updating the
+velocity directly via <code>Matter.Body.setVelocity</code> or by
+applying a discrete force scaled to engine delta time. Directly
+modifying velocity is the most precise method for instantaneous
+impulses:</p>
+<div class="sourceCode" id="cb5"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Method A: Direct velocity adjustment (Exact Impulse)</span></span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a>Matter<span class="op">.</span><span class="at">Body</span><span class="op">.</span><span class="fu">setVelocity</span>(craft<span class="op">,</span> {</span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a>    <span class="dt">x</span><span class="op">:</span> craft<span class="op">.</span><span class="at">velocity</span><span class="op">.</span><span class="at">x</span> <span class="op">+</span> progradeUnit<span class="op">.</span><span class="at">x</span> <span class="op">*</span> deltaV<span class="op">,</span></span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a>    <span class="dt">y</span><span class="op">:</span> craft<span class="op">.</span><span class="at">velocity</span><span class="op">.</span><span class="at">y</span> <span class="op">+</span> progradeUnit<span class="op">.</span><span class="at">y</span> <span class="op">*</span> deltaV</span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div>
+<p>If you prefer using <code>Matter.Body.applyForce</code>, an impulse
+<span class="math inline">\(\vec{J}\)</span> maps to a force <span
+class="math inline">\(\vec{F}\)</span> applied over one simulation tick
+(<span class="math inline">\(\Delta t\)</span>):</p>
+<p><span class="math display">\[\vec{F} = \frac{\vec{J}}{\Delta t} =
+\frac{m \cdot \Delta \vec{v}}{\Delta t}\]</span></p>
+<div class="sourceCode" id="cb6"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Method B: Using applyForce over a single step</span></span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> deltaT <span class="op">=</span> engine<span class="op">.</span><span class="at">timing</span><span class="op">.</span><span class="at">delta</span><span class="op">;</span> <span class="co">// Engine step in milliseconds (default: 16.666ms)</span></span>
+<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> impulseX <span class="op">=</span> craft<span class="op">.</span><span class="at">mass</span> <span class="op">*</span> (progradeUnit<span class="op">.</span><span class="at">x</span> <span class="op">*</span> deltaV)<span class="op">;</span></span>
+<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> impulseY <span class="op">=</span> craft<span class="op">.</span><span class="at">mass</span> <span class="op">*</span> (progradeUnit<span class="op">.</span><span class="at">y</span> <span class="op">*</span> deltaV)<span class="op">;</span></span>
+<span id="cb6-5"><a href="#cb6-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-6"><a href="#cb6-6" aria-hidden="true" tabindex="-1"></a>Matter<span class="op">.</span><span class="at">Body</span><span class="op">.</span><span class="fu">applyForce</span>(craft<span class="op">,</span> craft<span class="op">.</span><span class="at">position</span><span class="op">,</span> {</span>
+<span id="cb6-7"><a href="#cb6-7" aria-hidden="true" tabindex="-1"></a>    <span class="dt">x</span><span class="op">:</span> impulseX <span class="op">/</span> deltaT<span class="op">,</span></span>
+<span id="cb6-8"><a href="#cb6-8" aria-hidden="true" tabindex="-1"></a>    <span class="dt">y</span><span class="op">:</span> impulseY <span class="op">/</span> deltaT</span>
+<span id="cb6-9"><a href="#cb6-9" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div>
+<hr />
+<h3 id="4-non-circular-elliptical-insertions">4. Non-Circular
+(Elliptical) Insertions</h3>
+<p>If the desired target is an elliptical orbit with a specified
+apoapsis radius (<span class="math inline">\(r_a\)</span>) and periapsis
+radius (<span class="math inline">\(r_p\)</span>), the target semi-major
+axis is:</p>
+<p><span class="math display">\[a = \frac{r_a + r_p}{2}\]</span></p>
+<p>Substituting <span class="math inline">\(a\)</span> into the Vis-viva
+equation gives the necessary insertion speed at periapsis:</p>
+<p><span class="math display">\[v_{target} = \sqrt{\mu \left(
+\frac{2}{r_p} - \frac{1}{a} \right)}\]</span></p>
+<p>Then calculate <span class="math inline">\(\Delta v = v_{target} -
+v_{current}\)</span> and execute the velocity update at periapsis using
+the same impulse method.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/matter.js'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/matter.js/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/matter.js/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

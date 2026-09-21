@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Matter.js Floating-Point Desync Causes - matter.js</title>
+    <meta name="description" content="Deterministic physics simulations in networked environments require every connected client to calculate identical states from the same inputs. When using Matter.js, a 2D physics engine written in JavaScript, developers frequently encounter desynchronizat">
+    <link rel="canonical" href="https://salivity.github.io/matter.js/article/matter-js-floating-point-desync-causes">
+    <link rel="search" type="application/opensearchdescription+xml" title="matter.js" href="/matter.js/opensearch.xml">
+    <link rel="icon" href="/matter.js/favicon.ico">
+    <link rel="stylesheet" href="/matter.js/css/style.css">
+    <link media="print" rel="stylesheet" href="/matter.js/css/print.css">
+    <script src="/matter.js/js/fuse.min.js"></script>
+    <script src="/matter.js/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Matter.js Floating-Point Desync Causes - matter.js" />
+    <meta property="og:url" content="https://salivity.github.io/matter.js/article/matter-js-floating-point-desync-causes" />
+    <meta property="og:image" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Deterministic physics simulations in networked environments require every connected client to calculate identical states from the same inputs. When using Matter.js, a 2D physics engine written in JavaScript, developers frequently encounter desynchronizat" />
+    <link rel="manifest" href="/matter.js/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/matter.js/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>matter.js</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/matter.js/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="matterjs-floating-point-desync-causes">Matter.js Floating-Point
+Desync Causes</h1>
+<p>Deterministic physics simulations in networked environments require
+every connected client to calculate identical states from the same
+inputs. When using Matter.js, a 2D physics engine written in JavaScript,
+developers frequently encounter desynchronization issues in multiplayer
+scenarios. This article explains the core floating-point discrepancies
+that break determinism across clients—such as cross-engine mathematical
+variations, non-associative operation ordering, and non-standardized
+transcendental functions—and how these micro-differences compound within
+Matter.js to cause divergent simulations.</p>
+<h3 id="non-standardized-transcendental-functions">Non-Standardized
+Transcendental Functions</h3>
+<p>JavaScript relies on the IEEE 754 standard for double-precision
+binary floating-point arithmetic (<code>Float64</code>). However, the
+ECMAScript specification does not mandate bit-for-bit identical results
+for transcendental mathematical operations found in the global
+<code>Math</code> object, such as <code>Math.sin</code>,
+<code>Math.cos</code>, <code>Math.atan2</code>, and
+<code>Math.sqrt</code>.</p>
+<p>Matter.js relies heavily on these methods for vector rotations,
+orientation updates, and collision manifold calculations. Because
+different JavaScript engines (V8 in Chromium/Node.js, JavaScriptCore in
+Safari, and SpiderMonkey in Firefox) utilize different underlying C/C++
+libraries and CPU-specific instructions to evaluate these functions, the
+calculated angles and normalized vectors can vary by the least
+significant bits. Over successive frames, this microscopic variance
+alters collision normal vectors and body orientations, quickly leading
+to client divergence.</p>
+<h3 id="hardware-and-architecture-level-differences">Hardware and
+Architecture-Level Differences</h3>
+<p>Even when running the exact same browser version, hardware-level
+architecture variations between client devices introduce floating-point
+drift:</p>
+<ul>
+<li><strong>x86 vs. ARM:</strong> ARM processors and x86_64 processors
+handle specific rounding modes, denormal numbers, and fused multiply-add
+(FMA) instructions differently.</li>
+<li><strong>FMA Instructions:</strong> A fused multiply-add computes
+<code>(a * b) + c</code> with a single rounding step at the end. Without
+FMA, the operation incurs two separate roundings: first on
+multiplication, then on addition. If a browser running on modern
+hardware optimizes vector dot-products using FMA while another client
+does not, the outputs will deviate.</li>
+</ul>
+<h3 id="non-associative-floating-point-arithmetic">Non-Associative
+Floating-Point Arithmetic</h3>
+<p>In pure mathematics, addition is associative:
+<code>(a + b) + c = a + (b + c)</code>. In floating-point arithmetic,
+this equality does not hold due to continuous rounding:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a>(<span class="fl">0.1</span> <span class="op">+</span> <span class="fl">0.2</span>) <span class="op">+</span> <span class="fl">0.3</span> <span class="op">!==</span> <span class="fl">0.1</span> <span class="op">+</span> (<span class="fl">0.2</span> <span class="op">+</span> <span class="fl">0.3</span>)</span></code></pre></div>
+<p>Matter.js iterates through arrays of bodies, constraints, and
+collision pairs to resolve forces and impulses. If the insertion order
+of bodies or collision events differs between clients, the iterative
+solver computes contact forces in a different sequence. Accumulating
+impulses in a different order results in different rounding outcomes at
+each step.</p>
+<h3 id="iterative-solver-and-the-butterfly-effect">Iterative Solver and
+the Butterfly Effect</h3>
+<p>Matter.js uses an iterative sequential impulse solver to resolve
+collisions and constraints. The engine performs multiple iterations
+(controlled by <code>positionIterations</code> and
+<code>velocityIterations</code>) per time step to satisfy physical
+constraints.</p>
+<p>Because the solver is iterative, an error as small as
+<code>1e-16</code> in position or velocity during iteration one affects
+the relative velocities calculated in iteration two. By the end of a
+single frame, a tiny precision discrepancy can determine whether two
+bodies separate cleanly or remain in contact. Within several frames,
+this creates entirely divergent game states—such as a collision
+registering on Client A while missing entirely on Client B.</p>
+<h3 id="variable-delta-times">Variable Delta Times</h3>
+<p>Although not strictly a floating-point bug, passing variable frame
+deltas to <code>Engine.update(engine, delta)</code> exacerbates
+floating-point discrepancies. If client frame rates fluctuate,
+<code>delta</code> values will vary across clients.</p>
+<p>Because floating-point calculations scale non-linearly with
+fractional multipliers, simulating one frame at 32 milliseconds does not
+produce the same mathematical result as simulating two frames at 16
+milliseconds.</p>
+<h3 id="solutions-to-prevent-desynchronization">Solutions to Prevent
+Desynchronization</h3>
+<p>To achieve deterministic state synchronization with Matter.js across
+heterogeneous clients, consider the following strategies:</p>
+<ul>
+<li><strong>Fixed Timestep Simulation:</strong> Enforce a strictly
+constant time step (e.g., exactly 16.666ms) inside
+<code>Engine.update()</code> across all clients, completely decoupling
+physics updates from rendering frame rates.</li>
+<li><strong>Math Polyfills:</strong> Replace non-deterministic native
+<code>Math</code> methods (<code>Math.sin</code>, <code>Math.cos</code>,
+<code>Math.sqrt</code>) with deterministic software implementations or
+look-up tables (LUTs) that guarantee bitwise reproducibility across all
+platforms.</li>
+<li><strong>Fixed-Point Arithmetic:</strong> For mission-critical
+determinism, avoid native floating-point math altogether by implementing
+a fixed-point integer mathematics layer for position, rotation, and
+velocity.</li>
+<li><strong>Server Authority and Snapshots:</strong> Instead of relying
+on full peer-to-peer deterministic simulation, adopt a client-prediction
+model with authoritative server reconciliation, where the server
+regularly broadcasts authoritative position, angle, and velocity
+snapshots to correct client drift.</li>
+</ul></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/matter.js'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/matter.js/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/matter.js/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

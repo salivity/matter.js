@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simulate Bridge Resonance and Buckling in Matter.js - matter.js</title>
+    <meta name="description" content="This article explains how to simulate harmonic resonance leading to structural buckling in a truss bridge using the Matter.js 2D physics engine. Because Matter.js is a rigid-body physics engine rather than a finite element analysis tool, modeling structu">
+    <link rel="canonical" href="https://salivity.github.io/matter.js/article/simulate-bridge-resonance-and-buckling-in-matter-js">
+    <link rel="search" type="application/opensearchdescription+xml" title="matter.js" href="/matter.js/opensearch.xml">
+    <link rel="icon" href="/matter.js/favicon.ico">
+    <link rel="stylesheet" href="/matter.js/css/style.css">
+    <link media="print" rel="stylesheet" href="/matter.js/css/print.css">
+    <script src="/matter.js/js/fuse.min.js"></script>
+    <script src="/matter.js/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Simulate Bridge Resonance and Buckling in Matter.js - matter.js" />
+    <meta property="og:url" content="https://salivity.github.io/matter.js/article/simulate-bridge-resonance-and-buckling-in-matter-js" />
+    <meta property="og:image" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article explains how to simulate harmonic resonance leading to structural buckling in a truss bridge using the Matter.js 2D physics engine. Because Matter.js is a rigid-body physics engine rather than a finite element analysis tool, modeling structu" />
+    <link rel="manifest" href="/matter.js/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/matter.js/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>matter.js</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/matter.js/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="simulate-bridge-resonance-and-buckling-in-matterjs">Simulate
+Bridge Resonance and Buckling in Matter.js</h1>
+<p>This article explains how to simulate harmonic resonance leading to
+structural buckling in a truss bridge using the Matter.js 2D physics
+engine. Because Matter.js is a rigid-body physics engine rather than a
+finite element analysis tool, modeling structural failure requires
+combining elastic constraints with custom threshold logic. You will
+learn how to assemble a bridge framework, apply an oscillating driving
+frequency to induce resonance, and dynamically break or weaken
+structural members when critical compressive stress is reached.</p>
+<h3 id="1-constructing-the-truss-framework">1. Constructing the Truss
+Framework</h3>
+<p>A bridge requires nodes (joints) and members (beams). In Matter.js,
+represent nodes using small, circular rigid bodies
+(<code>Matter.Bodies.circle</code>) and members using distance
+constraints (<code>Matter.Constraint.create</code>).</p>
+<p>To build a stable bridge, arrange the nodes into interconnected
+triangles, such as a Warren or Pratt truss:</p>
+<ul>
+<li>Create bottom chord nodes and top chord nodes.</li>
+<li>Connect horizontal, vertical, and diagonal nodes with
+constraints.</li>
+<li>Set the constraint <code>stiffness</code> to a high value (e.g.,
+<code>0.9</code> to <code>1.0</code>) to emulate rigid steel or
+timber.</li>
+<li>Anchor the bridge by marking the base end-nodes as static
+(<code>isStatic: true</code>), simulating abutments.</li>
+</ul>
+<h3 id="2-tuning-structural-damping">2. Tuning Structural Damping</h3>
+<p>Resonance occurs when the rate of energy input exceeds the rate of
+energy dissipation. Matter.js constraints include a <code>damping</code>
+property. To allow resonant energy to accumulate:</p>
+<ul>
+<li>Set constraint <code>damping</code> to an extremely low value (e.g.,
+<code>0.0005</code> to <code>0.001</code>).</li>
+<li>Keep air friction (<code>frictionAir</code>) on the node bodies low
+(e.g., <code>0.001</code>) to prevent rapid kinetic energy loss.</li>
+</ul>
+<h3 id="3-applying-the-periodic-driving-force">3. Applying the Periodic
+Driving Force</h3>
+<p>Harmonic resonance requires applying a periodic force matching the
+natural frequency of the structure. Use the <code>beforeUpdate</code>
+engine event to apply a sinusoidal vertical or horizontal load to a
+central node:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">let</span> time <span class="op">=</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> drivingFrequency <span class="op">=</span> <span class="fl">1.2</span><span class="op">;</span> <span class="co">// Frequency in Hertz (adjust to match bridge mode)</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> forceAmplitude <span class="op">=</span> <span class="fl">0.05</span><span class="op">;</span>  <span class="co">// Magnitude of the force</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>Matter<span class="op">.</span><span class="at">Events</span><span class="op">.</span><span class="fu">on</span>(engine<span class="op">,</span> <span class="st">&#39;beforeUpdate&#39;</span><span class="op">,</span> (<span class="bu">event</span>) <span class="kw">=&gt;</span> {</span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>    time <span class="op">+=</span> engine<span class="op">.</span><span class="at">timing</span><span class="op">.</span><span class="at">delta</span> <span class="op">/</span> <span class="dv">1000</span><span class="op">;</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> forceY <span class="op">=</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">sin</span>(<span class="dv">2</span> <span class="op">*</span> <span class="bu">Math</span><span class="op">.</span><span class="cn">PI</span> <span class="op">*</span> drivingFrequency <span class="op">*</span> time) <span class="op">*</span> forceAmplitude<span class="op">;</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>    Matter<span class="op">.</span><span class="at">Body</span><span class="op">.</span><span class="fu">applyForce</span>(targetNode<span class="op">,</span> targetNode<span class="op">.</span><span class="at">position</span><span class="op">,</span> {</span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>        <span class="dt">x</span><span class="op">:</span> <span class="dv">0</span><span class="op">,</span></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>        <span class="dt">y</span><span class="op">:</span> forceY</span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>    })<span class="op">;</span></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div>
+<p>To find the natural frequency, apply an initial impulse to the bridge
+without an active driver, measure the oscillation period of the center
+node across several cycles, and compute <span class="math inline">\(f =
+1 / T\)</span>. Set <code>drivingFrequency</code> to this value.</p>
+<h3 id="4-simulating-member-buckling">4. Simulating Member Buckling</h3>
+<p>In structural engineering, buckling occurs when a member undergoes
+compressive stress exceeding Euler's critical load. Matter.js
+constraints do not natively buckle or snap, so you must evaluate stress
+per frame:</p>
+<ol type="1">
+<li><strong>Calculate Deformation</strong>: In each frame, iterate
+through all bridge constraints and calculate the distance between
+<code>bodyA</code> and <code>bodyB</code>.</li>
+<li><strong>Determine Compression</strong>: Compare the current distance
+with the constraint's original <code>length</code>. If
+<code>currentDistance &lt; length</code>, the member is under
+compression.</li>
+<li><strong>Trigger Buckling</strong>: If the compression exceeds a
+specific threshold (e.g., compressed by more than 8% to 15% of its
+resting length), trigger failure.</li>
+</ol>
+<p>Failure can be simulated in two ways:</p>
+<ul>
+<li><strong>Catastrophic Failure (Snap)</strong>: Remove the constraint
+entirely from the world using
+<code>Matter.Composite.remove(world, constraint)</code>.</li>
+<li><strong>Plastic/Elastic Buckling (Yield)</strong>: Instantly lower
+the constraint's <code>stiffness</code> to a near-zero value (e.g.,
+<code>0.05</code>) and lengthen its resting <code>length</code>,
+mimicking a bent beam unable to sustain loads.</li>
+</ul>
+<h3 id="5-executing-the-collapse">5. Executing the Collapse</h3>
+<p>As the driving force continuously inputs energy at the resonant
+frequency, the bridge's displacement amplitude increases with each
+cycle. Eventually, the most stressed chord or diagonal member reaches
+its critical compression limit and buckles. The loss of that single load
+path immediately redistributes forces to adjacent members, causing a
+progressive cascade of failures throughout the truss structure.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/matter.js'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/matter.js/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/matter.js/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

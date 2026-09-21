@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Calculate Compound Body Mass in Matter.js - matter.js</title>
+    <meta name="description" content="This article explains how to determine the total mass of a compound body in Matter.js. You will learn how Matter.js natively handles mass aggregation across multiple shapes, how to read the total mass directly from the body instance, and how to manually">
+    <link rel="canonical" href="https://salivity.github.io/matter.js/article/calculate-compound-body-mass-in-matter-js">
+    <link rel="search" type="application/opensearchdescription+xml" title="matter.js" href="/matter.js/opensearch.xml">
+    <link rel="icon" href="/matter.js/favicon.ico">
+    <link rel="stylesheet" href="/matter.js/css/style.css">
+    <link media="print" rel="stylesheet" href="/matter.js/css/print.css">
+    <script src="/matter.js/js/fuse.min.js"></script>
+    <script src="/matter.js/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Calculate Compound Body Mass in Matter.js - matter.js" />
+    <meta property="og:url" content="https://salivity.github.io/matter.js/article/calculate-compound-body-mass-in-matter-js" />
+    <meta property="og:image" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article explains how to determine the total mass of a compound body in Matter.js. You will learn how Matter.js natively handles mass aggregation across multiple shapes, how to read the total mass directly from the body instance, and how to manually" />
+    <link rel="manifest" href="/matter.js/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/matter.js/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>matter.js</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/matter.js/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="calculate-compound-body-mass-in-matterjs">Calculate Compound
+Body Mass in Matter.js</h1>
+<p>This article explains how to determine the total mass of a compound
+body in Matter.js. You will learn how Matter.js natively handles mass
+aggregation across multiple shapes, how to read the total mass directly
+from the body instance, and how to manually calculate or recalculate the
+combined mass using the body's individual constituent parts.</p>
+<hr />
+<h3 id="direct-access-via-the-parent-body">Direct Access via the Parent
+Body</h3>
+<p>Matter.js automatically computes the total mass of a compound body
+when it is initialized or when its parts are updated. In a compound
+body, the parent container stores the aggregated mass of all attached
+sub-shapes.</p>
+<p>You can read the total mass directly via the <code>mass</code>
+property:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Access the total combined mass</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> totalMass <span class="op">=</span> compoundBody<span class="op">.</span><span class="at">mass</span><span class="op">;</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(<span class="vs">`Total Mass: </span><span class="sc">${</span>totalMass<span class="sc">}</span><span class="vs">`</span>)<span class="op">;</span></span></code></pre></div>
+<p>When you define a compound body using
+<code>Body.create({ parts: [...] })</code>, the physics engine
+calculates the mass of each individual part based on its area and
+density, sums them together, and assigns the result to the main body's
+<code>mass</code> property.</p>
+<hr />
+<h3 id="manually-calculating-mass-from-sub-parts">Manually Calculating
+Mass from Sub-Parts</h3>
+<p>If you need to verify or manually compute the sum of the masses, you
+must access the body's <code>parts</code> array.</p>
+<p>In Matter.js, <code>body.parts</code> contains all elements of the
+compound body, but <strong><code>body.parts[0]</code> is always a
+self-reference to the parent body itself</strong>. The actual physical
+sub-shapes start at index 1.</p>
+<p>To calculate the total mass manually, exclude the first element and
+sum the <code>mass</code> of the remaining parts:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">calculateCompoundMass</span>(body) {</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>    <span class="co">// If the body has no child parts, return its own mass</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (<span class="op">!</span>body<span class="op">.</span><span class="at">parts</span> <span class="op">||</span> body<span class="op">.</span><span class="at">parts</span><span class="op">.</span><span class="at">length</span> <span class="op">&lt;=</span> <span class="dv">1</span>) {</span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> body<span class="op">.</span><span class="at">mass</span><span class="op">;</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Slice from index 1 to ignore the parent reference</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> childParts <span class="op">=</span> body<span class="op">.</span><span class="at">parts</span><span class="op">.</span><span class="fu">slice</span>(<span class="dv">1</span>)<span class="op">;</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Sum the mass of each part</span></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> totalMass <span class="op">=</span> childParts<span class="op">.</span><span class="fu">reduce</span>((accumulator<span class="op">,</span> part) <span class="kw">=&gt;</span> {</span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> accumulator <span class="op">+</span> part<span class="op">.</span><span class="at">mass</span><span class="op">;</span></span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>    }<span class="op">,</span> <span class="dv">0</span>)<span class="op">;</span></span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> totalMass<span class="op">;</span></span>
+<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-18"><a href="#cb2-18" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> calculatedMass <span class="op">=</span> <span class="fu">calculateCompoundMass</span>(compoundBody)<span class="op">;</span></span>
+<span id="cb2-19"><a href="#cb2-19" aria-hidden="true" tabindex="-1"></a><span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(<span class="vs">`Calculated Total Mass: </span><span class="sc">${</span>calculatedMass<span class="sc">}</span><span class="vs">`</span>)<span class="op">;</span></span></code></pre></div>
+<hr />
+<h3 id="updating-mass-when-parts-change">Updating Mass When Parts
+Change</h3>
+<p>If you modify the density or size of an individual part after
+creating a compound body, the parent body's total mass will not update
+automatically. To recalculate the mass, re-apply the parts to the parent
+body using <code>Body.setParts()</code>:</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> { Body } <span class="op">=</span> Matter<span class="op">;</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a><span class="co">// Modify a specific part&#39;s density</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>Body<span class="op">.</span><span class="fu">setDensity</span>(compoundBody<span class="op">.</span><span class="at">parts</span>[<span class="dv">1</span>]<span class="op">,</span> <span class="fl">0.005</span>)<span class="op">;</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a><span class="co">// Re-apply parts to recalculate total mass, center of mass, and inertia</span></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>Body<span class="op">.</span><span class="fu">setParts</span>(compoundBody<span class="op">,</span> compoundBody<span class="op">.</span><span class="at">parts</span>)<span class="op">;</span></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a><span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(<span class="vs">`Updated Total Mass: </span><span class="sc">${</span>compoundBody<span class="op">.</span><span class="at">mass</span><span class="sc">}</span><span class="vs">`</span>)<span class="op">;</span></span></code></pre></div>
+<p>Alternatively, you can manually override the entire compound body's
+mass using <code>Body.setMass(compoundBody, newMass)</code>, which
+scales the mass and inertia without altering individual part
+geometries.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/matter.js'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/matter.js/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/matter.js/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How Matter.Pairs.update Preserves Contacts - matter.js</title>
+    <meta name="description" content="In Matter.js, Matter.Pairs.update maintains the state of colliding rigid bodies across successive frames by caching, updating, and pruning contact pairs. Rather than reallocating collision records every frame, this method matches fresh collision detectio">
+    <link rel="canonical" href="https://salivity.github.io/matter.js/article/how-matter-pairs-update-preserves-contacts">
+    <link rel="search" type="application/opensearchdescription+xml" title="matter.js" href="/matter.js/opensearch.xml">
+    <link rel="icon" href="/matter.js/favicon.ico">
+    <link rel="stylesheet" href="/matter.js/css/style.css">
+    <link media="print" rel="stylesheet" href="/matter.js/css/print.css">
+    <script src="/matter.js/js/fuse.min.js"></script>
+    <script src="/matter.js/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How Matter.Pairs.update Preserves Contacts - matter.js" />
+    <meta property="og:url" content="https://salivity.github.io/matter.js/article/how-matter-pairs-update-preserves-contacts" />
+    <meta property="og:image" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="In Matter.js, Matter.Pairs.update maintains the state of colliding rigid bodies across successive frames by caching, updating, and pruning contact pairs. Rather than reallocating collision records every frame, this method matches fresh collision detectio" />
+    <link rel="manifest" href="/matter.js/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/matter.js/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>matter.js</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/matter.js/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="how-matterpairsupdate-preserves-contacts">How
+Matter.Pairs.update Preserves Contacts</h1>
+<p>In Matter.js, <code>Matter.Pairs.update</code> maintains the state of
+colliding rigid bodies across successive frames by caching, updating,
+and pruning contact pairs. Rather than reallocating collision records
+every frame, this method matches fresh collision detections against an
+internal hash table of existing pairs. This persistence mechanism
+enables accurate collision event lifecycles—such as distinguishing when
+collisions start, persist, or end—and allows the engine to preserve
+accumulated impulse data necessary for warm-starting the constraint
+solver and eliminating physical jitter.</p>
+<h3 id="deterministic-pair-indexing">Deterministic Pair Indexing</h3>
+<p>Contact persistence relies on consistent identification of
+interacting bodies. During the broadphase and narrowphase steps,
+collision detectors evaluate interactions between bodies. When a
+collision occurs between two objects, Matter.js derives a deterministic
+string identifier via <code>Pair.id(bodyA, bodyB)</code>. This
+identifier orders body IDs canonically (ensuring that an interaction
+between Body A and Body B produces the same key regardless of argument
+order).</p>
+<p><code>Matter.Pairs</code> maintains a lookup table
+(<code>pairs.table</code>) indexed by these keys. During
+<code>Pairs.update</code>, incoming collisions are checked against
+<code>pairs.table</code> to determine whether the contact is newly
+formed or already established.</p>
+<h3 id="in-place-state-mutation">In-Place State Mutation</h3>
+<p>When a collision matches an existing entry in
+<code>pairs.table</code>:</p>
+<ol type="1">
+<li><strong>Object Retention:</strong> The engine does not instantiate a
+new <code>Pair</code> object. It updates the existing reference with new
+geometric data, including the collision normal, penetration depth, and
+contact points calculated by the Separating Axis Theorem (SAT).</li>
+<li><strong>Lifecycle Flagging:</strong> The pair's
+<code>isActive</code> flag is maintained, and internal timestamps
+(<code>timeUpdated</code>) are refreshed to match the current engine
+tick. This avoids the garbage collection overhead associated with
+allocating new objects on every physics step.</li>
+<li><strong>Event Classification:</strong> By comparing the current
+active pairs with those from the previous frame, the system determines
+which contacts trigger <code>collisionStart</code>, which continue as
+<code>collisionActive</code>, and which are removed to fire
+<code>collisionEnd</code>.</li>
+</ol>
+<h3 id="impulse-preservation-and-warm-starting">Impulse Preservation and
+Warm Starting</h3>
+<p>Preserving contact pairs across frames is critical for physical
+stability. The iterative constraint solver in Matter.js resolves resting
+contacts, stacking, and friction by accumulating impulses over multiple
+iterations.</p>
+<p>Because <code>Pairs.update</code> mutates existing pair references
+instead of replacing them, the engine retains previously calculated
+normal and tangential impulses. The constraint solver utilizes these
+stored values as an initial guess for the next frame—a technique known
+as warm starting. Warm starting significantly improves convergence
+rates, prevents bodies from sinking into one another, and stops resting
+stacks from jittering.</p>
+<h3 id="pruning-inactive-contacts">Pruning Inactive Contacts</h3>
+<p>To ensure memory does not leak and non-colliding bodies do not retain
+phantom contacts, <code>Matter.Pairs.update</code> tracks pair
+validity:</p>
+<ul>
+<li>Any pair in <code>pairs.table</code> that does not receive a
+matching collision during the narrowphase update is flagged as
+inactive.</li>
+<li>Inactive pairs are removed from the active <code>pairs.list</code>
+array and scheduled for cleanup.</li>
+<li>Once removed, the engine fires the corresponding separation events,
+and the stored impulse counters are discarded, resetting the contact
+state for any future interactions between those two bodies.</li>
+</ul></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/matter.js'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/matter.js/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/matter.js/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

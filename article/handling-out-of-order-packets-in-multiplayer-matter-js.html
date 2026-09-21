@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Handling Out-of-Order Packets in Multiplayer Matter.js - matter.js</title>
+    <meta name="description" content="In real-time multiplayer games using Matter.js, network variance and unreliable transport protocols frequently cause state packets to arrive late or out of sequence. This article outlines practical strategies for identifying, filtering, and buffering out">
+    <link rel="canonical" href="https://salivity.github.io/matter.js/article/handling-out-of-order-packets-in-multiplayer-matter-js">
+    <link rel="search" type="application/opensearchdescription+xml" title="matter.js" href="/matter.js/opensearch.xml">
+    <link rel="icon" href="/matter.js/favicon.ico">
+    <link rel="stylesheet" href="/matter.js/css/style.css">
+    <link media="print" rel="stylesheet" href="/matter.js/css/print.css">
+    <script src="/matter.js/js/fuse.min.js"></script>
+    <script src="/matter.js/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Handling Out-of-Order Packets in Multiplayer Matter.js - matter.js" />
+    <meta property="og:url" content="https://salivity.github.io/matter.js/article/handling-out-of-order-packets-in-multiplayer-matter-js" />
+    <meta property="og:image" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="In real-time multiplayer games using Matter.js, network variance and unreliable transport protocols frequently cause state packets to arrive late or out of sequence. This article outlines practical strategies for identifying, filtering, and buffering out" />
+    <link rel="manifest" href="/matter.js/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/matter.js/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>matter.js</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/matter.js/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="handling-out-of-order-packets-in-multiplayer-matterjs">Handling
+Out-of-Order Packets in Multiplayer Matter.js</h1>
+<p>In real-time multiplayer games using Matter.js, network variance and
+unreliable transport protocols frequently cause state packets to arrive
+late or out of sequence. This article outlines practical strategies for
+identifying, filtering, and buffering out-of-order physics snapshots to
+prevent visual stuttering, physics desynchronization, and erratic body
+movements on the client.</p>
+<h3 id="1-packet-sequencing-and-drop-policies">1. Packet Sequencing and
+Drop Policies</h3>
+<p>The simplest way to handle disordered packets is to discard any
+packet that represents a state older than the one most recently
+processed.</p>
+<ul>
+<li><strong>Assign Monotonic Identifiers:</strong> Attach an
+incrementing integer <code>sequenceNumber</code> or a high-precision
+<code>serverTimestamp</code> to every physics packet sent from the
+authoritative server.</li>
+<li><strong>Filter Stale States:</strong> The client maintains a
+<code>latestProcessedSequence</code> variable. When a packet arrives:
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> (packet<span class="op">.</span><span class="at">sequenceNumber</span> <span class="op">&lt;=</span> latestProcessedSequence) {</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Discard older or duplicate packet</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span><span class="op">;</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>latestProcessedSequence <span class="op">=</span> packet<span class="op">.</span><span class="at">sequenceNumber</span><span class="op">;</span></span></code></pre></div></li>
+<li><strong>Handle Integer Wrap-Around:</strong> If using standard
+16-bit or 32-bit integers, account for sequence wrapping using modular
+arithmetic before discarding.</li>
+</ul>
+<p>This approach works best for low-latency setups where packet loss is
+low and dropped frames do not cause visible hitching.</p>
+<h3 id="2-implementation-of-an-interpolation-buffer">2. Implementation
+of an Interpolation Buffer</h3>
+<p>Relying solely on dropping late packets can lead to stutter if
+network jitter causes bursts of packets. Instead, hold incoming packets
+in a client-side buffer and play them back on a slight delay (typically
+50–100ms behind the server).</p>
+<ol type="1">
+<li><strong>Store Snapshots in an Array:</strong> Place incoming packets
+into an array, inserting them in order based on their
+<code>timestamp</code> rather than arrival time.</li>
+<li><strong>Sort on Insertion:</strong> When an out-of-order packet
+arrives, insert it into its correct chronological position in the
+buffer. If its timestamp is already older than the current render time,
+discard it.</li>
+<li><strong>Render via Interpolation:</strong> Render the game state at
+<code>renderTime = currentTime - interpolationDelay</code>. Locate the
+two snapshots in the buffer that surround <code>renderTime</code> and
+smoothly interpolate the position and angle:
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> alpha <span class="op">=</span> (renderTime <span class="op">-</span> snapA<span class="op">.</span><span class="at">timestamp</span>) <span class="op">/</span> (snapB<span class="op">.</span><span class="at">timestamp</span> <span class="op">-</span> snapA<span class="op">.</span><span class="at">timestamp</span>)<span class="op">;</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> x <span class="op">=</span> snapA<span class="op">.</span><span class="at">x</span> <span class="op">+</span> (snapB<span class="op">.</span><span class="at">x</span> <span class="op">-</span> snapA<span class="op">.</span><span class="at">x</span>) <span class="op">*</span> alpha<span class="op">;</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> y <span class="op">=</span> snapA<span class="op">.</span><span class="at">y</span> <span class="op">+</span> (snapB<span class="op">.</span><span class="at">y</span> <span class="op">-</span> snapA<span class="op">.</span><span class="at">y</span>) <span class="op">*</span> alpha<span class="op">;</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> angle <span class="op">=</span> snapA<span class="op">.</span><span class="at">angle</span> <span class="op">+</span> (snapB<span class="op">.</span><span class="at">angle</span> <span class="op">-</span> snapA<span class="op">.</span><span class="at">angle</span>) <span class="op">*</span> alpha<span class="op">;</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>Matter<span class="op">.</span><span class="at">Body</span><span class="op">.</span><span class="fu">setPosition</span>(body<span class="op">,</span> { x<span class="op">,</span> y })<span class="op">;</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>Matter<span class="op">.</span><span class="at">Body</span><span class="op">.</span><span class="fu">setAngle</span>(body<span class="op">,</span> angle)<span class="op">;</span></span></code></pre></div></li>
+</ol>
+<h3 id="3-applying-physics-state-to-matterjs-bodies">3. Applying Physics
+State to Matter.js Bodies</h3>
+<p>Matter.js relies on verlet integration and velocity vectors for
+collision resolution. Mutating positions directly from disordered or
+snapped network updates can break the physics solver.</p>
+<ul>
+<li><strong>Update Velocities with Positions:</strong> When applying a
+network state to a dynamic body, always set
+<code>Body.setVelocity(body, state.velocity)</code> and
+<code>Body.setAngularVelocity(body, state.angularVelocity)</code>
+alongside position to prevent the engine from computing extreme
+velocities based on the positional jump.</li>
+<li><strong>Use Kinematic or Sensor Proxies:</strong> If the client is
+purely rendering remote players, set their Matter.js bodies to
+<code>isStatic: true</code> or <code>isSensor: true</code>. This
+prevents the local physics solver from calculating unwanted collisions
+during state corrections while still triggering trigger areas and visual
+colliders.</li>
+</ul>
+<h3 id="4-client-side-prediction-and-historical-reconciliation">4.
+Client-Side Prediction and Historical Reconciliation</h3>
+<p>If the client controls a body locally, dropping or buffering packets
+alone is insufficient. You must reconcile historical states without
+applying out-of-order inputs.</p>
+<ol type="1">
+<li><strong>Store Local State History:</strong> Maintain a circular
+buffer of local ticks, including the input applied, the resulting body
+transform, and the tick number.</li>
+<li><strong>Process Authoritative Corrections:</strong> When an
+authoritative server state arrives, check if its tick has already been
+corrected by a newer tick. If it is stale, discard it.</li>
+<li><strong>Rollback and Re-simulate:</strong> If the packet is newer
+than the last acknowledged state but older than the current local tick:
+<ul>
+<li>Reset the Matter.js body to the authoritative transform using
+<code>Matter.Body.setPosition</code> and
+<code>Matter.Body.setVelocity</code>.</li>
+<li>Re-run <code>Matter.Engine.update(engine, delta)</code> for each
+recorded input stored between the corrected packet's tick and the
+current tick.</li>
+<li>Clear out inputs prior to the acknowledged tick to free memory.</li>
+</ul></li>
+</ol></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/matter.js'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/matter.js/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/matter.js/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

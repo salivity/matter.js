@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How to Create Matter.js Bodies from SVG Paths - matter.js</title>
+    <meta name="description" content="Generating a Matter.js physics body from an SVG path allows developers to build complex, custom rigid bodies beyond simple primitives like circles and rectangles. This article provides a concise, step-by-step guide explaining how to convert vector paths">
+    <link rel="canonical" href="https://salivity.github.io/matter.js/article/how-to-create-matter-js-bodies-from-svg-paths">
+    <link rel="search" type="application/opensearchdescription+xml" title="matter.js" href="/matter.js/opensearch.xml">
+    <link rel="icon" href="/matter.js/favicon.ico">
+    <link rel="stylesheet" href="/matter.js/css/style.css">
+    <link media="print" rel="stylesheet" href="/matter.js/css/print.css">
+    <script src="/matter.js/js/fuse.min.js"></script>
+    <script src="/matter.js/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How to Create Matter.js Bodies from SVG Paths - matter.js" />
+    <meta property="og:url" content="https://salivity.github.io/matter.js/article/how-to-create-matter-js-bodies-from-svg-paths" />
+    <meta property="og:image" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Generating a Matter.js physics body from an SVG path allows developers to build complex, custom rigid bodies beyond simple primitives like circles and rectangles. This article provides a concise, step-by-step guide explaining how to convert vector paths" />
+    <link rel="manifest" href="/matter.js/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/matter.js/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>matter.js</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/matter.js/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="how-to-create-matterjs-bodies-from-svg-paths">How to Create
+Matter.js Bodies from SVG Paths</h1>
+<p>Generating a Matter.js physics body from an SVG path allows
+developers to build complex, custom rigid bodies beyond simple
+primitives like circles and rectangles. This article provides a concise,
+step-by-step guide explaining how to convert vector paths into physics
+vertices, decompose non-convex shapes using external helper libraries,
+and instantiate a functional rigid body inside the Matter.js physics
+simulation.</p>
+<h3 id="1-install-and-load-required-dependencies">1. Install and Load
+Required Dependencies</h3>
+<p>Matter.js requires external libraries to parse complex SVG paths and
+handle concave polygons. Before generating bodies, you must include:</p>
+<ul>
+<li><strong>Matter.js</strong>: The core 2D physics engine.</li>
+<li><strong>poly-decomp.js</strong>: Matter.js uses this library
+internally to decompose concave polygons into convex parts. Make sure
+<code>poly-decomp</code> is loaded before Matter.js or explicitly
+assigned to <code>window.decomp</code>.</li>
+<li><strong>pathseg.js Polyfill</strong>: Modern browsers have
+deprecated the SVG <code>getPathSegList</code> API, which Matter.js uses
+to sample points along an SVG path. A polyfill is necessary to avoid
+runtime errors during extraction.</li>
+</ul>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode html"><code class="sourceCode html"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="dt">&lt;</span><span class="kw">script</span><span class="ot"> src</span><span class="op">=</span><span class="st">&quot;https://cdn.jsdelivr.net/npm/pathseg@1.2.1/pathseg.js&quot;</span><span class="dt">&gt;&lt;/</span><span class="kw">script</span><span class="dt">&gt;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="dt">&lt;</span><span class="kw">script</span><span class="ot"> src</span><span class="op">=</span><span class="st">&quot;https://cdn.jsdelivr.net/npm/poly-decomp@0.3.0/build/decomp.min.js&quot;</span><span class="dt">&gt;&lt;/</span><span class="kw">script</span><span class="dt">&gt;</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="dt">&lt;</span><span class="kw">script</span><span class="ot"> src</span><span class="op">=</span><span class="st">&quot;https://cdn.jsdelivr.net/npm/matter-js@0.19.0/build/matter.min.js&quot;</span><span class="dt">&gt;&lt;/</span><span class="kw">script</span><span class="dt">&gt;</span></span></code></pre></div>
+<h3 id="2-extract-the-svg-path-element">2. Extract the SVG Path
+Element</h3>
+<p>Load or locate the SVG path inside the DOM. If your SVG is an
+external file, fetch it via <code>fetch()</code> and parse it using
+<code>DOMParser</code>. If it is already rendered in the HTML, target it
+directly using a standard selector.</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> pathElement <span class="op">=</span> <span class="bu">document</span><span class="op">.</span><span class="fu">querySelector</span>(<span class="st">&#39;#my-svg-path&#39;</span>)<span class="op">;</span></span></code></pre></div>
+<p>Alternatively, you can dynamically create the element:</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> pathElement <span class="op">=</span> <span class="bu">document</span><span class="op">.</span><span class="fu">createElementNS</span>(<span class="st">&#39;http://www.w3.org/2000/svg&#39;</span><span class="op">,</span> <span class="st">&#39;path&#39;</span>)<span class="op">;</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>pathElement<span class="op">.</span><span class="fu">setAttribute</span>(<span class="st">&#39;d&#39;</span><span class="op">,</span> <span class="st">&#39;M 0 0 L 100 0 L 100 100 L 0 100 Z&#39;</span>)<span class="op">;</span></span></code></pre></div>
+<h3 id="3-convert-the-path-to-vertices">3. Convert the Path to
+Vertices</h3>
+<p>Matter.js provides a built-in utility named
+<code>Matter.Svg.pathToVertices()</code>. This method samples points
+along the vector path and converts them into an array of 2D vertex
+objects (<code>{ x, y }</code>).</p>
+<div class="sourceCode" id="cb4"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="co">// sampleLength determines the resolution/number of points (lower = higher fidelity, higher CPU cost)</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> sampleLength <span class="op">=</span> <span class="dv">15</span><span class="op">;</span> </span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> vertices <span class="op">=</span> Matter<span class="op">.</span><span class="at">Svg</span><span class="op">.</span><span class="fu">pathToVertices</span>(pathElement<span class="op">,</span> sampleLength)<span class="op">;</span></span></code></pre></div>
+<h3 id="4-construct-the-rigid-body">4. Construct the Rigid Body</h3>
+<p>Pass the generated vertices to
+<code>Matter.Bodies.fromVertices()</code>. This function relies on
+<code>poly-decomp</code> to automatically split any concave shape into
+convex sub-bodies, combining them into a single compound body.</p>
+<div class="sourceCode" id="cb5"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> x <span class="op">=</span> <span class="dv">400</span><span class="op">;</span> <span class="co">// X position in the world</span></span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> y <span class="op">=</span> <span class="dv">300</span><span class="op">;</span> <span class="co">// Y position in the world</span></span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> body <span class="op">=</span> Matter<span class="op">.</span><span class="at">Bodies</span><span class="op">.</span><span class="fu">fromVertices</span>(x<span class="op">,</span> y<span class="op">,</span> [vertices]<span class="op">,</span> {</span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a>    <span class="dt">isStatic</span><span class="op">:</span> <span class="kw">false</span><span class="op">,</span></span>
+<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a>    <span class="dt">render</span><span class="op">:</span> {</span>
+<span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a>        <span class="dt">fillStyle</span><span class="op">:</span> <span class="st">&#39;#2e86de&#39;</span><span class="op">,</span></span>
+<span id="cb5-8"><a href="#cb5-8" aria-hidden="true" tabindex="-1"></a>        <span class="dt">strokeStyle</span><span class="op">:</span> <span class="st">&#39;#ffffff&#39;</span><span class="op">,</span></span>
+<span id="cb5-9"><a href="#cb5-9" aria-hidden="true" tabindex="-1"></a>        <span class="dt">lineWidth</span><span class="op">:</span> <span class="dv">1</span></span>
+<span id="cb5-10"><a href="#cb5-10" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb5-11"><a href="#cb5-11" aria-hidden="true" tabindex="-1"></a>}<span class="op">,</span> <span class="kw">true</span>)<span class="op">;</span> <span class="co">// The final boolean flag enables vertex optimization</span></span></code></pre></div>
+<h3 id="5-add-the-body-to-the-simulation">5. Add the Body to the
+Simulation</h3>
+<p>Finally, add the instantiated body to your Matter.js engine's world
+composite.</p>
+<div class="sourceCode" id="cb6"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a>Matter<span class="op">.</span><span class="at">Composite</span><span class="op">.</span><span class="fu">add</span>(engine<span class="op">.</span><span class="at">world</span><span class="op">,</span> body)<span class="op">;</span></span></code></pre></div>
+<h3 id="key-considerations">Key Considerations</h3>
+<ul>
+<li><strong>Center of Mass</strong>: When using
+<code>Bodies.fromVertices()</code>, Matter.js automatically recalculates
+the position relative to the shape's center of mass rather than the
+SVG's top-left coordinate origin.</li>
+<li><strong>Scaling</strong>: To resize the body, use
+<code>Matter.Body.scale(body, scaleX, scaleY)</code> immediately after
+creation rather than attempting to manually modify raw vertex
+coordinates.</li>
+<li><strong>Holes and Self-Intersections</strong>: Matter.js does not
+support SVG paths containing internal cutouts (donut holes) or
+self-intersecting lines directly. Complex shapes with holes must be
+manually split into multiple adjoining paths.</li>
+</ul></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/matter.js'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/matter.js/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/matter.js/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

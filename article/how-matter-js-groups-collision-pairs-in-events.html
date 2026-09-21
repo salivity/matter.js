@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How Matter.js Groups Collision Pairs in Events - matter.js</title>
+    <meta name="description" content="This article explains how the Matter.js 2D physics engine identifies, tracks, and groups colliding bodies into collision pairs during its simulation lifecycle. You will learn the mechanics behind the broadphase and narrowphase collision checks, how uniqu">
+    <link rel="canonical" href="https://salivity.github.io/matter.js/article/how-matter-js-groups-collision-pairs-in-events">
+    <link rel="search" type="application/opensearchdescription+xml" title="matter.js" href="/matter.js/opensearch.xml">
+    <link rel="icon" href="/matter.js/favicon.ico">
+    <link rel="stylesheet" href="/matter.js/css/style.css">
+    <link media="print" rel="stylesheet" href="/matter.js/css/print.css">
+    <script src="/matter.js/js/fuse.min.js"></script>
+    <script src="/matter.js/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How Matter.js Groups Collision Pairs in Events - matter.js" />
+    <meta property="og:url" content="https://salivity.github.io/matter.js/article/how-matter-js-groups-collision-pairs-in-events" />
+    <meta property="og:image" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article explains how the Matter.js 2D physics engine identifies, tracks, and groups colliding bodies into collision pairs during its simulation lifecycle. You will learn the mechanics behind the broadphase and narrowphase collision checks, how uniqu" />
+    <link rel="manifest" href="/matter.js/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/matter.js/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>matter.js</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/matter.js/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="how-matterjs-groups-collision-pairs-in-events">How Matter.js
+Groups Collision Pairs in Events</h1>
+<p>This article explains how the Matter.js 2D physics engine identifies,
+tracks, and groups colliding bodies into collision pairs during its
+simulation lifecycle. You will learn the mechanics behind the broadphase
+and narrowphase collision checks, how unique pair identifiers are
+generated, how the internal <code>Pairs</code> module maintains state
+across frames, and how these pairs are structured in the engine's
+collision event payloads.</p>
+<h2 id="the-collision-lifecycle-broadphase-to-narrowphase">The Collision
+Lifecycle: Broadphase to Narrowphase</h2>
+<p>Before Matter.js can trigger collision events, it processes bodies
+through two main detection phases during <code>Engine.update</code>:</p>
+<ol type="1">
+<li><strong>Broadphase Detection:</strong> The engine reduces
+computational overhead by running a broadphase algorithm—typically using
+a bounding box tree (<code>Matter.Detector</code> or
+<code>Matter.Grid</code>)—to find bodies whose axis-aligned bounding
+boxes (AABB) overlap. This generates a list of potential collision
+pairs.</li>
+<li><strong>Narrowphase Resolution:</strong> For each candidate pair,
+the engine uses the Separating Axis Theorem (SAT) via
+<code>Matter.SAT.collides</code> to verify whether the actual geometric
+vertices intersect. If an overlap is confirmed, a detailed collision
+record containing contact points, penetration depth, and collision
+normals is generated.</li>
+</ol>
+<h2 id="unique-pair-ids-and-the-pairs-table">Unique Pair IDs and the
+Pairs Table</h2>
+<p>To ensure consistency and prevent duplicate computations, Matter.js
+tracks contacts using an internal structure managed by the
+<code>Matter.Pairs</code> module.</p>
+<p>Every unique interaction between two bodies is assigned a
+deterministic string ID using their numerical identifiers:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a>pairId <span class="op">=</span> bodyA<span class="op">.</span><span class="at">id</span> <span class="op">&lt;</span> bodyB<span class="op">.</span><span class="at">id</span> <span class="op">?</span> <span class="st">&#39;A&#39;</span> <span class="op">+</span> bodyA<span class="op">.</span><span class="at">id</span> <span class="op">+</span> <span class="st">&#39;B&#39;</span> <span class="op">+</span> bodyB<span class="op">.</span><span class="at">id</span> <span class="op">:</span> <span class="st">&#39;A&#39;</span> <span class="op">+</span> bodyB<span class="op">.</span><span class="at">id</span> <span class="op">+</span> <span class="st">&#39;B&#39;</span> <span class="op">+</span> bodyA<span class="op">.</span><span class="at">id</span><span class="op">;</span></span></code></pre></div>
+<p>This ensures that regardless of which body is processed first, the
+pair key remains identical. Matter.js stores all active pairs in a
+dictionary lookup table (<code>engine.pairs.table</code>). If a
+collision between two specific bodies persists across multiple frames,
+the engine reuses the existing <code>Pair</code> instance rather than
+instantiating a new object.</p>
+<h2 id="state-assignment-and-event-categorization">State Assignment and
+Event Categorization</h2>
+<p>During each physics tick, the engine updates the status of all pairs
+and segments them into three event lists based on their state
+transitions:</p>
+<ul>
+<li><strong><code>collisionStart</code>:</strong> Contains pairs that
+were detected as overlapping in the current frame but did not exist in
+the active <code>Pairs</code> table in the previous frame.</li>
+<li><strong><code>collisionActive</code>:</strong> Contains pairs that
+were colliding in the previous frame and continue to overlap in the
+current frame.</li>
+<li><strong><code>collisionEnd</code>:</strong> Contains pairs that were
+actively colliding in the previous frame but are no longer touching in
+the current frame.</li>
+</ul>
+<p>The engine uses internal tracking properties such as
+<code>pair.isActive</code> and collision timestamps to manage these
+transitions. Pairs that have ended are removed from the active table
+after the <code>collisionEnd</code> cycle completes.</p>
+<h2 id="structure-of-the-event-object">Structure of the Event
+Object</h2>
+<p>When you subscribe to an engine event (such as
+<code>Events.on(engine, 'collisionStart', callback)</code>), Matter.js
+passes an event object containing an array of all relevant pairs for
+that tick:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a>{</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>  <span class="dt">name</span><span class="op">:</span> <span class="st">&quot;collisionStart&quot;</span><span class="op">,</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>  <span class="dt">source</span><span class="op">:</span> engine<span class="op">,</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>  <span class="dt">pairs</span><span class="op">:</span> [</span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>    {</span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>      <span class="dt">id</span><span class="op">:</span> <span class="st">&quot;A1B2&quot;</span><span class="op">,</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>      <span class="dt">bodyA</span><span class="op">:</span> body1<span class="op">,</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>      <span class="dt">bodyB</span><span class="op">:</span> body2<span class="op">,</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>      <span class="dt">collision</span><span class="op">:</span> {</span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>        <span class="dt">depth</span><span class="op">:</span> <span class="fl">4.2</span><span class="op">,</span></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>        <span class="dt">normal</span><span class="op">:</span> { <span class="dt">x</span><span class="op">:</span> <span class="dv">0</span><span class="op">,</span> <span class="dt">y</span><span class="op">:</span> <span class="dv">1</span> }<span class="op">,</span></span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>        <span class="dt">supports</span><span class="op">:</span> [<span class="op">...</span>]<span class="op">,</span></span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>        <span class="co">// Additional geometric data</span></span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a>      }<span class="op">,</span></span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a>      <span class="dt">contacts</span><span class="op">:</span> [<span class="op">...</span>]<span class="op">,</span></span>
+<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a>      <span class="dt">isActive</span><span class="op">:</span> <span class="kw">true</span><span class="op">,</span></span>
+<span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a>      <span class="dt">timeCreated</span><span class="op">:</span> <span class="dv">1200</span><span class="op">,</span></span>
+<span id="cb2-18"><a href="#cb2-18" aria-hidden="true" tabindex="-1"></a>      <span class="dt">timeUpdated</span><span class="op">:</span> <span class="dv">1216</span></span>
+<span id="cb2-19"><a href="#cb2-19" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb2-20"><a href="#cb2-20" aria-hidden="true" tabindex="-1"></a>  ]</span>
+<span id="cb2-21"><a href="#cb2-21" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<p>Through this architecture, Matter.js groups all interacting bodies
+into single-frame batches inside <code>event.pairs</code>, allowing
+developers to iterate over collisions efficiently and retrieve complete
+contact dynamics for every interacting pair.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/matter.js'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/matter.js/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/matter.js/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How Matter.js Calculates Collision Penetration Depth - matter.js</title>
+    <meta name="description" content="In Matter.js, collision penetration depth is calculated primarily using the Separating Axis Theorem (SAT) for convex polygons and geometric distance formulas for circles. The physics engine determines how deeply two intersecting bodies overlap by project">
+    <link rel="canonical" href="https://salivity.github.io/matter.js/article/how-matter-js-calculates-collision-penetration-depth">
+    <link rel="search" type="application/opensearchdescription+xml" title="matter.js" href="/matter.js/opensearch.xml">
+    <link rel="icon" href="/matter.js/favicon.ico">
+    <link rel="stylesheet" href="/matter.js/css/style.css">
+    <link media="print" rel="stylesheet" href="/matter.js/css/print.css">
+    <script src="/matter.js/js/fuse.min.js"></script>
+    <script src="/matter.js/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How Matter.js Calculates Collision Penetration Depth - matter.js" />
+    <meta property="og:url" content="https://salivity.github.io/matter.js/article/how-matter-js-calculates-collision-penetration-depth" />
+    <meta property="og:image" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="In Matter.js, collision penetration depth is calculated primarily using the Separating Axis Theorem (SAT) for convex polygons and geometric distance formulas for circles. The physics engine determines how deeply two intersecting bodies overlap by project" />
+    <link rel="manifest" href="/matter.js/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/matter.js/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>matter.js</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/matter.js/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="how-matterjs-calculates-collision-penetration-depth">How
+Matter.js Calculates Collision Penetration Depth</h1>
+<p>In Matter.js, collision penetration depth is calculated primarily
+using the Separating Axis Theorem (SAT) for convex polygons and
+geometric distance formulas for circles. The physics engine determines
+how deeply two intersecting bodies overlap by projecting their vertices
+onto potential separation axes, identifying the axis with the smallest
+overlap—known as the Minimum Translation Vector (MTV)—and recording that
+minimum overlap value as the penetration depth.</p>
+<h3 id="the-separating-axis-theorem-sat-pipeline">The Separating Axis
+Theorem (SAT) Pipeline</h3>
+<p>Matter.js relies on the <code>Matter.SAT</code> module for detecting
+collisions between rigid bodies. The algorithm follows a structured
+pipeline to determine whether an intersection exists and to quantify its
+severity.</p>
+<h4 id="1-generating-projection-axes">1. Generating Projection Axes</h4>
+<p>For convex polygons, potential separation axes are defined by the
+surface normals of the shapes' edges.</p>
+<ul>
+<li>The engine gathers the unique edge vectors for both Body A and Body
+B.</li>
+<li>Each edge vector is converted into a perpendicular normal vector and
+normalized to unit length.</li>
+<li>These normals represent every potential direction along which the
+two shapes could be separated.</li>
+</ul>
+<h4 id="2-projecting-vertices-onto-each-axis">2. Projecting Vertices
+onto Each Axis</h4>
+<p>For every candidate axis, Matter.js projects the vertices of both
+bodies onto that axis using the vector dot product:</p>
+<p><span class="math display">\[\text{projection} = \mathbf{v} \cdot
+\mathbf{axis}\]</span></p>
+<p>By evaluating all vertices for a body, the engine identifies the
+minimum and maximum scalar projection values:</p>
+<ul>
+<li>Body A produces a range: <span class="math inline">\([min_A,
+max_A]\)</span></li>
+<li>Body B produces a range: <span class="math inline">\([min_B,
+max_B]\)</span></li>
+</ul>
+<h4 id="3-calculating-the-overlap">3. Calculating the Overlap</h4>
+<p>Once the projections are mapped onto the 1D axis, the engine computes
+the overlap between the two intervals:</p>
+<p><span class="math display">\[\text{overlap} = \min(max_A, max_B) -
+\max(min_A, min_B)\]</span></p>
+<p>If any axis yields an overlap less than or equal to zero, a gap
+exists. By the Separating Axis Theorem, the shapes are not colliding,
+and the calculation halts immediately.</p>
+<h4 id="4-determining-penetration-depth-and-the-normal">4. Determining
+Penetration Depth and the Normal</h4>
+<p>If every tested axis produces an overlap greater than zero, a
+collision has occurred. Matter.js tracks the overlap values across all
+evaluated axes and selects the smallest one:</p>
+<ul>
+<li><strong>Penetration Depth:</strong> The minimum positive overlap
+value across all axes.</li>
+<li><strong>Collision Normal:</strong> The unit vector of the axis
+corresponding to this minimum overlap, oriented so that it points from
+Body A toward Body B.</li>
+</ul>
+<p>This minimum value represents the shortest distance required to push
+the bodies apart to resolve the collision without introducing
+unnecessary displacement.</p>
+<h3
+id="circle-to-circle-and-circle-to-polygon-handling">Circle-to-Circle
+and Circle-to-Polygon Handling</h3>
+<p>Because circles have an infinite number of edge normals, Matter.js
+handles them through specialized projection logic:</p>
+<ul>
+<li><strong>Circle vs. Circle:</strong> SAT is bypassed. The engine
+calculates the Euclidean distance between the centers of the two circles
+(<span class="math inline">\(d = \|\mathbf{c}_B -
+\mathbf{c}_A\|\)</span>) and subtracts this from the sum of their radii
+(<span class="math inline">\(r_A + r_B\)</span>). The penetration depth
+is <span class="math inline">\((r_A + r_B) - d\)</span>.</li>
+<li><strong>Circle vs. Polygon:</strong> In addition to testing the
+polygon's edge normals, Matter.js includes an axis running from the
+circle's center to the closest vertex on the polygon. The overlap is
+then evaluated along this axis alongside the standard edge axes to find
+the minimum depth.</li>
+</ul>
+<h3 id="resulting-collision-data">Resulting Collision Data</h3>
+<p>The calculated depth is assigned to the <code>depth</code> property
+of the resulting collision object, paired with
+<code>collision.normal</code>. The physics solver uses this depth value
+in subsequent steps to apply positional correction, preventing bodies
+from sinking into one another, and to calculate the corrective impulse
+required to simulate realistic physical restitution.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/matter.js'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/matter.js/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/matter.js/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

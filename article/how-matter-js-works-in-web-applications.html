@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How Matter.js Works in Web Applications - matter.js</title>
+    <meta name="description" content="Matter.js is a lightweight, 2D rigid-body physics engine written in pure JavaScript that allows developers to simulate realistic physical phenomena—such as gravity, friction, collisions, and momentum—inside web browsers. This article explains the und">
+    <link rel="canonical" href="https://salivity.github.io/matter.js/article/how-matter-js-works-in-web-applications">
+    <link rel="search" type="application/opensearchdescription+xml" title="matter.js" href="/matter.js/opensearch.xml">
+    <link rel="icon" href="/matter.js/favicon.ico">
+    <link rel="stylesheet" href="/matter.js/css/style.css">
+    <link media="print" rel="stylesheet" href="/matter.js/css/print.css">
+    <script src="/matter.js/js/fuse.min.js"></script>
+    <script src="/matter.js/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How Matter.js Works in Web Applications - matter.js" />
+    <meta property="og:url" content="https://salivity.github.io/matter.js/article/how-matter-js-works-in-web-applications" />
+    <meta property="og:image" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Matter.js is a lightweight, 2D rigid-body physics engine written in pure JavaScript that allows developers to simulate realistic physical phenomena—such as gravity, friction, collisions, and momentum—inside web browsers. This article explains the und" />
+    <link rel="manifest" href="/matter.js/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/matter.js/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>matter.js</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/matter.js/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="how-matterjs-works-in-web-applications">How Matter.js Works in
+Web Applications</h1>
+<p>Matter.js is a lightweight, 2D rigid-body physics engine written in
+pure JavaScript that allows developers to simulate realistic physical
+phenomena—such as gravity, friction, collisions, and momentum—inside web
+browsers. This article explains the underlying architecture of
+Matter.js, breaks down its core components, examines how the simulation
+loop updates state, and demonstrates how it decouples mathematical
+calculations from visual rendering to integrate with standard web
+technologies.</p>
+<h2 id="the-core-architecture-of-matterjs">The Core Architecture of
+Matter.js</h2>
+<p>Matter.js operates on a modular architecture where distinct
+components handle calculation, timing, data storage, and display. The
+system relies on five foundational modules:</p>
+<ul>
+<li><strong>Engine (<code>Matter.Engine</code>):</strong> The brain of
+the application. It manages the update pipeline, resolves collisions,
+calculates forces, and advances the simulation state.</li>
+<li><strong>World (<code>Matter.World</code> or
+<code>Matter.Composite</code>):</strong> The data container that holds
+all physical entities, including rigid bodies, composite objects, and
+constraints.</li>
+<li><strong>Bodies (<code>Matter.Bodies</code>):</strong> Factory
+methods used to generate geometric shapes such as rectangles, circles,
+trapezoids, and arbitrary convex polygons with physical properties like
+mass, restitution (bounciness), and friction.</li>
+<li><strong>Runner (<code>Matter.Runner</code>):</strong> An execution
+loop utility that handles standardizing frame rates using
+<code>requestAnimationFrame</code>, ensuring consistent physics updates
+across variable screen refresh rates.</li>
+<li><strong>Render (<code>Matter.Render</code>):</strong> An optional,
+built-in HTML5 Canvas renderer primarily used for debugging,
+prototyping, and basic visual output.</li>
+</ul>
+<h2 id="the-physics-simulation-cycle">The Physics Simulation Cycle</h2>
+<p>Matter.js operates on an iterative tick-based cycle. In each frame,
+the engine performs several sequential operations:</p>
+<ol type="1">
+<li><strong>Integration:</strong> The engine updates the velocity and
+position of each dynamic body based on elapsed time and applied forces,
+such as gravity or user-applied impulses. Matter.js uses a numerical
+integration technique (Verlet integration) to calculate stable
+movements.</li>
+<li><strong>Broadphase Collision Detection:</strong> To optimize
+performance, the engine first uses spatial hashing (an Axis-Aligned
+Bounding Box tree) to quickly identify which bodies are near each other,
+filtering out pairs that are too far apart to collide.</li>
+<li><strong>Narrowphase Collision Detection:</strong> For bodies
+identified in the broadphase, the engine uses the Separating Axis
+Theorem (SAT) to calculate exact collision points, penetration depths,
+and collision normals.</li>
+<li><strong>Constraint Resolution:</strong> The engine resolves
+geometric links, elastic ropes, or fixed distances defined between
+bodies via the <code>Matter.Constraint</code> module.</li>
+<li><strong>Collision Response:</strong> The engine applies impulses to
+the colliding bodies, adjusting velocities according to physical laws,
+conservation of momentum, friction, and restitution coefficients.</li>
+</ol>
+<h2 id="decoupling-physics-from-rendering">Decoupling Physics from
+Rendering</h2>
+<p>A critical feature of Matter.js is the strict separation between
+state calculation and graphical rendering.</p>
+<p>While Matter.js includes a default HTML5 Canvas renderer, it is not
+required. The engine computes mathematical coordinates (<code>x</code>,
+<code>y</code>) and rotation angles in radians without relying on visual
+elements. Developers can consume these calculated properties to drive
+any rendering layer:</p>
+<ul>
+<li><strong>Custom HTML5 Canvas:</strong> Developers can run a custom
+drawing loop that reads <code>body.position</code> and
+<code>body.angle</code> to draw sprites or vector paths.</li>
+<li><strong>WebGL and Game Engines:</strong> Matter.js physics
+coordinates can map directly to entities in PixiJS, Three.js, or Phaser
+for high-performance 2D or pseudo-3D graphics.</li>
+<li><strong>DOM Elements:</strong> CSS transforms
+(<code>translate</code> and <code>rotate</code>) can be bound to
+Matter.js bodies, enabling interactive UI elements that fall, bounce,
+and react to physical forces.</li>
+</ul>
+<h2 id="user-interaction-and-constraints">User Interaction and
+Constraints</h2>
+<p>Matter.js integrates with standard browser input events using the
+<code>Matter.Mouse</code> and <code>Matter.MouseConstraint</code>
+modules. When added to the simulation, a mouse constraint creates an
+invisible elastic bond between the user's cursor (or touch input) and
+any dynamic body, allowing users to drag, throw, and interact with
+objects on the screen seamlessly.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/matter.js'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/matter.js/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/matter.js/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

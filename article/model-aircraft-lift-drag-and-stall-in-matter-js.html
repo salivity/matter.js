@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Model Aircraft Lift, Drag, and Stall in Matter.js - matter.js</title>
+    <meta name="description" content="This article explains how to simulate realistic 2D fixed-wing aerodynamics—specifically lift, drag, and aerodynamic stall—within the Matter.js physics engine. Because Matter.js is a rigid-body physics engine that does not model fluid dynamics nativel">
+    <link rel="canonical" href="https://salivity.github.io/matter.js/article/model-aircraft-lift-drag-and-stall-in-matter-js">
+    <link rel="search" type="application/opensearchdescription+xml" title="matter.js" href="/matter.js/opensearch.xml">
+    <link rel="icon" href="/matter.js/favicon.ico">
+    <link rel="stylesheet" href="/matter.js/css/style.css">
+    <link media="print" rel="stylesheet" href="/matter.js/css/print.css">
+    <script src="/matter.js/js/fuse.min.js"></script>
+    <script src="/matter.js/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Model Aircraft Lift, Drag, and Stall in Matter.js - matter.js" />
+    <meta property="og:url" content="https://salivity.github.io/matter.js/article/model-aircraft-lift-drag-and-stall-in-matter-js" />
+    <meta property="og:image" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article explains how to simulate realistic 2D fixed-wing aerodynamics—specifically lift, drag, and aerodynamic stall—within the Matter.js physics engine. Because Matter.js is a rigid-body physics engine that does not model fluid dynamics nativel" />
+    <link rel="manifest" href="/matter.js/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/matter.js/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>matter.js</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/matter.js/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="model-aircraft-lift-drag-and-stall-in-matterjs">Model Aircraft
+Lift, Drag, and Stall in Matter.js</h1>
+<p>This article explains how to simulate realistic 2D fixed-wing
+aerodynamics—specifically lift, drag, and aerodynamic stall—within the
+Matter.js physics engine. Because Matter.js is a rigid-body physics
+engine that does not model fluid dynamics natively, these aerodynamic
+forces must be calculated manually each simulation tick and applied to
+the aircraft body using vector math, angle of attack calculations, and
+aerodynamic coefficient curves.</p>
+<h3 id="1-understanding-the-core-aerodynamic-principles">1.
+Understanding the Core Aerodynamic Principles</h3>
+<p>To simulate a fixed-wing aircraft in a 2D environment, you must
+calculate forces relative to the aircraft's motion through the air:</p>
+<ul>
+<li><strong>Relative Wind:</strong> The direction opposite to the
+aircraft's velocity vector.</li>
+<li><strong>Angle of Attack (<span
+class="math inline">\(\alpha\)</span>):</strong> The angle between the
+chord line (the orientation of the wing) and the relative wind.</li>
+<li><strong>Dynamic Pressure (<span
+class="math inline">\(q\)</span>):</strong> Proportional to the square
+of the airspeed (<span class="math inline">\(v^2\)</span>). Higher
+speeds yield exponentially greater aerodynamic forces.</li>
+<li><strong>Lift:</strong> A force acting perpendicular to the relative
+wind.</li>
+<li><strong>Drag:</strong> A force acting parallel and opposite to the
+relative wind.</li>
+<li><strong>Stall:</strong> An aerodynamic condition where the angle of
+attack exceeds a critical threshold (<span
+class="math inline">\(\alpha_{\text{crit}}\)</span>), causing a sharp
+drop in lift and a substantial increase in drag.</li>
+</ul>
+<h3 id="2-formulating-the-lift-and-drag-coefficients">2. Formulating the
+Lift and Drag Coefficients</h3>
+<p>Aerodynamic forces are defined by the formulas:</p>
+<p><span class="math display">\[F_L = \frac{1}{2} \rho v^2 S
+C_L\]</span> <span class="math display">\[F_D = \frac{1}{2} \rho v^2 S
+C_D\]</span></p>
+<p>Where <span class="math inline">\(\rho\)</span> is air density, <span
+class="math inline">\(v\)</span> is velocity magnitude, <span
+class="math inline">\(S\)</span> is wing surface area, and <span
+class="math inline">\(C_L\)</span> / <span
+class="math inline">\(C_D\)</span> are the dimensionless lift and drag
+coefficients.</p>
+<p>In code, you can simplify the constants <span
+class="math inline">\(\frac{1}{2} \rho S\)</span> into a single tuning
+scale factor and model <span class="math inline">\(C_L\)</span> and
+<span class="math inline">\(C_D\)</span> as functions of the angle of
+attack (<span class="math inline">\(\alpha\)</span>):</p>
+<ul>
+<li><strong>Linear Lift Zone (<span class="math inline">\(|\alpha| &lt;
+\alpha_{\text{crit}}\)</span>):</strong> Lift increases linearly with
+angle of attack: <span class="math inline">\(C_L \approx
+2\pi\alpha\)</span>.</li>
+<li><strong>Stall Zone (<span class="math inline">\(|\alpha| \ge
+\alpha_{\text{crit}}\)</span>):</strong> Lift drops abruptly, often
+simulated via a decaying sine function.</li>
+<li><strong>Drag Polar:</strong> Drag has a baseline parasite drag
+(<span class="math inline">\(C_{D0}\)</span>) and an induced drag
+component that rises quadratically with <span
+class="math inline">\(\alpha\)</span>: <span class="math inline">\(C_D
+\approx C_{D0} + k\alpha^2\)</span>. In a stall, drag increases
+dramatically.</li>
+</ul>
+<h3 id="3-implementation-in-matterjs">3. Implementation in
+Matter.js</h3>
+<p>Hook into the <code>beforeUpdate</code> event of the Matter.js engine
+to compute and apply these forces before the physics solver updates
+positions.</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> { Engine<span class="op">,</span> Events<span class="op">,</span> Vector<span class="op">,</span> Body } <span class="op">=</span> Matter<span class="op">;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="co">// Configuration constants</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> AIR_DENSITY <span class="op">=</span> <span class="fl">0.0015</span><span class="op">;</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> WING_AREA <span class="op">=</span> <span class="dv">10</span><span class="op">;</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> CRITICAL_AOA <span class="op">=</span> <span class="dv">15</span> <span class="op">*</span> (<span class="bu">Math</span><span class="op">.</span><span class="cn">PI</span> <span class="op">/</span> <span class="dv">180</span>)<span class="op">;</span> <span class="co">// 15 degrees in radians</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> BASE_DRAG <span class="op">=</span> <span class="fl">0.05</span><span class="op">;</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>Events<span class="op">.</span><span class="fu">on</span>(engine<span class="op">,</span> <span class="st">&#39;beforeUpdate&#39;</span><span class="op">,</span> () <span class="kw">=&gt;</span> {</span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> velocity <span class="op">=</span> aircraft<span class="op">.</span><span class="at">velocity</span><span class="op">;</span></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> speed <span class="op">=</span> Vector<span class="op">.</span><span class="fu">magnitude</span>(velocity)<span class="op">;</span></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Skip calculations if the body is nearly stationary</span></span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (speed <span class="op">&lt;</span> <span class="fl">0.1</span>) <span class="cf">return</span><span class="op">;</span></span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a>    <span class="co">// 1. Calculate the velocity angle and relative wind</span></span>
+<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> velocityAngle <span class="op">=</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">atan2</span>(velocity<span class="op">.</span><span class="at">y</span><span class="op">,</span> velocity<span class="op">.</span><span class="at">x</span>)<span class="op">;</span></span>
+<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb1-19"><a href="#cb1-19" aria-hidden="true" tabindex="-1"></a>    <span class="co">// 2. Calculate Angle of Attack (AoA) normalized to [-PI, PI]</span></span>
+<span id="cb1-20"><a href="#cb1-20" aria-hidden="true" tabindex="-1"></a>    <span class="kw">let</span> aoa <span class="op">=</span> aircraft<span class="op">.</span><span class="at">angle</span> <span class="op">-</span> velocityAngle<span class="op">;</span></span>
+<span id="cb1-21"><a href="#cb1-21" aria-hidden="true" tabindex="-1"></a>    aoa <span class="op">=</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">atan2</span>(<span class="bu">Math</span><span class="op">.</span><span class="fu">sin</span>(aoa)<span class="op">,</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">cos</span>(aoa))<span class="op">;</span></span>
+<span id="cb1-22"><a href="#cb1-22" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-23"><a href="#cb1-23" aria-hidden="true" tabindex="-1"></a>    <span class="co">// 3. Compute Lift and Drag Coefficients with Stall</span></span>
+<span id="cb1-24"><a href="#cb1-24" aria-hidden="true" tabindex="-1"></a>    <span class="kw">let</span> cl <span class="op">=</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb1-25"><a href="#cb1-25" aria-hidden="true" tabindex="-1"></a>    <span class="kw">let</span> cd <span class="op">=</span> BASE_DRAG<span class="op">;</span></span>
+<span id="cb1-26"><a href="#cb1-26" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-27"><a href="#cb1-27" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (<span class="bu">Math</span><span class="op">.</span><span class="fu">abs</span>(aoa) <span class="op">&lt;</span> CRITICAL_AOA) {</span>
+<span id="cb1-28"><a href="#cb1-28" aria-hidden="true" tabindex="-1"></a>        <span class="co">// Normal linear flight regime</span></span>
+<span id="cb1-29"><a href="#cb1-29" aria-hidden="true" tabindex="-1"></a>        cl <span class="op">=</span> aoa <span class="op">*</span> <span class="fl">4.0</span><span class="op">;</span> </span>
+<span id="cb1-30"><a href="#cb1-30" aria-hidden="true" tabindex="-1"></a>        cd <span class="op">+=</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">pow</span>(aoa<span class="op">,</span> <span class="dv">2</span>) <span class="op">*</span> <span class="fl">1.5</span><span class="op">;</span></span>
+<span id="cb1-31"><a href="#cb1-31" aria-hidden="true" tabindex="-1"></a>    } <span class="cf">else</span> {</span>
+<span id="cb1-32"><a href="#cb1-32" aria-hidden="true" tabindex="-1"></a>        <span class="co">// Post-stall regime</span></span>
+<span id="cb1-33"><a href="#cb1-33" aria-hidden="true" tabindex="-1"></a>        <span class="kw">const</span> stallSign <span class="op">=</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">sign</span>(aoa)<span class="op">;</span></span>
+<span id="cb1-34"><a href="#cb1-34" aria-hidden="true" tabindex="-1"></a>        <span class="kw">const</span> stallFactor <span class="op">=</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">cos</span>((<span class="bu">Math</span><span class="op">.</span><span class="fu">abs</span>(aoa) <span class="op">-</span> CRITICAL_AOA) <span class="op">*</span> <span class="dv">2</span>)<span class="op">;</span></span>
+<span id="cb1-35"><a href="#cb1-35" aria-hidden="true" tabindex="-1"></a>        </span>
+<span id="cb1-36"><a href="#cb1-36" aria-hidden="true" tabindex="-1"></a>        <span class="co">// Lift collapses past the critical angle</span></span>
+<span id="cb1-37"><a href="#cb1-37" aria-hidden="true" tabindex="-1"></a>        cl <span class="op">=</span> stallSign <span class="op">*</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">max</span>(<span class="dv">0</span><span class="op">,</span> stallFactor) <span class="op">*</span> (CRITICAL_AOA <span class="op">*</span> <span class="fl">4.0</span>)<span class="op">;</span></span>
+<span id="cb1-38"><a href="#cb1-38" aria-hidden="true" tabindex="-1"></a>        </span>
+<span id="cb1-39"><a href="#cb1-39" aria-hidden="true" tabindex="-1"></a>        <span class="co">// Drag spikes drastically during stall</span></span>
+<span id="cb1-40"><a href="#cb1-40" aria-hidden="true" tabindex="-1"></a>        cd <span class="op">+=</span> <span class="fl">0.8</span> <span class="op">*</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">sin</span>(<span class="bu">Math</span><span class="op">.</span><span class="fu">abs</span>(aoa))<span class="op">;</span></span>
+<span id="cb1-41"><a href="#cb1-41" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb1-42"><a href="#cb1-42" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-43"><a href="#cb1-43" aria-hidden="true" tabindex="-1"></a>    <span class="co">// 4. Calculate Dynamic Force Magnitudes</span></span>
+<span id="cb1-44"><a href="#cb1-44" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> dynamicPressure <span class="op">=</span> <span class="fl">0.5</span> <span class="op">*</span> AIR_DENSITY <span class="op">*</span> (speed <span class="op">*</span> speed) <span class="op">*</span> WING_AREA<span class="op">;</span></span>
+<span id="cb1-45"><a href="#cb1-45" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> liftMagnitude <span class="op">=</span> dynamicPressure <span class="op">*</span> cl<span class="op">;</span></span>
+<span id="cb1-46"><a href="#cb1-46" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> dragMagnitude <span class="op">=</span> dynamicPressure <span class="op">*</span> cd<span class="op">;</span></span>
+<span id="cb1-47"><a href="#cb1-47" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-48"><a href="#cb1-48" aria-hidden="true" tabindex="-1"></a>    <span class="co">// 5. Derive Force Vectors</span></span>
+<span id="cb1-49"><a href="#cb1-49" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Drag acts opposite to velocity</span></span>
+<span id="cb1-50"><a href="#cb1-50" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> dragVector <span class="op">=</span> Vector<span class="op">.</span><span class="fu">mult</span>(Vector<span class="op">.</span><span class="fu">normalise</span>(velocity)<span class="op">,</span> <span class="op">-</span>dragMagnitude)<span class="op">;</span></span>
+<span id="cb1-51"><a href="#cb1-51" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-52"><a href="#cb1-52" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Lift acts perpendicular to velocity (-90 degrees relative to velocity vector)</span></span>
+<span id="cb1-53"><a href="#cb1-53" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> liftDirection <span class="op">=</span> {</span>
+<span id="cb1-54"><a href="#cb1-54" aria-hidden="true" tabindex="-1"></a>        <span class="dt">x</span><span class="op">:</span> <span class="op">-</span><span class="bu">Math</span><span class="op">.</span><span class="fu">sin</span>(velocityAngle)<span class="op">,</span></span>
+<span id="cb1-55"><a href="#cb1-55" aria-hidden="true" tabindex="-1"></a>        <span class="dt">y</span><span class="op">:</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">cos</span>(velocityAngle)</span>
+<span id="cb1-56"><a href="#cb1-56" aria-hidden="true" tabindex="-1"></a>    }<span class="op">;</span></span>
+<span id="cb1-57"><a href="#cb1-57" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> liftVector <span class="op">=</span> Vector<span class="op">.</span><span class="fu">mult</span>(liftDirection<span class="op">,</span> liftMagnitude)<span class="op">;</span></span>
+<span id="cb1-58"><a href="#cb1-58" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-59"><a href="#cb1-59" aria-hidden="true" tabindex="-1"></a>    <span class="co">// 6. Combine and Apply Forces to the Aircraft</span></span>
+<span id="cb1-60"><a href="#cb1-60" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> totalAerodynamicForce <span class="op">=</span> Vector<span class="op">.</span><span class="fu">add</span>(liftVector<span class="op">,</span> dragVector)<span class="op">;</span></span>
+<span id="cb1-61"><a href="#cb1-61" aria-hidden="true" tabindex="-1"></a>    Body<span class="op">.</span><span class="fu">applyForce</span>(aircraft<span class="op">,</span> aircraft<span class="op">.</span><span class="at">position</span><span class="op">,</span> totalAerodynamicForce)<span class="op">;</span></span>
+<span id="cb1-62"><a href="#cb1-62" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div>
+<h3 id="4-advanced-considerations">4. Advanced Considerations</h3>
+<ul>
+<li><strong>Center of Pressure vs. Center of Mass:</strong> Applying the
+aerodynamic force directly at <code>aircraft.position</code> produces
+pure linear acceleration. To simulate aerodynamic stability (such as a
+nose-down tendency during a stall), apply the lift force slightly behind
+the center of mass, which generates an angular torque that naturally
+aligns the aircraft into the relative wind.</li>
+<li><strong>Air Resistance Integration:</strong> Matter.js applies
+default friction and air friction via <code>body.frictionAir</code>. Set
+<code>aircraft.frictionAir = 0</code> to prevent the engine's generic
+damping from interfering with your custom aerodynamic drag
+calculations.</li>
+</ul></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/matter.js'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/matter.js/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/matter.js/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

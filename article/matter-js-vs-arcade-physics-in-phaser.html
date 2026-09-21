@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Matter.js vs Arcade Physics in Phaser - matter.js</title>
+    <meta name="description" content="Phaser 3 offers multiple physics engines out of the box, with Arcade Physics and Matter.js being the two primary choices for 2D game development. This article compares both engines across performance, collision capabilities, physical realism, and impleme">
+    <link rel="canonical" href="https://salivity.github.io/matter.js/article/matter-js-vs-arcade-physics-in-phaser">
+    <link rel="search" type="application/opensearchdescription+xml" title="matter.js" href="/matter.js/opensearch.xml">
+    <link rel="icon" href="/matter.js/favicon.ico">
+    <link rel="stylesheet" href="/matter.js/css/style.css">
+    <link media="print" rel="stylesheet" href="/matter.js/css/print.css">
+    <script src="/matter.js/js/fuse.min.js"></script>
+    <script src="/matter.js/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Matter.js vs Arcade Physics in Phaser - matter.js" />
+    <meta property="og:url" content="https://salivity.github.io/matter.js/article/matter-js-vs-arcade-physics-in-phaser" />
+    <meta property="og:image" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Phaser 3 offers multiple physics engines out of the box, with Arcade Physics and Matter.js being the two primary choices for 2D game development. This article compares both engines across performance, collision capabilities, physical realism, and impleme" />
+    <link rel="manifest" href="/matter.js/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/matter.js/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>matter.js</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/matter.js/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="matterjs-vs-arcade-physics-in-phaser">Matter.js vs Arcade
+Physics in Phaser</h1>
+<p>Phaser 3 offers multiple physics engines out of the box, with Arcade
+Physics and Matter.js being the two primary choices for 2D game
+development. This article compares both engines across performance,
+collision capabilities, physical realism, and implementation complexity,
+helping you determine the right engine for your game's specific
+requirements.</p>
+<h3 id="fundamental-differences">Fundamental Differences</h3>
+<p>Arcade Physics is Phaser’s lightweight, custom-built physics engine
+designed for high-speed, arcade-style gameplay. It relies primarily on
+Axis-Aligned Bounding Boxes (AABB) and simple circle colliders. Because
+bodies cannot rotate their physical hitboxes, Arcade minimizes
+mathematical calculations, allowing hundreds or even thousands of
+objects to run at 60 FPS on low-power devices.</p>
+<p>Matter.js is a full-featured, rigid-body 2D physics engine. It
+simulates real-world physical properties such as mass, inertia,
+friction, restitution, and momentum. Unlike Arcade, Matter.js calculates
+true geometric collisions, allowing bodies to rotate, bounce
+realistically, stack, and tumble.</p>
+<h3 id="collision-detection-and-shapes">Collision Detection and
+Shapes</h3>
+<ul>
+<li><strong>Arcade Physics:</strong> Limited to non-rotating rectangles
+and circles. While you can visually rotate a sprite in Arcade, its
+physics bounding box remains strictly aligned with the screen axes. This
+makes it impossible to implement sloped surfaces or tumbling objects
+accurately without custom workarounds.</li>
+<li><strong>Matter.js:</strong> Supports arbitrary convex and concave
+polygons, compound bodies (grouping multiple shapes into a single body),
+and rotated hitboxes. It also allows importing complex collision paths
+directly from tools like PhysicsEditor.</li>
+</ul>
+<h3 id="physical-features-and-constraints">Physical Features and
+Constraints</h3>
+<ul>
+<li><strong>Arcade Physics:</strong> Offers basic velocity,
+acceleration, gravity, drag, and simple bouncing. It lacks advanced
+mechanics such as joints, springs, and ropes. It is designed for
+deterministic, developer-controlled movement—ideal for classic
+platformers where "game feel" overrides real-world physics.</li>
+<li><strong>Matter.js:</strong> Provides advanced physics mechanics,
+including constraints (springs, distance joints, revolute joints),
+composite bodies, continuous collision detection (CCD) to prevent fast
+objects from tunneling through walls, and realistic friction and density
+calculations.</li>
+</ul>
+<h3 id="performance">Performance</h3>
+<p>Performance is the most significant trade-off between the two
+engines:</p>
+<ul>
+<li><strong>Arcade Physics:</strong> Extremely fast and CPU-efficient.
+It scales exceptionally well on mobile browsers and can handle large
+quantities of active particles, projectiles, and entities
+simultaneously.</li>
+<li><strong>Matter.js:</strong> Computationally heavy. Resolving polygon
+intersections, angular momentum, and multi-body constraints requires
+significantly more CPU power. High entity counts can lead to frame-rate
+drops, especially on mobile devices.</li>
+</ul>
+<h3 id="learning-curve-and-ease-of-use">Learning Curve and Ease of
+Use</h3>
+<p>Arcade Physics features a straightforward API that integrates
+seamlessly with Phaser game objects. Tasks like setting gravity,
+detecting overlap, and separating overlapping sprites require minimal
+code.</p>
+<p>Matter.js has a steeper learning curve. Manipulating bodies directly
+requires an understanding of rigid-body dynamics, center of mass, and
+constraint solving. Fine-tuning player controls in Matter.js can also be
+difficult, as realistic physics often make standard platformer movement
+feel floaty or slippery.</p>
+<h3 id="when-to-choose-arcade-physics">When to Choose Arcade
+Physics</h3>
+<ul>
+<li>Traditional 2D platformers (e.g., <em>Super Mario</em>-style
+movement).</li>
+<li>Top-down RPGs, shoot-'em-ups (shmups), and bullet hell games.</li>
+<li>Games targeted primarily at mobile web browsers.</li>
+<li>Projects requiring hundreds of moving bodies on screen at once.</li>
+</ul>
+<h3 id="when-to-choose-matterjs">When to Choose Matter.js</h3>
+<ul>
+<li>Physics-driven puzzle games (e.g., <em>Angry Birds</em>, <em>Cut the
+Rope</em>).</li>
+<li>Games requiring realistic vehicle suspension, ragdoll physics, or
+rope mechanics.</li>
+<li>Environments with slopes, rotating obstacles, or irregular
+terrain.</li>
+<li>Games where stacking, tumbling, and realistic balance are core
+mechanics.</li>
+</ul></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/matter.js'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/matter.js/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/matter.js/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

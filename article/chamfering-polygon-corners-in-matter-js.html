@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chamfering Polygon Corners in Matter.js - matter.js</title>
+    <meta name="description" content="In Matter.js, rigid bodies defined by custom polygon vertices often have sharp, jagged corners that can snag on other objects or create unnatural collision behaviors. The Matter.Vertices.chamfer method provides a built-in algorithmic solution to this pro">
+    <link rel="canonical" href="https://salivity.github.io/matter.js/article/chamfering-polygon-corners-in-matter-js">
+    <link rel="search" type="application/opensearchdescription+xml" title="matter.js" href="/matter.js/opensearch.xml">
+    <link rel="icon" href="/matter.js/favicon.ico">
+    <link rel="stylesheet" href="/matter.js/css/style.css">
+    <link media="print" rel="stylesheet" href="/matter.js/css/print.css">
+    <script src="/matter.js/js/fuse.min.js"></script>
+    <script src="/matter.js/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Chamfering Polygon Corners in Matter.js - matter.js" />
+    <meta property="og:url" content="https://salivity.github.io/matter.js/article/chamfering-polygon-corners-in-matter-js" />
+    <meta property="og:image" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="In Matter.js, rigid bodies defined by custom polygon vertices often have sharp, jagged corners that can snag on other objects or create unnatural collision behaviors. The Matter.Vertices.chamfer method provides a built-in algorithmic solution to this pro" />
+    <link rel="manifest" href="/matter.js/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/matter.js/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>matter.js</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/matter.js/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="chamfering-polygon-corners-in-matterjs">Chamfering Polygon
+Corners in Matter.js</h1>
+<p>In Matter.js, rigid bodies defined by custom polygon vertices often
+have sharp, jagged corners that can snag on other objects or create
+unnatural collision behaviors. The <code>Matter.Vertices.chamfer</code>
+method provides a built-in algorithmic solution to this problem by
+slicing and rounding sharp vertex points into smooth bevels or curved
+arcs. This article explains how the chamfering algorithm functions
+internally, how its parameters manipulate polygon geometry, how to
+implement it in your code, and the performance trade-offs associated
+with increasing vertex counts for collision detection.</p>
+<h3 id="how-the-chamfer-algorithm-works">How the Chamfer Algorithm
+Works</h3>
+<p>At its core, chamfering is the process of cutting away a sharp edge
+or corner to create a symmetrical sloping or rounded edge. In standard
+2D vector geometry, a polygon vertex is formed where two linear segments
+meet at a distinct angle.</p>
+<p>When you pass a set of vertices into
+<code>Matter.Vertices.chamfer</code>, the function executes the
+following sequence for each corner:</p>
+<ol type="1">
+<li><strong>Edge Vector Analysis:</strong> The algorithm inspects the
+target vertex along with its immediate preceding and succeeding neighbor
+vertices, determining the interior angle formed by the two connecting
+edges.</li>
+<li><strong>Tangent Point Calculation:</strong> Based on a specified
+<code>radius</code>, the function moves inward along both incident edges
+away from the corner, marking the points where the curve or bevel must
+begin and end.</li>
+<li><strong>Arc Interpolation:</strong> Instead of leaving a flat bevel
+(a simple cut), the function calculates a series of intermediate points
+along an arc that connects the two tangent points, smoothly
+approximating a rounded corner.</li>
+<li><strong>Vertex Replacement:</strong> The original sharp vertex is
+removed from the array and replaced with the newly generated sequence of
+arc points.</li>
+</ol>
+<h3 id="parameters-of-matterverticeschamfer">Parameters of
+<code>Matter.Vertices.chamfer</code></h3>
+<p>The method typically accepts the vertex array and a chamfer
+configuration object (or a direct radius value). The primary parameters
+governing this transformation include:</p>
+<ul>
+<li><strong><code>radius</code>:</strong> Defines the distance from the
+original vertex to the start of the chamfer along adjacent edges. This
+can be specified as a single uniform number for all corners, or as an
+array of individual numbers to round specific corners differently (or
+leave some sharp by assigning a radius of <code>0</code>).</li>
+<li><strong><code>quality</code>:</strong> Controls the resolution of
+the rounding. A <code>quality</code> of <code>1</code> or less results
+in a flat bevel (a single diagonal cut replacing the corner). Higher
+values insert more intermediate vertices along the arc, creating a
+visibly smoother curve.</li>
+<li><strong><code>qualityMin</code> and
+<code>qualityMax</code>:</strong> Thresholds used by Matter.js to
+dynamically clamp the number of generated points based on the sharpness
+of the angle, preventing overly dense vertex clusters on obtuse
+corners.</li>
+</ul>
+<h3 id="implementation-example">Implementation Example</h3>
+<p>To apply chamfering to a custom polygon body, the chamfer method is
+typically called on the vertex set prior to passing it to
+<code>Matter.Bodies.fromVertices</code>:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Define a triangle with sharp corners</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> coords <span class="op">=</span> [</span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>  { <span class="dt">x</span><span class="op">:</span> <span class="dv">0</span><span class="op">,</span> <span class="dt">y</span><span class="op">:</span> <span class="dv">0</span> }<span class="op">,</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>  { <span class="dt">x</span><span class="op">:</span> <span class="dv">100</span><span class="op">,</span> <span class="dt">y</span><span class="op">:</span> <span class="dv">0</span> }<span class="op">,</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>  { <span class="dt">x</span><span class="op">:</span> <span class="dv">50</span><span class="op">,</span> <span class="dt">y</span><span class="op">:</span> <span class="dv">100</span> }</span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>]<span class="op">;</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a><span class="co">// Create Matter.js vertex objects</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a><span class="kw">let</span> vertices <span class="op">=</span> Matter<span class="op">.</span><span class="at">Vertices</span><span class="op">.</span><span class="fu">fromPath</span>(<span class="st">&quot;0 0 100 0 50 100&quot;</span>)<span class="op">;</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a><span class="co">// Apply chamfering</span></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>Matter<span class="op">.</span><span class="at">Vertices</span><span class="op">.</span><span class="fu">chamfer</span>(vertices<span class="op">,</span> [<span class="dv">10</span><span class="op">,</span> <span class="dv">10</span><span class="op">,</span> <span class="dv">15</span>]<span class="op">,</span> <span class="dv">1</span><span class="op">,</span> <span class="dv">2</span><span class="op">,</span> <span class="dv">8</span>)<span class="op">;</span></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a><span class="co">// Create the rigid body with rounded corners</span></span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> roundedBody <span class="op">=</span> Matter<span class="op">.</span><span class="at">Bodies</span><span class="op">.</span><span class="fu">fromVertices</span>(<span class="dv">200</span><span class="op">,</span> <span class="dv">200</span><span class="op">,</span> [vertices])<span class="op">;</span></span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a>Matter<span class="op">.</span><span class="at">Composite</span><span class="op">.</span><span class="fu">add</span>(engine<span class="op">.</span><span class="at">world</span><span class="op">,</span> roundedBody)<span class="op">;</span></span></code></pre></div>
+<p>You can also pass chamfer configurations directly inside the body
+options when using standard helper factories like
+<code>Matter.Bodies.polygon</code> or
+<code>Matter.Bodies.rectangle</code>:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> box <span class="op">=</span> Matter<span class="op">.</span><span class="at">Bodies</span><span class="op">.</span><span class="fu">rectangle</span>(<span class="dv">100</span><span class="op">,</span> <span class="dv">100</span><span class="op">,</span> <span class="dv">80</span><span class="op">,</span> <span class="dv">80</span><span class="op">,</span> {</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>  <span class="dt">chamfer</span><span class="op">:</span> { <span class="dt">radius</span><span class="op">:</span> <span class="dv">10</span> }</span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div>
+<h3 id="physical-and-computational-considerations">Physical and
+Computational Considerations</h3>
+<p>While chamfered corners significantly improve simulation aesthetics
+and prevent bodies from catching on seams, they have direct physical
+implications:</p>
+<ul>
+<li><strong>Collision Normal Multiplication:</strong> Matter.js utilizes
+the Separating Axis Theorem (SAT) for convex collision detection.
+Because SAT projects shapes along the perpendicular axes (normals) of
+every edge, replacing one corner vertex with an arc of five vertices
+creates five new edges and five new axes to compute during every
+collision check.</li>
+<li><strong>Convexity and Decomposition:</strong> If a chamfer radius is
+set too large relative to the length of an adjacent edge, the generated
+arc can overlap neighboring chamfers or invert the edge. This can turn a
+convex shape concave, requiring the shape to be decomposed into multiple
+sub-bodies via the <code>poly-decomp</code> library, which further
+increases computational overhead.</li>
+</ul></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/matter.js'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/matter.js/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/matter.js/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

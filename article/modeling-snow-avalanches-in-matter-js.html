@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Modeling Snow Avalanches in Matter.js - matter.js</title>
+    <meta name="description" content="This article explains how to simulate snow avalanche dynamics—specifically cohesive slab release and secondary turbulent powder clouds—using Matter.js. By combining breakable structural constraints with custom particle-based fluid approximations, dev">
+    <link rel="canonical" href="https://salivity.github.io/matter.js/article/modeling-snow-avalanches-in-matter-js">
+    <link rel="search" type="application/opensearchdescription+xml" title="matter.js" href="/matter.js/opensearch.xml">
+    <link rel="icon" href="/matter.js/favicon.ico">
+    <link rel="stylesheet" href="/matter.js/css/style.css">
+    <link media="print" rel="stylesheet" href="/matter.js/css/print.css">
+    <script src="/matter.js/js/fuse.min.js"></script>
+    <script src="/matter.js/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Modeling Snow Avalanches in Matter.js - matter.js" />
+    <meta property="og:url" content="https://salivity.github.io/matter.js/article/modeling-snow-avalanches-in-matter-js" />
+    <meta property="og:image" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article explains how to simulate snow avalanche dynamics—specifically cohesive slab release and secondary turbulent powder clouds—using Matter.js. By combining breakable structural constraints with custom particle-based fluid approximations, dev" />
+    <link rel="manifest" href="/matter.js/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/matter.js/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>matter.js</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/matter.js/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="modeling-snow-avalanches-in-matterjs">Modeling Snow Avalanches
+in Matter.js</h1>
+<p>This article explains how to simulate snow avalanche
+dynamics—specifically cohesive slab release and secondary turbulent
+powder clouds—using Matter.js. By combining breakable structural
+constraints with custom particle-based fluid approximations, developers
+can replicate the transition from static mechanical failure to turbulent
+two-phase granular and aerosol flow within a 2D physics environment.</p>
+<h3 id="1-representing-cohesive-slab-failure">1. Representing Cohesive
+Slab Failure</h3>
+<p>A snow slab consists of a dense, cohesive layer resting on a weak
+shear layer. In Matter.js, this structure can be modeled using an array
+of rigid polygonal or circular bodies bound together by breakable
+constraints (<code>Matter.Constraint</code>).</p>
+<ul>
+<li><strong>Mesh Assembly:</strong> Generate a grid of packed bodies to
+represent the slab. Link adjacent bodies with constraints possessing
+high stiffness (<code>stiffness: 0.8</code> to <code>1.0</code>) and
+zero damping to mimic brittle ice bonds.</li>
+<li><strong>Weak Layer Foundation:</strong> Anchor the bottom row of
+slab bodies to a static slope using shear-sensitive constraints. These
+represent the weak layer susceptible to collapse.</li>
+<li><strong>Stress Calculation &amp; Failure:</strong> Matter.js does
+not calculate internal stress breaks automatically. In the
+<code>beforeUpdate</code> engine event, measure the extension distance
+or force vector across each constraint. If the distance between
+connected bodies exceeds a predefined threshold (simulating yield
+strength under shear or tension), remove the constraint from the world
+(<code>Matter.Composite.remove(world, constraint)</code>).</li>
+</ul>
+<p>Once a critical mass of weak-layer constraints ruptures, a crown
+fracture propagates rapidly across the slab, detaching the cohesive
+block into independent sliding clusters.</p>
+<h3 id="2-simulating-granular-flow-dynamics">2. Simulating Granular Flow
+Dynamics</h3>
+<p>After the bonds break, the dense core of the avalanche transitions
+into a granular flow. Configure the body properties to match snow
+granulometry:</p>
+<ul>
+<li><strong>Friction and Restitution:</strong> Set high static friction
+(<code>friction: 0.7</code> to <code>0.9</code>) to simulate packed
+snow, but lower the kinetic friction dynamically once velocity
+increases. Keep restitution low (<code>restitution: 0.05</code>) to
+represent inelastic energy dissipation from particle collisions.</li>
+<li><strong>Dynamic Fragmentation:</strong> Track high-energy collisions
+using the <code>collisionStart</code> event. When momentum transfer
+exceeds a set threshold, split larger composite bodies into smaller
+granular sub-units to represent ongoing mechanical comminution down the
+slope.</li>
+</ul>
+<h3 id="3-approximating-turbulent-powder-flow">3. Approximating
+Turbulent Powder Flow</h3>
+<p>Matter.js lacks a native Navier-Stokes fluid solver, requiring a
+coupled particle system to simulate the dilute, turbulent powder cloud
+(aerosol phase) that rides above the dense granular core.</p>
+<ul>
+<li><strong>Particle Spawning (Entrainment):</strong> In each frame,
+identify fast-moving dense bodies. If a body's velocity exceeds an
+entrainment threshold, spawn micro-particles
+(<code>Matter.Bodies.circle</code> with <code>isSensor: true</code> and
+<code>collisionFilter.mask = 0</code>) at its position to represent
+airborne snow crystals.</li>
+<li><strong>Buoyancy and Drag Forces:</strong> Apply upward and
+velocity-opposing forces within the <code>beforeUpdate</code> loop using
+<code>Matter.Body.applyForce()</code>. Reduce effective gravity for
+these particles to simulate suspension within the air column.</li>
+<li><strong>Simulating Turbulence:</strong> Standard ballistic
+trajectories cannot model billowing clouds. Overlay a procedural vector
+field (such as 2D Simplex or Perlin noise) to apply turbulent velocity
+fluctuations to the micro-particles. Adding a vortex force component
+behind the leading edge of the dense flow mimics the frontal air
+displacement and rolling vortices characteristic of true powder
+avalanches.</li>
+<li><strong>Dispersion and Dissipation:</strong> Gradually reduce
+particle opacity, expand particle radius, and remove airborne particles
+after their kinetic energy drops below settling velocity, mimicking
+deposition onto the runout zone.</li>
+</ul></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/matter.js'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/matter.js/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/matter.js/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

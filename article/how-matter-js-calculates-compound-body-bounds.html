@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How Matter.js Calculates Compound Body Bounds - matter.js</title>
+    <meta name="description" content="In Matter.js, the bounds of a compound body are determined by calculating an overall Axis-Aligned Bounding Box (AABB) that encapsulates all of its individual sub-parts. Rather than computing bounds as a single geometric shape, the physics engine updates">
+    <link rel="canonical" href="https://salivity.github.io/matter.js/article/how-matter-js-calculates-compound-body-bounds">
+    <link rel="search" type="application/opensearchdescription+xml" title="matter.js" href="/matter.js/opensearch.xml">
+    <link rel="icon" href="/matter.js/favicon.ico">
+    <link rel="stylesheet" href="/matter.js/css/style.css">
+    <link media="print" rel="stylesheet" href="/matter.js/css/print.css">
+    <script src="/matter.js/js/fuse.min.js"></script>
+    <script src="/matter.js/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How Matter.js Calculates Compound Body Bounds - matter.js" />
+    <meta property="og:url" content="https://salivity.github.io/matter.js/article/how-matter-js-calculates-compound-body-bounds" />
+    <meta property="og:image" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="In Matter.js, the bounds of a compound body are determined by calculating an overall Axis-Aligned Bounding Box (AABB) that encapsulates all of its individual sub-parts. Rather than computing bounds as a single geometric shape, the physics engine updates" />
+    <link rel="manifest" href="/matter.js/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/matter.js/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>matter.js</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/matter.js/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="how-matterjs-calculates-compound-body-bounds">How Matter.js
+Calculates Compound Body Bounds</h1>
+<p>In Matter.js, the bounds of a compound body are determined by
+calculating an overall Axis-Aligned Bounding Box (AABB) that
+encapsulates all of its individual sub-parts. Rather than computing
+bounds as a single geometric shape, the physics engine updates the world
+coordinates of every vertex across all constituent parts and evaluates
+the absolute minimum and maximum X and Y values. This overview explores
+the internal mechanisms Matter.js uses to track sub-part hierarchies,
+transform vertices, and dynamically update compound body bounds during
+simulation steps.</p>
+<h3 id="the-anatomy-of-a-compound-body">The Anatomy of a Compound
+Body</h3>
+<p>A compound body in Matter.js is defined by its <code>parts</code>
+array. When you create a compound body using
+<code>Body.create({ parts: [...] })</code>, Matter.js sets up a
+parent-child relationship:</p>
+<ul>
+<li><strong>Parent Body (<code>parts[0]</code>):</strong> The first
+element in the array represents the parent body itself, which manages
+global physical properties such as mass, inertia, position, and
+velocity.</li>
+<li><strong>Child Parts (<code>parts[1]</code> through
+<code>parts[n]</code>):</strong> The subsequent elements are the
+individual physical shapes (rectangles, polygons, or circles) that
+define the actual geometry and collision boundaries.</li>
+</ul>
+<p>Each child body maintains its own set of local vertices, which are
+defined relative to the compound body's center of mass.</p>
+<h3 id="step-by-step-calculation-of-bounds">Step-by-Step Calculation of
+Bounds</h3>
+<p>Matter.js resolves the outer bounds of a compound body through three
+main steps:</p>
+<h4 id="1-world-coordinate-vertex-transformation">1. World Coordinate
+Vertex Transformation</h4>
+<p>Before calculating bounds, the engine must know where each vertex is
+in world space. When a compound body rotates or translates, Matter.js
+iterates through each part in <code>body.parts</code>. It applies a 2D
+transformation matrix based on the compound body's position and angle to
+project the local vertices of each part into world coordinates.</p>
+<h4 id="2-vertex-aggregation">2. Vertex Aggregation</h4>
+<p>Matter.js aggregates the transformed vertices of the sub-parts. The
+parent body's master vertex list is either assigned the combined set of
+all sub-part vertices or evaluated across every sub-part sequentially.
+For standard collision and broadphase detection, the engine considers
+the full collection of vertices belonging to all parts in
+<code>body.parts</code>.</p>
+<h4 id="3-axis-aligned-bounding-box-aabb-computation">3. Axis-Aligned
+Bounding Box (AABB) Computation</h4>
+<p>Once the world coordinates of all vertices are established, the
+engine utilizes its internal <code>Bounds.update</code> method. The
+bounds object consists of two coordinate pairs:</p>
+<ul>
+<li><code>bounds.min</code>: The minimum X and Y values found across all
+vertices.</li>
+<li><code>bounds.max</code>: The maximum X and Y values found across all
+vertices.</li>
+</ul>
+<p>The algorithm loops through every vertex in every part:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Conceptual representation of the Bounds.update logic</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="kw">let</span> minX <span class="op">=</span> <span class="kw">Infinity</span><span class="op">,</span> minY <span class="op">=</span> <span class="kw">Infinity</span><span class="op">;</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="kw">let</span> maxX <span class="op">=</span> <span class="op">-</span><span class="kw">Infinity</span><span class="op">,</span> maxY <span class="op">=</span> <span class="op">-</span><span class="kw">Infinity</span><span class="op">;</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> (<span class="kw">let</span> i <span class="op">=</span> <span class="dv">0</span><span class="op">;</span> i <span class="op">&lt;</span> vertices<span class="op">.</span><span class="at">length</span><span class="op">;</span> i<span class="op">++</span>) {</span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> vertex <span class="op">=</span> vertices[i]<span class="op">;</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (vertex<span class="op">.</span><span class="at">x</span> <span class="op">&lt;</span> minX) minX <span class="op">=</span> vertex<span class="op">.</span><span class="at">x</span><span class="op">;</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (vertex<span class="op">.</span><span class="at">x</span> <span class="op">&gt;</span> maxX) maxX <span class="op">=</span> vertex<span class="op">.</span><span class="at">x</span><span class="op">;</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (vertex<span class="op">.</span><span class="at">y</span> <span class="op">&lt;</span> minY) minY <span class="op">=</span> vertex<span class="op">.</span><span class="at">y</span><span class="op">;</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (vertex<span class="op">.</span><span class="at">y</span> <span class="op">&gt;</span> maxY) maxY <span class="op">=</span> vertex<span class="op">.</span><span class="at">y</span><span class="op">;</span></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>bounds<span class="op">.</span><span class="at">min</span><span class="op">.</span><span class="at">x</span> <span class="op">=</span> minX<span class="op">;</span></span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>bounds<span class="op">.</span><span class="at">min</span><span class="op">.</span><span class="at">y</span> <span class="op">=</span> minY<span class="op">;</span></span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a>bounds<span class="op">.</span><span class="at">max</span><span class="op">.</span><span class="at">x</span> <span class="op">=</span> maxX<span class="op">;</span></span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a>bounds<span class="op">.</span><span class="at">max</span><span class="op">.</span><span class="at">y</span> <span class="op">=</span> maxY<span class="op">;</span></span></code></pre></div>
+<p>The resulting <code>min</code> and <code>max</code> values form the
+rectangular boundary aligned with the screen axes (X and Y), fully
+containing every part of the compound body regardless of its
+orientation.</p>
+<h3 id="dynamic-updates-during-simulation">Dynamic Updates During
+Simulation</h3>
+<p>Bounds are not static. During each step of the physics engine
+(<code>Engine.update</code>), the following lifecycle occurs for
+compound bodies:</p>
+<ol type="1">
+<li><strong>Velocity and Forces Applied:</strong> The parent body's
+position and angle are updated based on velocity, gravity, and external
+forces.</li>
+<li><strong><code>Body.update</code> Invocation:</strong> The engine
+updates the positions and vertices of all child parts relative to the
+parent.</li>
+<li><strong>Compound Bounds Refresh:</strong> Matter.js re-runs the
+bounding box routine across the updated vertices, adjusting
+<code>body.bounds</code> to match the new physical footprint.</li>
+</ol>
+<h3 id="purpose-of-compound-bounds">Purpose of Compound Bounds</h3>
+<p>Matter.js uses the calculated bounds primarily for the broadphase
+collision detection stage. Instead of performing expensive Narrowphase
+SAT (Separating Axis Theorem) checks against every sub-part of a
+compound body, the engine first checks if the compound body's AABB
+overlaps with other bodies' AABBs. Only when an overlap occurs does
+Matter.js proceed to check collisions for the specific sub-parts
+inside.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/matter.js'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/matter.js/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/matter.js/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

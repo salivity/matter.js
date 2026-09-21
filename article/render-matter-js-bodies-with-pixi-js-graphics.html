@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Render Matter.js Bodies with PixiJS Graphics - matter.js</title>
+    <meta name="description" content="Pairing Matter.js with PixiJS allows developers to replace the default Canvas 2D debug renderer with high-performance WebGL rendering. By decoupling the physics calculation loop from the visual presentation, you can simulate thousands of rigid bodies whi">
+    <link rel="canonical" href="https://salivity.github.io/matter.js/article/render-matter-js-bodies-with-pixi-js-graphics">
+    <link rel="search" type="application/opensearchdescription+xml" title="matter.js" href="/matter.js/opensearch.xml">
+    <link rel="icon" href="/matter.js/favicon.ico">
+    <link rel="stylesheet" href="/matter.js/css/style.css">
+    <link media="print" rel="stylesheet" href="/matter.js/css/print.css">
+    <script src="/matter.js/js/fuse.min.js"></script>
+    <script src="/matter.js/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Render Matter.js Bodies with PixiJS Graphics - matter.js" />
+    <meta property="og:url" content="https://salivity.github.io/matter.js/article/render-matter-js-bodies-with-pixi-js-graphics" />
+    <meta property="og:image" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Pairing Matter.js with PixiJS allows developers to replace the default Canvas 2D debug renderer with high-performance WebGL rendering. By decoupling the physics calculation loop from the visual presentation, you can simulate thousands of rigid bodies whi" />
+    <link rel="manifest" href="/matter.js/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/matter.js/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>matter.js</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/matter.js/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="render-matterjs-bodies-with-pixijs-graphics">Render Matter.js
+Bodies with PixiJS Graphics</h1>
+<p>Pairing Matter.js with PixiJS allows developers to replace the
+default Canvas 2D debug renderer with high-performance WebGL rendering.
+By decoupling the physics calculation loop from the visual presentation,
+you can simulate thousands of rigid bodies while maintaining a
+consistent 60 frames per second. This article explains how to set up the
+dual-engine pipeline, translate Matter.js geometry into
+<code>PIXI.Graphics</code> objects, and synchronize transform data
+efficiently to maximize WebGL throughput.</p>
+<h2 id="decoupling-physics-and-rendering">Decoupling Physics and
+Rendering</h2>
+<p>Matter.js includes a built-in <code>Matter.Render</code> module, but
+it relies on the CPU-bound Canvas 2D context. To achieve higher
+throughput, omit <code>Matter.Render</code> entirely. Instead, manage a
+headless physics simulation with <code>Matter.Engine</code> and sync the
+resulting transform data (positions and angles) directly to a
+<code>PIXI.Application</code> stage running on WebGL.</p>
+<h2 id="initialization">Initialization</h2>
+<p>First, instantiate both engines independently. Ensure the PixiJS
+canvas matches the dimensions of your physics world boundaries.</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> <span class="op">*</span> <span class="im">as</span> PIXI <span class="im">from</span> <span class="st">&#39;pixi.js&#39;</span><span class="op">;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> Matter <span class="im">from</span> <span class="st">&#39;matter-js&#39;</span><span class="op">;</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="co">// 1. Initialize PixiJS</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> app <span class="op">=</span> <span class="kw">new</span> PIXI<span class="op">.</span><span class="fu">Application</span>()<span class="op">;</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a><span class="cf">await</span> app<span class="op">.</span><span class="fu">init</span>({ <span class="dt">width</span><span class="op">:</span> <span class="dv">800</span><span class="op">,</span> <span class="dt">height</span><span class="op">:</span> <span class="dv">600</span><span class="op">,</span> <span class="dt">backgroundColor</span><span class="op">:</span> <span class="bn">0x1099bb</span> })<span class="op">;</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a><span class="bu">document</span><span class="op">.</span><span class="at">body</span><span class="op">.</span><span class="fu">appendChild</span>(app<span class="op">.</span><span class="at">canvas</span>)<span class="op">;</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a><span class="co">// 2. Initialize Matter.js</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> engine <span class="op">=</span> Matter<span class="op">.</span><span class="at">Engine</span><span class="op">.</span><span class="fu">create</span>()<span class="op">;</span></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> world <span class="op">=</span> engine<span class="op">.</span><span class="at">world</span><span class="op">;</span></span></code></pre></div>
+<h2 id="creating-graphics-from-matterjs-bodies">Creating Graphics from
+Matter.js Bodies</h2>
+<p>A common performance pitfall is clearing and redrawing vector shapes
+inside the animation loop via <code>graphics.clear()</code>. Doing this
+forces the GPU to rebuild vertex buffers every frame, nullifying WebGL
+benefits.</p>
+<p>Instead, draw the local geometry of the Matter.js body to a
+<code>PIXI.Graphics</code> object once during initialization. Center the
+geometry at local coordinate <code>(0, 0)</code>, and attach the graphic
+to the physics body object for quick reference.</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">createPhysicsGraphic</span>(body<span class="op">,</span> color <span class="op">=</span> <span class="bn">0xffffff</span>) {</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> graphic <span class="op">=</span> <span class="kw">new</span> PIXI<span class="op">.</span><span class="fu">Graphics</span>()<span class="op">;</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Draw geometry based on vertices relative to the body center</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>    graphic<span class="op">.</span><span class="fu">fill</span>(color)<span class="op">;</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> vertices <span class="op">=</span> body<span class="op">.</span><span class="at">vertices</span><span class="op">;</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>    graphic<span class="op">.</span><span class="fu">moveTo</span>(vertices[<span class="dv">0</span>]<span class="op">.</span><span class="at">x</span> <span class="op">-</span> body<span class="op">.</span><span class="at">position</span><span class="op">.</span><span class="at">x</span><span class="op">,</span> vertices[<span class="dv">0</span>]<span class="op">.</span><span class="at">y</span> <span class="op">-</span> body<span class="op">.</span><span class="at">position</span><span class="op">.</span><span class="at">y</span>)<span class="op">;</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> (<span class="kw">let</span> i <span class="op">=</span> <span class="dv">1</span><span class="op">;</span> i <span class="op">&lt;</span> vertices<span class="op">.</span><span class="at">length</span><span class="op">;</span> i<span class="op">++</span>) {</span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>        graphic<span class="op">.</span><span class="fu">lineTo</span>(vertices[i]<span class="op">.</span><span class="at">x</span> <span class="op">-</span> body<span class="op">.</span><span class="at">position</span><span class="op">.</span><span class="at">x</span><span class="op">,</span> vertices[i]<span class="op">.</span><span class="at">y</span> <span class="op">-</span> body<span class="op">.</span><span class="at">position</span><span class="op">.</span><span class="at">y</span>)<span class="op">;</span></span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a>    graphic<span class="op">.</span><span class="fu">closePath</span>()<span class="op">;</span></span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a>    graphic<span class="op">.</span><span class="fu">fill</span>()<span class="op">;</span></span>
+<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Map body to graphic</span></span>
+<span id="cb2-18"><a href="#cb2-18" aria-hidden="true" tabindex="-1"></a>    body<span class="op">.</span><span class="at">pixiGraphic</span> <span class="op">=</span> graphic<span class="op">;</span></span>
+<span id="cb2-19"><a href="#cb2-19" aria-hidden="true" tabindex="-1"></a>    app<span class="op">.</span><span class="at">stage</span><span class="op">.</span><span class="fu">addChild</span>(graphic)<span class="op">;</span></span>
+<span id="cb2-20"><a href="#cb2-20" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-21"><a href="#cb2-21" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> graphic<span class="op">;</span></span>
+<span id="cb2-22"><a href="#cb2-22" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<h2 id="spawning-bodies">Spawning Bodies</h2>
+<p>When creating bodies with Matter.js, instantiate their physics
+representation, generate their visual representation, and push them to
+their respective containers.</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Create a dynamic box</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> box <span class="op">=</span> Matter<span class="op">.</span><span class="at">Bodies</span><span class="op">.</span><span class="fu">rectangle</span>(<span class="dv">400</span><span class="op">,</span> <span class="dv">200</span><span class="op">,</span> <span class="dv">80</span><span class="op">,</span> <span class="dv">80</span>)<span class="op">;</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a><span class="fu">createPhysicsGraphic</span>(box<span class="op">,</span> <span class="bn">0xff0044</span>)<span class="op">;</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a><span class="co">// Create a static ground body</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> ground <span class="op">=</span> Matter<span class="op">.</span><span class="at">Bodies</span><span class="op">.</span><span class="fu">rectangle</span>(<span class="dv">400</span><span class="op">,</span> <span class="dv">580</span><span class="op">,</span> <span class="dv">810</span><span class="op">,</span> <span class="dv">40</span><span class="op">,</span> { <span class="dt">isStatic</span><span class="op">:</span> <span class="kw">true</span> })<span class="op">;</span></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a><span class="fu">createPhysicsGraphic</span>(ground<span class="op">,</span> <span class="bn">0x222222</span>)<span class="op">;</span></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a><span class="co">// Add bodies to the Matter world</span></span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a>Matter<span class="op">.</span><span class="at">Composite</span><span class="op">.</span><span class="fu">add</span>(world<span class="op">,</span> [box<span class="op">,</span> ground])<span class="op">;</span></span></code></pre></div>
+<h2 id="the-synchronization-render-loop">The Synchronization Render
+Loop</h2>
+<p>To achieve optimal throughput, use the PixiJS ticker to step the
+physics engine and update the hardware-accelerated transform properties
+(<code>position</code> and <code>rotation</code>) of each corresponding
+<code>PIXI.Graphics</code> object.</p>
+<div class="sourceCode" id="cb4"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> bodies <span class="op">=</span> Matter<span class="op">.</span><span class="at">Composite</span><span class="op">.</span><span class="fu">allBodies</span>(world)<span class="op">;</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>app<span class="op">.</span><span class="at">ticker</span><span class="op">.</span><span class="fu">add</span>((ticker) <span class="kw">=&gt;</span> {</span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>    <span class="co">// 1. Step the physics engine forward by delta time</span></span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>    Matter<span class="op">.</span><span class="at">Engine</span><span class="op">.</span><span class="fu">update</span>(engine<span class="op">,</span> ticker<span class="op">.</span><span class="at">deltaMS</span>)<span class="op">;</span></span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a>    <span class="co">// 2. Update graphic transforms</span></span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> (<span class="kw">let</span> i <span class="op">=</span> <span class="dv">0</span><span class="op">;</span> i <span class="op">&lt;</span> bodies<span class="op">.</span><span class="at">length</span><span class="op">;</span> i<span class="op">++</span>) {</span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a>        <span class="kw">const</span> body <span class="op">=</span> bodies[i]<span class="op">;</span></span>
+<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> (body<span class="op">.</span><span class="at">pixiGraphic</span>) {</span>
+<span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a>            body<span class="op">.</span><span class="at">pixiGraphic</span><span class="op">.</span><span class="at">position</span><span class="op">.</span><span class="fu">set</span>(body<span class="op">.</span><span class="at">position</span><span class="op">.</span><span class="at">x</span><span class="op">,</span> body<span class="op">.</span><span class="at">position</span><span class="op">.</span><span class="at">y</span>)<span class="op">;</span></span>
+<span id="cb4-12"><a href="#cb4-12" aria-hidden="true" tabindex="-1"></a>            body<span class="op">.</span><span class="at">pixiGraphic</span><span class="op">.</span><span class="at">rotation</span> <span class="op">=</span> body<span class="op">.</span><span class="at">angle</span><span class="op">;</span></span>
+<span id="cb4-13"><a href="#cb4-13" aria-hidden="true" tabindex="-1"></a>        }</span>
+<span id="cb4-14"><a href="#cb4-14" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb4-15"><a href="#cb4-15" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div>
+<h2 id="key-optimization-strategies">Key Optimization Strategies</h2>
+<ul>
+<li><strong>Disable Auto-Density Calculation:</strong> When creating
+massive amounts of bodies, set explicit inertia and mass values to skip
+expensive geometric calculations in Matter.js.</li>
+<li><strong>Sleeping Bodies:</strong> Enable sleeping via
+<code>engine.enableSleeping = true</code>. This prevents Matter.js from
+recalculating non-moving bodies, allowing you to conditionally skip
+transform updates on resting Graphics objects.</li>
+<li><strong>Avoid Complex Concave Polygons:</strong> Matter.js
+decomposes concave shapes into convex sets using vertices. For PixiJS
+rendering, triangulate or trace only the outer hull to minimize
+primitive drawing operations.</li>
+</ul></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/matter.js'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/matter.js/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/matter.js/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

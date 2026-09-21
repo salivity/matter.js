@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How to Map Three.js Meshes to Matter.js Physics - matter.js</title>
+    <meta name="description" content="This guide explains how to synchronize 2D rigid body physics from Matter.js with 3D plane meshes in Three.js. By mapping Matter.js coordinate positions and rotational angles to Three.js mesh transforms on every frame, you can render high-performance 2D p">
+    <link rel="canonical" href="https://salivity.github.io/matter.js/article/how-to-map-three-js-meshes-to-matter-js-physics">
+    <link rel="search" type="application/opensearchdescription+xml" title="matter.js" href="/matter.js/opensearch.xml">
+    <link rel="icon" href="/matter.js/favicon.ico">
+    <link rel="stylesheet" href="/matter.js/css/style.css">
+    <link media="print" rel="stylesheet" href="/matter.js/css/print.css">
+    <script src="/matter.js/js/fuse.min.js"></script>
+    <script src="/matter.js/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How to Map Three.js Meshes to Matter.js Physics - matter.js" />
+    <meta property="og:url" content="https://salivity.github.io/matter.js/article/how-to-map-three-js-meshes-to-matter-js-physics" />
+    <meta property="og:image" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This guide explains how to synchronize 2D rigid body physics from Matter.js with 3D plane meshes in Three.js. By mapping Matter.js coordinate positions and rotational angles to Three.js mesh transforms on every frame, you can render high-performance 2D p" />
+    <link rel="manifest" href="/matter.js/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/matter.js/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>matter.js</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/matter.js/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="how-to-map-threejs-meshes-to-matterjs-physics">How to Map
+Three.js Meshes to Matter.js Physics</h1>
+<p>This guide explains how to synchronize 2D rigid body physics from
+Matter.js with 3D plane meshes in Three.js. By mapping Matter.js
+coordinate positions and rotational angles to Three.js mesh transforms
+on every frame, you can render high-performance 2D physics simulations
+inside a 3D WebGL scene.</p>
+<h3 id="understanding-the-coordinate-systems">Understanding the
+Coordinate Systems</h3>
+<p>To correctly map the two libraries, you must account for the
+differences in how they handle 2D space:</p>
+<ul>
+<li><strong>Matter.js:</strong> The origin <code>(0, 0)</code> is at the
+<strong>top-left</strong> of the viewport. The X-axis extends to the
+right, and the Y-axis extends <strong>downward</strong>. Rotation values
+are in radians and increase clockwise.</li>
+<li><strong>Three.js:</strong> In standard setup, the origin
+<code>(0, 0, 0)</code> is at the <strong>center</strong> of the screen.
+The X-axis extends to the right, and the Y-axis extends
+<strong>upward</strong>. Rotation around the Z-axis increases
+counterclockwise.</li>
+</ul>
+<p>Using an <code>OrthographicCamera</code> in Three.js makes this
+conversion direct and eliminates perspective distortion, allowing a 1:1
+unit-to-pixel ratio.</p>
+<hr />
+<h3 id="step-1-configure-the-threejs-camera">Step 1: Configure the
+Three.js Camera</h3>
+<p>Set up an <code>OrthographicCamera</code> configured to match the
+pixel dimensions of your simulation canvas:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> width <span class="op">=</span> <span class="bu">window</span><span class="op">.</span><span class="at">innerWidth</span><span class="op">;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> height <span class="op">=</span> <span class="bu">window</span><span class="op">.</span><span class="at">innerHeight</span><span class="op">;</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> camera <span class="op">=</span> <span class="kw">new</span> THREE<span class="op">.</span><span class="fu">OrthographicCamera</span>(</span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>    width <span class="op">/</span> <span class="op">-</span><span class="dv">2</span><span class="op">,</span> width <span class="op">/</span> <span class="dv">2</span><span class="op">,</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>    height <span class="op">/</span> <span class="dv">2</span><span class="op">,</span> height <span class="op">/</span> <span class="op">-</span><span class="dv">2</span><span class="op">,</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>    <span class="dv">1</span><span class="op">,</span> <span class="dv">1000</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>)<span class="op">;</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>camera<span class="op">.</span><span class="at">position</span><span class="op">.</span><span class="at">z</span> <span class="op">=</span> <span class="dv">10</span><span class="op">;</span></span></code></pre></div>
+<hr />
+<h3 id="step-2-create-paired-bodies-and-meshes">Step 2: Create Paired
+Bodies and Meshes</h3>
+<p>Create your physics body in Matter.js and corresponding plane
+geometry in Three.js with identical dimensions, then store a reference
+between them.</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Matter.js Body</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> boxWidth <span class="op">=</span> <span class="dv">100</span><span class="op">;</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> boxHeight <span class="op">=</span> <span class="dv">50</span><span class="op">;</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> body <span class="op">=</span> Matter<span class="op">.</span><span class="at">Bodies</span><span class="op">.</span><span class="fu">rectangle</span>(<span class="dv">400</span><span class="op">,</span> <span class="dv">300</span><span class="op">,</span> boxWidth<span class="op">,</span> boxHeight)<span class="op">;</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>Matter<span class="op">.</span><span class="at">Composite</span><span class="op">.</span><span class="fu">add</span>(engine<span class="op">.</span><span class="at">world</span><span class="op">,</span> body)<span class="op">;</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a><span class="co">// Three.js Mesh</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> geometry <span class="op">=</span> <span class="kw">new</span> THREE<span class="op">.</span><span class="fu">PlaneGeometry</span>(boxWidth<span class="op">,</span> boxHeight)<span class="op">;</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> material <span class="op">=</span> <span class="kw">new</span> THREE<span class="op">.</span><span class="fu">MeshBasicMaterial</span>({ <span class="dt">color</span><span class="op">:</span> <span class="bn">0x00ff00</span> })<span class="op">;</span></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> mesh <span class="op">=</span> <span class="kw">new</span> THREE<span class="op">.</span><span class="fu">Mesh</span>(geometry<span class="op">,</span> material)<span class="op">;</span></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>scene<span class="op">.</span><span class="fu">add</span>(mesh)<span class="op">;</span></span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a><span class="co">// Track the pair</span></span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> physicsObjects <span class="op">=</span> [{ body<span class="op">,</span> mesh }]<span class="op">;</span></span></code></pre></div>
+<hr />
+<h3 id="step-3-convert-coordinates-and-update-transforms">Step 3:
+Convert Coordinates and Update Transforms</h3>
+<p>In the animation loop, update the physics engine first, then map each
+body's <code>position</code> and <code>angle</code> to its corresponding
+mesh.</p>
+<p>To convert Matter.js screen coordinates to Three.js centered
+coordinates:</p>
+<ul>
+<li><strong>Mesh X:</strong>
+<code>body.position.x - (width / 2)</code></li>
+<li><strong>Mesh Y:</strong>
+<code>-(body.position.y - (height / 2))</code></li>
+<li><strong>Mesh Rotation (Z):</strong> <code>-body.angle</code></li>
+</ul>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">animate</span>() {</span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>    <span class="fu">requestAnimationFrame</span>(animate)<span class="op">;</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Step the Matter.js physics engine</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>    Matter<span class="op">.</span><span class="at">Engine</span><span class="op">.</span><span class="fu">update</span>(engine<span class="op">,</span> <span class="dv">1000</span> <span class="op">/</span> <span class="dv">60</span>)<span class="op">;</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Sync mesh transforms to physics bodies</span></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> (<span class="kw">const</span> { body<span class="op">,</span> mesh } <span class="kw">of</span> physicsObjects) {</span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a>        mesh<span class="op">.</span><span class="at">position</span><span class="op">.</span><span class="at">x</span> <span class="op">=</span> body<span class="op">.</span><span class="at">position</span><span class="op">.</span><span class="at">x</span> <span class="op">-</span> width <span class="op">/</span> <span class="dv">2</span><span class="op">;</span></span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a>        mesh<span class="op">.</span><span class="at">position</span><span class="op">.</span><span class="at">y</span> <span class="op">=</span> <span class="op">-</span>(body<span class="op">.</span><span class="at">position</span><span class="op">.</span><span class="at">y</span> <span class="op">-</span> height <span class="op">/</span> <span class="dv">2</span>)<span class="op">;</span></span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a>        mesh<span class="op">.</span><span class="at">rotation</span><span class="op">.</span><span class="at">z</span> <span class="op">=</span> <span class="op">-</span>body<span class="op">.</span><span class="at">angle</span><span class="op">;</span></span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-14"><a href="#cb3-14" aria-hidden="true" tabindex="-1"></a>    renderer<span class="op">.</span><span class="fu">render</span>(scene<span class="op">,</span> camera)<span class="op">;</span></span>
+<span id="cb3-15"><a href="#cb3-15" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb3-16"><a href="#cb3-16" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-17"><a href="#cb3-17" aria-hidden="true" tabindex="-1"></a><span class="fu">animate</span>()<span class="op">;</span></span></code></pre></div>
+<hr />
+<h3 id="using-a-perspective-camera-alternative">Using a Perspective
+Camera Alternative</h3>
+<p>If you must use a <code>PerspectiveCamera</code>, you cannot use a
+direct 1:1 pixel mapping. Instead, normalize the Matter.js coordinates
+to a range of <code>0</code> to <code>1</code>, or use
+raycasting/visible height formulas
+(<code>visibleHeight = 2 * Math.tan((vFOV / 2) * Math.PI / 180) * distance</code>)
+to scale Matter.js pixel coordinates into Three.js world units. For most
+2D simulation overlays, an <code>OrthographicCamera</code> remains the
+simplest and most accurate solution.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/matter.js'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/matter.js/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/matter.js/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

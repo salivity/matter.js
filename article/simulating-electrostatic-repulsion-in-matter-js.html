@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simulating Electrostatic Repulsion in Matter.js - matter.js</title>
+    <meta name="description" content="This article explains how to simulate electrostatic repulsion between identically charged bodies using Matter.js. While Matter.js is a rigid-body 2D physics engine that lacks built-in electromagnetic mechanics, you can model electrostatic behavior by cal">
+    <link rel="canonical" href="https://salivity.github.io/matter.js/article/simulating-electrostatic-repulsion-in-matter-js">
+    <link rel="search" type="application/opensearchdescription+xml" title="matter.js" href="/matter.js/opensearch.xml">
+    <link rel="icon" href="/matter.js/favicon.ico">
+    <link rel="stylesheet" href="/matter.js/css/style.css">
+    <link media="print" rel="stylesheet" href="/matter.js/css/print.css">
+    <script src="/matter.js/js/fuse.min.js"></script>
+    <script src="/matter.js/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Simulating Electrostatic Repulsion in Matter.js - matter.js" />
+    <meta property="og:url" content="https://salivity.github.io/matter.js/article/simulating-electrostatic-repulsion-in-matter-js" />
+    <meta property="og:image" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article explains how to simulate electrostatic repulsion between identically charged bodies using Matter.js. While Matter.js is a rigid-body 2D physics engine that lacks built-in electromagnetic mechanics, you can model electrostatic behavior by cal" />
+    <link rel="manifest" href="/matter.js/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/matter.js/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>matter.js</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/matter.js/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="simulating-electrostatic-repulsion-in-matterjs">Simulating
+Electrostatic Repulsion in Matter.js</h1>
+<p>This article explains how to simulate electrostatic repulsion between
+identically charged bodies using Matter.js. While Matter.js is a
+rigid-body 2D physics engine that lacks built-in electromagnetic
+mechanics, you can model electrostatic behavior by calculating repulsive
+forces via Coulomb's Law and applying them continuously to bodies before
+each physics engine update.</p>
+<h2 id="the-underlying-physics-coulombs-law">The Underlying Physics:
+Coulomb's Law</h2>
+<p>Electrostatic repulsion between two bodies carrying identical charges
+is governed by Coulomb's Law:</p>
+<p><span class="math display">\[F = k \cdot \frac{q_1 \cdot
+q_2}{r^2}\]</span></p>
+<ul>
+<li><strong><span class="math inline">\(F\)</span></strong>: Repulsive
+force magnitude.</li>
+<li><strong><span class="math inline">\(k\)</span></strong>: Coulomb's
+constant (scaled for your simulation).</li>
+<li><strong><span class="math inline">\(q_1, q_2\)</span></strong>:
+Charge values of the two interacting bodies.</li>
+<li><strong><span class="math inline">\(r\)</span></strong>: Euclidean
+distance between the centers of the two bodies.</li>
+</ul>
+<p>Because identical charges repel, the resulting force vector points
+directly away from the other body along the line connecting their
+centers.</p>
+<h2 id="implementation-steps-in-matterjs">Implementation Steps in
+Matter.js</h2>
+<p>To implement this custom force:</p>
+<ol type="1">
+<li><strong>Assign a Charge Property</strong>: Add a custom
+<code>charge</code> property to each body during creation.</li>
+<li><strong>Listen to the <code>beforeUpdate</code> Event</strong>: Use
+<code>Matter.Events.on(engine, 'beforeUpdate', callback)</code> to
+compute and apply forces on every frame prior to collision and position
+resolution.</li>
+<li><strong>Iterate Through Body Pairs</strong>: Loop through unique
+pairs of charged bodies to avoid duplicate calculations.</li>
+<li><strong>Calculate and Apply Force</strong>: Compute the distance,
+direction, and magnitude, then use <code>Matter.Body.applyForce()</code>
+to push the bodies apart.</li>
+</ol>
+<h2 id="code-example">Code Example</h2>
+<p>Below is a complete implementation using Matter.js:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> { Engine<span class="op">,</span> Render<span class="op">,</span> Runner<span class="op">,</span> Bodies<span class="op">,</span> Composite<span class="op">,</span> Events<span class="op">,</span> Vector<span class="op">,</span> Body } <span class="op">=</span> Matter<span class="op">;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="co">// 1. Initialize engine and world</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> engine <span class="op">=</span> Engine<span class="op">.</span><span class="fu">create</span>({ <span class="dt">gravity</span><span class="op">:</span> { <span class="dt">x</span><span class="op">:</span> <span class="dv">0</span><span class="op">,</span> <span class="dt">y</span><span class="op">:</span> <span class="dv">0</span> } })<span class="op">;</span> <span class="co">// Zero gravity for clear observation</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> world <span class="op">=</span> engine<span class="op">.</span><span class="at">world</span><span class="op">;</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> render <span class="op">=</span> Render<span class="op">.</span><span class="fu">create</span>({</span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>  <span class="dt">element</span><span class="op">:</span> <span class="bu">document</span><span class="op">.</span><span class="at">body</span><span class="op">,</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>  <span class="dt">engine</span><span class="op">:</span> engine<span class="op">,</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>  <span class="dt">options</span><span class="op">:</span> { <span class="dt">width</span><span class="op">:</span> <span class="dv">800</span><span class="op">,</span> <span class="dt">height</span><span class="op">:</span> <span class="dv">600</span><span class="op">,</span> <span class="dt">wireframes</span><span class="op">:</span> <span class="kw">false</span> }</span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>Render<span class="op">.</span><span class="fu">run</span>(render)<span class="op">;</span></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>Runner<span class="op">.</span><span class="fu">run</span>(Runner<span class="op">.</span><span class="fu">create</span>()<span class="op">,</span> engine)<span class="op">;</span></span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a><span class="co">// 2. Create charged bodies</span></span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> chargedBodies <span class="op">=</span> []<span class="op">;</span></span>
+<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> (<span class="kw">let</span> i <span class="op">=</span> <span class="dv">0</span><span class="op">;</span> i <span class="op">&lt;</span> <span class="dv">15</span><span class="op">;</span> i<span class="op">++</span>) {</span>
+<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> body <span class="op">=</span> Bodies<span class="op">.</span><span class="fu">circle</span>(</span>
+<span id="cb1-19"><a href="#cb1-19" aria-hidden="true" tabindex="-1"></a>    <span class="dv">200</span> <span class="op">+</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">random</span>() <span class="op">*</span> <span class="dv">400</span><span class="op">,</span></span>
+<span id="cb1-20"><a href="#cb1-20" aria-hidden="true" tabindex="-1"></a>    <span class="dv">150</span> <span class="op">+</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">random</span>() <span class="op">*</span> <span class="dv">300</span><span class="op">,</span></span>
+<span id="cb1-21"><a href="#cb1-21" aria-hidden="true" tabindex="-1"></a>    <span class="dv">15</span><span class="op">,</span></span>
+<span id="cb1-22"><a href="#cb1-22" aria-hidden="true" tabindex="-1"></a>    {</span>
+<span id="cb1-23"><a href="#cb1-23" aria-hidden="true" tabindex="-1"></a>      <span class="dt">restitution</span><span class="op">:</span> <span class="fl">0.8</span><span class="op">,</span></span>
+<span id="cb1-24"><a href="#cb1-24" aria-hidden="true" tabindex="-1"></a>      <span class="dt">frictionAir</span><span class="op">:</span> <span class="fl">0.05</span><span class="op">,</span></span>
+<span id="cb1-25"><a href="#cb1-25" aria-hidden="true" tabindex="-1"></a>      <span class="dt">render</span><span class="op">:</span> { <span class="dt">fillStyle</span><span class="op">:</span> <span class="st">&#39;#ff4757&#39;</span> }</span>
+<span id="cb1-26"><a href="#cb1-26" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb1-27"><a href="#cb1-27" aria-hidden="true" tabindex="-1"></a>  )<span class="op">;</span></span>
+<span id="cb1-28"><a href="#cb1-28" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb1-29"><a href="#cb1-29" aria-hidden="true" tabindex="-1"></a>  <span class="co">// Custom charge property (identical positive charge)</span></span>
+<span id="cb1-30"><a href="#cb1-30" aria-hidden="true" tabindex="-1"></a>  body<span class="op">.</span><span class="at">charge</span> <span class="op">=</span> <span class="fl">1.0</span><span class="op">;</span></span>
+<span id="cb1-31"><a href="#cb1-31" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb1-32"><a href="#cb1-32" aria-hidden="true" tabindex="-1"></a>  chargedBodies<span class="op">.</span><span class="fu">push</span>(body)<span class="op">;</span></span>
+<span id="cb1-33"><a href="#cb1-33" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb1-34"><a href="#cb1-34" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-35"><a href="#cb1-35" aria-hidden="true" tabindex="-1"></a>Composite<span class="op">.</span><span class="fu">add</span>(world<span class="op">,</span> chargedBodies)<span class="op">;</span></span>
+<span id="cb1-36"><a href="#cb1-36" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-37"><a href="#cb1-37" aria-hidden="true" tabindex="-1"></a><span class="co">// 3. Apply electrostatic repulsion before each update</span></span>
+<span id="cb1-38"><a href="#cb1-38" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> COULOMB_CONSTANT <span class="op">=</span> <span class="dv">50</span><span class="op">;</span> <span class="co">// Adjust to scale force strength</span></span>
+<span id="cb1-39"><a href="#cb1-39" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> MIN_DISTANCE <span class="op">=</span> <span class="dv">30</span><span class="op">;</span>     <span class="co">// Prevent infinite force at close proximity</span></span>
+<span id="cb1-40"><a href="#cb1-40" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-41"><a href="#cb1-41" aria-hidden="true" tabindex="-1"></a>Events<span class="op">.</span><span class="fu">on</span>(engine<span class="op">,</span> <span class="st">&#39;beforeUpdate&#39;</span><span class="op">,</span> () <span class="kw">=&gt;</span> {</span>
+<span id="cb1-42"><a href="#cb1-42" aria-hidden="true" tabindex="-1"></a>  <span class="cf">for</span> (<span class="kw">let</span> i <span class="op">=</span> <span class="dv">0</span><span class="op">;</span> i <span class="op">&lt;</span> chargedBodies<span class="op">.</span><span class="at">length</span><span class="op">;</span> i<span class="op">++</span>) {</span>
+<span id="cb1-43"><a href="#cb1-43" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> (<span class="kw">let</span> j <span class="op">=</span> i <span class="op">+</span> <span class="dv">1</span><span class="op">;</span> j <span class="op">&lt;</span> chargedBodies<span class="op">.</span><span class="at">length</span><span class="op">;</span> j<span class="op">++</span>) {</span>
+<span id="cb1-44"><a href="#cb1-44" aria-hidden="true" tabindex="-1"></a>      <span class="kw">const</span> bodyA <span class="op">=</span> chargedBodies[i]<span class="op">;</span></span>
+<span id="cb1-45"><a href="#cb1-45" aria-hidden="true" tabindex="-1"></a>      <span class="kw">const</span> bodyB <span class="op">=</span> chargedBodies[j]<span class="op">;</span></span>
+<span id="cb1-46"><a href="#cb1-46" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-47"><a href="#cb1-47" aria-hidden="true" tabindex="-1"></a>      <span class="co">// Vector from bodyA to bodyB</span></span>
+<span id="cb1-48"><a href="#cb1-48" aria-hidden="true" tabindex="-1"></a>      <span class="kw">const</span> delta <span class="op">=</span> Vector<span class="op">.</span><span class="fu">sub</span>(bodyB<span class="op">.</span><span class="at">position</span><span class="op">,</span> bodyA<span class="op">.</span><span class="at">position</span>)<span class="op">;</span></span>
+<span id="cb1-49"><a href="#cb1-49" aria-hidden="true" tabindex="-1"></a>      <span class="kw">const</span> distance <span class="op">=</span> Vector<span class="op">.</span><span class="fu">magnitude</span>(delta)<span class="op">;</span></span>
+<span id="cb1-50"><a href="#cb1-50" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-51"><a href="#cb1-51" aria-hidden="true" tabindex="-1"></a>      <span class="co">// Clamp distance to avoid division by zero or explosive forces</span></span>
+<span id="cb1-52"><a href="#cb1-52" aria-hidden="true" tabindex="-1"></a>      <span class="kw">const</span> effectiveDistance <span class="op">=</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">max</span>(distance<span class="op">,</span> MIN_DISTANCE)<span class="op">;</span></span>
+<span id="cb1-53"><a href="#cb1-53" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-54"><a href="#cb1-54" aria-hidden="true" tabindex="-1"></a>      <span class="co">// Calculate force magnitude: F = k * (q1 * q2) / r^2</span></span>
+<span id="cb1-55"><a href="#cb1-55" aria-hidden="true" tabindex="-1"></a>      <span class="kw">const</span> forceMagnitude <span class="op">=</span> (COULOMB_CONSTANT <span class="op">*</span> bodyA<span class="op">.</span><span class="at">charge</span> <span class="op">*</span> bodyB<span class="op">.</span><span class="at">charge</span>) <span class="op">/</span> (effectiveDistance <span class="op">*</span> effectiveDistance)<span class="op">;</span></span>
+<span id="cb1-56"><a href="#cb1-56" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-57"><a href="#cb1-57" aria-hidden="true" tabindex="-1"></a>      <span class="co">// Normalized direction vector</span></span>
+<span id="cb1-58"><a href="#cb1-58" aria-hidden="true" tabindex="-1"></a>      <span class="kw">const</span> normal <span class="op">=</span> Vector<span class="op">.</span><span class="fu">normalise</span>(delta)<span class="op">;</span></span>
+<span id="cb1-59"><a href="#cb1-59" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-60"><a href="#cb1-60" aria-hidden="true" tabindex="-1"></a>      <span class="co">// Force applied to bodyB (repels away from bodyA)</span></span>
+<span id="cb1-61"><a href="#cb1-61" aria-hidden="true" tabindex="-1"></a>      <span class="kw">const</span> forceOnB <span class="op">=</span> Vector<span class="op">.</span><span class="fu">mult</span>(normal<span class="op">,</span> forceMagnitude)<span class="op">;</span></span>
+<span id="cb1-62"><a href="#cb1-62" aria-hidden="true" tabindex="-1"></a>      <span class="co">// Force applied to bodyA (Newton&#39;s third law: equal and opposite)</span></span>
+<span id="cb1-63"><a href="#cb1-63" aria-hidden="true" tabindex="-1"></a>      <span class="kw">const</span> forceOnA <span class="op">=</span> Vector<span class="op">.</span><span class="fu">neg</span>(forceOnB)<span class="op">;</span></span>
+<span id="cb1-64"><a href="#cb1-64" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-65"><a href="#cb1-65" aria-hidden="true" tabindex="-1"></a>      Body<span class="op">.</span><span class="fu">applyForce</span>(bodyA<span class="op">,</span> bodyA<span class="op">.</span><span class="at">position</span><span class="op">,</span> forceOnA)<span class="op">;</span></span>
+<span id="cb1-66"><a href="#cb1-66" aria-hidden="true" tabindex="-1"></a>      Body<span class="op">.</span><span class="fu">applyForce</span>(bodyB<span class="op">,</span> bodyB<span class="op">.</span><span class="at">position</span><span class="op">,</span> forceOnB)<span class="op">;</span></span>
+<span id="cb1-67"><a href="#cb1-67" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb1-68"><a href="#cb1-68" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb1-69"><a href="#cb1-69" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div>
+<h2 id="critical-considerations">Critical Considerations</h2>
+<ul>
+<li><strong>Distance Clamping</strong>: As two bodies approach identical
+positions, distance approaches zero, which creates infinitely large
+forces and causes bodies to fly off-screen. Always clamp the minimum
+distance using <code>Math.max(distance, minDistance)</code>.</li>
+<li><strong>Air Friction (Damping)</strong>: Without adequate
+<code>frictionAir</code> or velocity damping, charged bodies will
+continually oscillate and accelerate out of control as energy is
+introduced.</li>
+<li><strong>Performance Complexity</strong>: Checking every pair of
+bodies has an <span class="math inline">\(O(n^2)\)</span> time
+complexity. For simulations with hundreds of particles, integrate a
+spatial partitioning structure such as a Quadtree or a Barnes-Hut
+algorithm to approximate far-field electrostatic interactions.</li>
+</ul></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/matter.js'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/matter.js/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/matter.js/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

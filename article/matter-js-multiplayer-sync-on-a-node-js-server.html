@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Matter.js Multiplayer Sync on a Node.js Server - matter.js</title>
+    <meta name="description" content="This article provides a comprehensive guide on synchronizing real-time 2D physics across multiple clients using Matter.js and a Node.js server. You will learn how to implement an authoritative server architecture, set up a headless physics loop, optimize">
+    <link rel="canonical" href="https://salivity.github.io/matter.js/article/matter-js-multiplayer-sync-on-a-node-js-server">
+    <link rel="search" type="application/opensearchdescription+xml" title="matter.js" href="/matter.js/opensearch.xml">
+    <link rel="icon" href="/matter.js/favicon.ico">
+    <link rel="stylesheet" href="/matter.js/css/style.css">
+    <link media="print" rel="stylesheet" href="/matter.js/css/print.css">
+    <script src="/matter.js/js/fuse.min.js"></script>
+    <script src="/matter.js/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Matter.js Multiplayer Sync on a Node.js Server - matter.js" />
+    <meta property="og:url" content="https://salivity.github.io/matter.js/article/matter-js-multiplayer-sync-on-a-node-js-server" />
+    <meta property="og:image" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article provides a comprehensive guide on synchronizing real-time 2D physics across multiple clients using Matter.js and a Node.js server. You will learn how to implement an authoritative server architecture, set up a headless physics loop, optimize" />
+    <link rel="manifest" href="/matter.js/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/matter.js/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>matter.js</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/matter.js/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="matterjs-multiplayer-sync-on-a-nodejs-server">Matter.js
+Multiplayer Sync on a Node.js Server</h1>
+<p>This article provides a comprehensive guide on synchronizing
+real-time 2D physics across multiple clients using Matter.js and a
+Node.js server. You will learn how to implement an authoritative server
+architecture, set up a headless physics loop, optimize state
+transmission through snapshots and delta compression, and implement
+client-side prediction, reconciliation, and entity interpolation to
+ensure smooth, cheat-resistant gameplay.</p>
+<h3 id="the-authoritative-server-architecture">The Authoritative Server
+Architecture</h3>
+<p>In physics-based multiplayer games, relying on clients to calculate
+physics results in desynchronization and exposes the game to cheating.
+The standard solution is an <strong>Authoritative Server
+model</strong>:</p>
+<ol type="1">
+<li><strong>Clients</strong> capture user input (key presses, mouse
+positions) and send them with sequence numbers to the server.</li>
+<li>The <strong>Server</strong> validates inputs, applies forces to the
+physics simulation, and advances the game state.</li>
+<li>The <strong>Server</strong> broadcasts physics snapshots to all
+connected clients at a fixed tick rate.</li>
+<li><strong>Clients</strong> receive the snapshots, correct local
+prediction errors, and interpolate passive entities.</li>
+</ol>
+<h3 id="running-headless-matterjs-in-nodejs">Running Headless Matter.js
+in Node.js</h3>
+<p>Matter.js is typically used in the browser with its built-in canvas
+renderer, but its core engine can run headlessly in Node.js.</p>
+<p>To run it on the server:</p>
+<ul>
+<li>Omit <code>Matter.Render</code> and
+<code>Matter.MouseConstraint</code> (or substitute with custom
+math).</li>
+<li>Use <code>Matter.Engine</code>, <code>Matter.Bodies</code>,
+<code>Matter.Composite</code>, and <code>Matter.Body</code>.</li>
+<li>Drive the simulation with a fixed time step using
+<code>hrtime</code> rather than <code>setInterval</code> to prevent
+physics drift caused by JavaScript event loop delays.</li>
+</ul>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> Matter <span class="im">from</span> <span class="st">&#39;matter-js&#39;</span><span class="op">;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> { Engine<span class="op">,</span> Bodies<span class="op">,</span> Composite } <span class="op">=</span> Matter<span class="op">;</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> engine <span class="op">=</span> Engine<span class="op">.</span><span class="fu">create</span>()<span class="op">;</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>engine<span class="op">.</span><span class="at">gravity</span><span class="op">.</span><span class="at">y</span> <span class="op">=</span> <span class="dv">1</span><span class="op">;</span> <span class="co">// standard gravity</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> ground <span class="op">=</span> Bodies<span class="op">.</span><span class="fu">rectangle</span>(<span class="dv">400</span><span class="op">,</span> <span class="dv">610</span><span class="op">,</span> <span class="dv">810</span><span class="op">,</span> <span class="dv">60</span><span class="op">,</span> { <span class="dt">isStatic</span><span class="op">:</span> <span class="kw">true</span> })<span class="op">;</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>Composite<span class="op">.</span><span class="fu">add</span>(engine<span class="op">.</span><span class="at">world</span><span class="op">,</span> [ground])<span class="op">;</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> TICK_RATE <span class="op">=</span> <span class="dv">1000</span> <span class="op">/</span> <span class="dv">30</span><span class="op">;</span> <span class="co">// 30 Hz</span></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a><span class="kw">let</span> lastTime <span class="op">=</span> <span class="bu">Date</span><span class="op">.</span><span class="fu">now</span>()<span class="op">;</span></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a><span class="pp">setInterval</span>(() <span class="kw">=&gt;</span> {</span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> now <span class="op">=</span> <span class="bu">Date</span><span class="op">.</span><span class="fu">now</span>()<span class="op">;</span></span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> delta <span class="op">=</span> now <span class="op">-</span> lastTime<span class="op">;</span></span>
+<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a>  lastTime <span class="op">=</span> now<span class="op">;</span></span>
+<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-19"><a href="#cb1-19" aria-hidden="true" tabindex="-1"></a>  <span class="co">// Step the physics engine</span></span>
+<span id="cb1-20"><a href="#cb1-20" aria-hidden="true" tabindex="-1"></a>  Engine<span class="op">.</span><span class="fu">update</span>(engine<span class="op">,</span> delta)<span class="op">;</span></span>
+<span id="cb1-21"><a href="#cb1-21" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-22"><a href="#cb1-22" aria-hidden="true" tabindex="-1"></a>  <span class="co">// Broadcast state to clients</span></span>
+<span id="cb1-23"><a href="#cb1-23" aria-hidden="true" tabindex="-1"></a>  <span class="fu">broadcastGameState</span>()<span class="op">;</span></span>
+<span id="cb1-24"><a href="#cb1-24" aria-hidden="true" tabindex="-1"></a>}<span class="op">,</span> TICK_RATE)<span class="op">;</span></span></code></pre></div>
+<h3 id="snapshot-serialization-and-bandwidth-optimization">Snapshot
+Serialization and Bandwidth Optimization</h3>
+<p>Sending the entire Matter.js body object over the network consumes
+excessive bandwidth. You must serialize only the minimal properties
+required to reconstruct the state:</p>
+<ul>
+<li><strong>Entity ID</strong>: Unique identifier.</li>
+<li><strong>Position</strong>: <code>x</code> and <code>y</code>
+coordinates.</li>
+<li><strong>Orientation</strong>: <code>angle</code>.</li>
+<li><strong>Velocities</strong>: <code>velocity.x</code>,
+<code>velocity.y</code>, and <code>angularVelocity</code> (crucial for
+client extrapolation).</li>
+</ul>
+<p>To minimize payload sizes:</p>
+<ul>
+<li>Round floating-point numbers to 2 or 3 decimal places.</li>
+<li>Use binary protocols like Buffer, ArrayBuffer, or libraries like
+Protobuf or Geckos.io instead of raw JSON.</li>
+<li>Implement delta compression: only send updates for bodies whose
+position, velocity, or angle have changed past a defined threshold.</li>
+</ul>
+<h3 id="client-side-prediction-and-server-reconciliation">Client-Side
+Prediction and Server Reconciliation</h3>
+<p>If a client waits for the server to process an input before moving,
+the game will feel unresponsive due to network latency (ping).</p>
+<ol type="1">
+<li><strong>Client-Side Prediction:</strong> When a player presses a
+movement key, apply the force locally immediately, and store the input
+along with a local sequence number.</li>
+<li><strong>Authoritative Confirmation:</strong> When the server
+processes an input, it includes the latest processed sequence number in
+its state snapshot.</li>
+<li><strong>Reconciliation:</strong> When the client receives a server
+snapshot:
+<ul>
+<li>Reset the local player body's position and velocity to match the
+server snapshot.</li>
+<li>Discard all stored inputs older than the snapshot's acknowledged
+sequence number.</li>
+<li>Re-simulate remaining unacknowledged inputs sequentially on top of
+the corrected server state.</li>
+</ul></li>
+</ol>
+<p>If the difference between the predicted position and the server
+snapshot is negligible, skip the hard reset to avoid visual jitter.</p>
+<h3 id="interpolation-for-remote-entities">Interpolation for Remote
+Entities</h3>
+<p>While the local player benefits from prediction, other entities
+(remote players, dynamic props) must be displayed smoothly despite
+receiving discrete snapshots (e.g., 20 or 30 updates per second).</p>
+<p>To achieve smooth rendering:</p>
+<ol type="1">
+<li>Maintain a snapshot buffer on the client (typically 100ms of past
+updates).</li>
+<li>Render entities slightly in the past (interpolation delay).</li>
+<li>Determine the two snapshots that surround the render timestamp
+(<span class="math inline">\(t_{render} = t_{now} -
+\text{delay}\)</span>).</li>
+<li>Calculate the interpolation factor (<span
+class="math inline">\(t\)</span> between 0 and 1) and use linear
+interpolation (<code>lerp</code>) for positions and spherical linear
+interpolation (<code>slerp</code>) for angles:</li>
+</ol>
+<p><span class="math display">\[\text{Position} = A + (B - A) \times
+t\]</span></p>
+<h3 id="overcoming-matterjs-non-determinism">Overcoming Matter.js
+Non-Determinism</h3>
+<p>Matter.js uses floating-point arithmetic and iterative constraint
+solvers, meaning two identical simulations on different machines (or
+Node.js vs. Browser) can diverge over time.</p>
+<p>Because Matter.js is not strictly deterministic:</p>
+<ul>
+<li>Do not rely on deterministic lockstep synchronization.</li>
+<li>Always treat the Node.js server state as the single source of
+truth.</li>
+<li>Use smooth correction (lerping from the current client position
+toward the authoritative server position) rather than instant snapping
+when small discrepancies occur, ensuring that physics visual artifacts
+remain hidden from the player.</li>
+</ul></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/matter.js'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/matter.js/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/matter.js/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

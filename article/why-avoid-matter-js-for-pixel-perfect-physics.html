@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Why Avoid Matter.js for Pixel-Perfect Physics - matter.js</title>
+    <meta name="description" content="Matter.js is one of the most popular 2D rigid-body physics engines for the web, but it is fundamentally designed for dynamic, organic-looking simulations rather than exact, pixel-perfect accuracy. While it excels at ragdolls, stacks of tumbling crates, a">
+    <link rel="canonical" href="https://salivity.github.io/matter.js/article/why-avoid-matter-js-for-pixel-perfect-physics">
+    <link rel="search" type="application/opensearchdescription+xml" title="matter.js" href="/matter.js/opensearch.xml">
+    <link rel="icon" href="/matter.js/favicon.ico">
+    <link rel="stylesheet" href="/matter.js/css/style.css">
+    <link media="print" rel="stylesheet" href="/matter.js/css/print.css">
+    <script src="/matter.js/js/fuse.min.js"></script>
+    <script src="/matter.js/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Why Avoid Matter.js for Pixel-Perfect Physics - matter.js" />
+    <meta property="og:url" content="https://salivity.github.io/matter.js/article/why-avoid-matter-js-for-pixel-perfect-physics" />
+    <meta property="og:image" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Matter.js is one of the most popular 2D rigid-body physics engines for the web, but it is fundamentally designed for dynamic, organic-looking simulations rather than exact, pixel-perfect accuracy. While it excels at ragdolls, stacks of tumbling crates, a" />
+    <link rel="manifest" href="/matter.js/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/matter.js/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>matter.js</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/matter.js/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="why-avoid-matterjs-for-pixel-perfect-physics">Why Avoid
+Matter.js for Pixel-Perfect Physics</h1>
+<p>Matter.js is one of the most popular 2D rigid-body physics engines
+for the web, but it is fundamentally designed for dynamic,
+organic-looking simulations rather than exact, pixel-perfect accuracy.
+While it excels at ragdolls, stacks of tumbling crates, and game
+mechanics requiring approximate realism, attempting to force Matter.js
+into a pixel-perfect framework introduces persistent issues like visual
+jitter, floating-point drift, collision tunneling, and non-deterministic
+behavior.</p>
+<h3 id="iterative-constraint-solving-causes-sub-pixel-drift">Iterative
+Constraint Solving Causes Sub-Pixel Drift</h3>
+<p>Matter.js uses an iterative impulse-based velocity solver. In this
+model, collisions and constraints are resolved by iteratively
+calculating impulses to push overlapping bodies apart over multiple
+passes per frame. Because this is an approximation rather than an
+absolute geometric restriction, solid bodies inherently overlap slightly
+before being corrected.</p>
+<p>This leads to "body sinking," micro-jitter at rest, and slight
+position variations when stacking or placing objects flush against a
+surface. For a pixel-perfect platformer or retro game where a sprite
+must land precisely at a designated integer coordinate (like
+<code>y = 128</code>), Matter.js will almost always leave the body
+resting at an unpredictable float value (like <code>y = 127.9832</code>
+or <code>128.0211</code>), causing blurry sub-pixel rendering or
+irregular tile alignment.</p>
+<h3 id="lack-of-true-continuous-collision-detection-ccd">Lack of True
+Continuous Collision Detection (CCD)</h3>
+<p>Fast-moving objects in Matter.js are prone to tunneling—passing
+straight through thin barriers or embedding themselves deeply into solid
+geometry before the engine registers a hit. While increasing the solver
+iterations helps mitigate this, Matter.js does not provide robust
+continuous collision detection by default.</p>
+<p>When a collision is detected late, the engine forcefully pushes the
+object backward along the collision normal. This correction frequently
+lands the object on an unexpected coordinate, breaking the exact
+collision bounds required for precision mechanics like wall-jumps,
+pixel-aligned hitboxes, or tight obstacle courses.</p>
+<h3
+id="non-deterministic-nature-across-different-devices">Non-Deterministic
+Nature Across Different Devices</h3>
+<p>Pixel-perfect games often demand absolute determinism, meaning the
+exact same sequence of inputs must produce the exact same outcome on
+every screen. Matter.js is inherently non-deterministic across different
+frame rates and browser environments.</p>
+<p>The internal integration steps depend on delta time calculations and
+JavaScript's underlying floating-point engine. If a player drops a box
+on a 60Hz display versus a 144Hz display, or runs the simulation with
+minor CPU throttling, the final resting position of the object can
+diverge significantly over time, completely eliminating reproducible,
+frame-exact physics.</p>
+<h3 id="complex-kinematics-vs-direct-position-control">Complex
+Kinematics vs. Direct Position Control</h3>
+<p>In a pixel-perfect environment, game developers need absolute,
+immediate control over velocities, snap-to-grid movement, and
+instantaneous state changes (such as instant acceleration or sharp stop
+mechanics).</p>
+<p>Matter.js resists direct position manipulation. Forcibly modifying an
+object's coordinates circumvents the engine’s internal velocity
+tracking, sleep states, and momentum calculations, often launching
+bodies across the screen or breaking constraint linkages. Forcing the
+engine to handle platformer controls requires constantly fighting its
+internal friction, air resistance, and restitution algorithms.</p>
+<h3 id="better-alternatives-for-precision-mechanics">Better Alternatives
+for Precision Mechanics</h3>
+<p>If your project demands strict pixel alignment, snappy movement, and
+absolute predictability, relying on a generalized physics engine is
+counterproductive. Instead, use a custom kinematic controller combined
+with Axis-Aligned Bounding Box (AABB) collision detection, simple
+sweep-tests, or tilemap-based collision routines. These lightweight,
+deterministic approaches ensure your entities stay locked directly to
+the intended pixel grid without the overhead and drift of iterative
+rigid-body simulation.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/matter.js'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/matter.js/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/matter.js/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

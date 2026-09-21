@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Can a Body Have Negative Mass in Matter.js? - matter.js</title>
+    <meta name="description" content="Matter.js does not functionally support negative mass. While the JavaScript runtime allows you to assign a negative number to a body's mass property, doing so breaks the underlying physics equations, leading to inverted collision responses, unstable acce">
+    <link rel="canonical" href="https://salivity.github.io/matter.js/article/can-a-body-have-negative-mass-in-matter-js">
+    <link rel="search" type="application/opensearchdescription+xml" title="matter.js" href="/matter.js/opensearch.xml">
+    <link rel="icon" href="/matter.js/favicon.ico">
+    <link rel="stylesheet" href="/matter.js/css/style.css">
+    <link media="print" rel="stylesheet" href="/matter.js/css/print.css">
+    <script src="/matter.js/js/fuse.min.js"></script>
+    <script src="/matter.js/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Can a Body Have Negative Mass in Matter.js? - matter.js" />
+    <meta property="og:url" content="https://salivity.github.io/matter.js/article/can-a-body-have-negative-mass-in-matter-js" />
+    <meta property="og:image" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Matter.js does not functionally support negative mass. While the JavaScript runtime allows you to assign a negative number to a body's mass property, doing so breaks the underlying physics equations, leading to inverted collision responses, unstable acce" />
+    <link rel="manifest" href="/matter.js/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/matter.js/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>matter.js</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/matter.js/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="can-a-body-have-negative-mass-in-matterjs">Can a Body Have
+Negative Mass in Matter.js?</h1>
+<p>Matter.js does not functionally support negative mass. While the
+JavaScript runtime allows you to assign a negative number to a body's
+mass property, doing so breaks the underlying physics equations, leading
+to inverted collision responses, unstable acceleration, and simulation
+crashes. This article explains how Matter.js processes mass, why
+negative values corrupt the engine's solver, and the proper alternatives
+for simulating negative-mass effects like antigravity.</p>
+<h3 id="how-matterjs-handles-mass">How Matter.js Handles Mass</h3>
+<p>In Matter.js, a body's mass directly dictates how it responds to
+forces and collisions. When you define or update a body's mass using
+<code>Body.setMass(body, mass)</code>, the engine calculates its inverse
+mass:</p>
+<p><span class="math display">\[\text{inverseMass} =
+\frac{1}{\text{mass}}\]</span></p>
+<p>The engine uses <code>inverseMass</code> rather than mass itself for
+constraint solving and collision resolution. Standard rigid-body physics
+calculations rely on mass being a strictly positive number. For immobile
+objects, Matter.js uses an infinite mass (<code>mass = Infinity</code>),
+which results in an <code>inverseMass</code> of <code>0</code>,
+effectively preventing forces from moving the body.</p>
+<h3 id="what-happens-if-you-set-negative-mass">What Happens If You Set
+Negative Mass?</h3>
+<p>Matter.js does not enforce strict input validation to block negative
+numbers when assigning mass. If you execute
+<code>Body.setMass(body, -10)</code>, the engine will assign
+<code>-10</code> to <code>body.mass</code> and <code>-0.1</code> to
+<code>body.inverseMass</code>.</p>
+<p>However, this corrupts collision resolution:</p>
+<ol type="1">
+<li><strong>Inverted Impulses:</strong> During a collision, the engine
+calculates a normal impulse to push overlapping bodies apart. Because
+the impulse formula multiplies the collision normal by a factor
+involving <code>inverseMass</code>, a negative sign inverts the vector.
+Instead of repelling each other, the bodies pull into each other.</li>
+<li><strong>Exponential Acceleration:</strong> Because the bodies pull
+together instead of separating, penetration depth increases each frame.
+The solver attempts to correct this deeper overlap by applying an even
+larger inverted impulse, causing the bodies to violently accelerate
+toward one another.</li>
+<li><strong>Simulation Crashes:</strong> Within a few frames, coordinate
+and velocity values exceed floating-point limits, turning into
+<code>NaN</code> (Not a Number) or <code>Infinity</code>. Once a body
+reaches <code>NaN</code>, it disappears from the canvas and corrupts any
+further calculations involving it.</li>
+</ol>
+<h3 id="proper-alternatives-for-antigravity-and-buoyancy">Proper
+Alternatives for Antigravity and Buoyancy</h3>
+<p>If your goal is to create objects that float, push away from
+surfaces, or behave like theoretical "exotic matter," you should
+manipulate forces rather than applying negative mass.</p>
+<ul>
+<li><strong>Upward Force Application:</strong> Keep the mass positive
+and apply a continuous counter-force using
+<code>Body.applyForce(body, position, force)</code> inside the engine's
+<code>beforeUpdate</code> event to counteract gravity.</li>
+<li><strong>Custom Gravity:</strong> Set the world's vertical gravity to
+zero (<code>engine.world.gravity.y = 0</code>) and manually calculate
+directional forces for each body based on custom game logic.</li>
+<li><strong>Repulsion Fields:</strong> To push other bodies away upon
+proximity, calculate the distance vector between bodies and apply
+outward impulses directly to nearby entities.</li>
+</ul></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/matter.js'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/matter.js/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/matter.js/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

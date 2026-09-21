@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Apply Bloom Shaders to a Matter.js Canvas - matter.js</title>
+    <meta name="description" content="This guide explains how to integrate WebGL-based post-processing bloom shaders into a custom 2D canvas driven by Matter.js physics. Because the native Matter.js renderer relies on the standard Canvas 2D API—which lacks hardware-accelerated shader suppo">
+    <link rel="canonical" href="https://salivity.github.io/matter.js/article/apply-bloom-shaders-to-a-matter-js-canvas">
+    <link rel="search" type="application/opensearchdescription+xml" title="matter.js" href="/matter.js/opensearch.xml">
+    <link rel="icon" href="/matter.js/favicon.ico">
+    <link rel="stylesheet" href="/matter.js/css/style.css">
+    <link media="print" rel="stylesheet" href="/matter.js/css/print.css">
+    <script src="/matter.js/js/fuse.min.js"></script>
+    <script src="/matter.js/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Apply Bloom Shaders to a Matter.js Canvas - matter.js" />
+    <meta property="og:url" content="https://salivity.github.io/matter.js/article/apply-bloom-shaders-to-a-matter-js-canvas" />
+    <meta property="og:image" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This guide explains how to integrate WebGL-based post-processing bloom shaders into a custom 2D canvas driven by Matter.js physics. Because the native Matter.js renderer relies on the standard Canvas 2D API—which lacks hardware-accelerated shader suppo" />
+    <link rel="manifest" href="/matter.js/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/matter.js/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>matter.js</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/matter.js/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="apply-bloom-shaders-to-a-matterjs-canvas">Apply Bloom Shaders to
+a Matter.js Canvas</h1>
+<p>This guide explains how to integrate WebGL-based post-processing
+bloom shaders into a custom 2D canvas driven by Matter.js physics.
+Because the native Matter.js renderer relies on the standard Canvas 2D
+API—which lacks hardware-accelerated shader support—implementing bloom
+requires decoupling the physics engine, rendering visuals either
+directly to an offscreen canvas or through a WebGL framework, and
+passing the frame through a multi-pass bloom shader pipeline.</p>
+<h2 id="1-decouple-matterjs-physics-from-default-rendering">1. Decouple
+Matter.js Physics from Default Rendering</h2>
+<p>The default <code>Matter.Render</code> module uses the standard 2D
+context (<code>CanvasRenderingContext2D</code>), which cannot execute
+GLSL shaders. To apply bloom, initialize only the engine and runner:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> { Engine<span class="op">,</span> Runner<span class="op">,</span> Bodies<span class="op">,</span> Composite } <span class="op">=</span> Matter<span class="op">;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> engine <span class="op">=</span> Engine<span class="op">.</span><span class="fu">create</span>()<span class="op">;</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> runner <span class="op">=</span> Runner<span class="op">.</span><span class="fu">create</span>()<span class="op">;</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>Runner<span class="op">.</span><span class="fu">run</span>(runner<span class="op">,</span> engine)<span class="op">;</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a><span class="co">// Add your physics bodies to the engine world</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> box <span class="op">=</span> Bodies<span class="op">.</span><span class="fu">rectangle</span>(<span class="dv">400</span><span class="op">,</span> <span class="dv">200</span><span class="op">,</span> <span class="dv">80</span><span class="op">,</span> <span class="dv">80</span>)<span class="op">;</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>Composite<span class="op">.</span><span class="fu">add</span>(engine<span class="op">.</span><span class="at">world</span><span class="op">,</span> [box])<span class="op">;</span></span></code></pre></div>
+<h2 id="2-choose-an-architecture">2. Choose an Architecture</h2>
+<p>There are two primary approaches to applying bloom shaders to
+Matter.js coordinates:</p>
+<ol type="1">
+<li><strong>Offscreen Canvas 2D to WebGL (Hybrid):</strong> Render
+custom graphics to an offscreen 2D canvas, bind that canvas as a dynamic
+WebGL texture, and run a bloom post-processing pass over a full-screen
+quad.</li>
+<li><strong>Native WebGL 2D Scene:</strong> Mirror Matter.js body
+coordinates directly in a 2D WebGL layer (using raw WebGL, Pixi.js, or
+Three.js with an orthographic camera), rendering directly into a
+post-processing pipeline.</li>
+</ol>
+<p>The hybrid offscreen method is ideal when you already have complex
+custom Canvas 2D rendering logic. Direct WebGL rendering offers
+significantly better performance.</p>
+<h2 id="3-implementing-bloom-via-offscreen-canvas-hybrid-approach">3.
+Implementing Bloom via Offscreen Canvas (Hybrid Approach)</h2>
+<h3 id="step-a-setup-the-offscreen-canvas">Step A: Setup the Offscreen
+Canvas</h3>
+<p>Create a hidden HTML5 canvas element for drawing the scene using
+familiar Canvas 2D methods.</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> offscreenCanvas <span class="op">=</span> <span class="bu">document</span><span class="op">.</span><span class="fu">createElement</span>(<span class="st">&#39;canvas&#39;</span>)<span class="op">;</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>offscreenCanvas<span class="op">.</span><span class="at">width</span> <span class="op">=</span> <span class="dv">800</span><span class="op">;</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>offscreenCanvas<span class="op">.</span><span class="at">height</span> <span class="op">=</span> <span class="dv">600</span><span class="op">;</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> offscreenCtx <span class="op">=</span> offscreenCanvas<span class="op">.</span><span class="fu">getContext</span>(<span class="st">&#39;2d&#39;</span>)<span class="op">;</span></span></code></pre></div>
+<h3 id="step-b-setup-the-webgl-post-processing-pipeline">Step B: Setup
+the WebGL Post-Processing Pipeline</h3>
+<p>Initialize a visible WebGL canvas that acts as the final display.
+Create a full-screen quad (two triangles covering the viewport) and set
+up three shader passes:</p>
+<ol type="1">
+<li><strong>Threshold Pass:</strong> Samples the offscreen texture and
+isolates bright areas above a defined luminosity threshold.</li>
+<li><strong>Blur Pass:</strong> Performs a two-pass separable Gaussian
+blur (horizontal, then vertical) on the extracted bright areas. Multiple
+downsampled iterations yield a smoother glow.</li>
+<li><strong>Composite Pass:</strong> Adds the blurred bright texture
+additively on top of the original offscreen texture.</li>
+</ol>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode glsl"><code class="sourceCode glsl"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Fragment Shader: Additive Blend Pass</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="dt">precision</span> <span class="dt">mediump</span> <span class="dt">float</span><span class="op">;</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a><span class="dt">varying</span> <span class="dt">vec2</span> vUv<span class="op">;</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a><span class="kw">uniform</span> <span class="dt">sampler2D</span> uBaseTexture<span class="op">;</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a><span class="kw">uniform</span> <span class="dt">sampler2D</span> uBloomTexture<span class="op">;</span></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a><span class="kw">uniform</span> <span class="dt">float</span> uBloomIntensity<span class="op">;</span></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> <span class="fu">main</span><span class="op">()</span> <span class="op">{</span></span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a>    <span class="dt">vec4</span> baseColor <span class="op">=</span> <span class="dt">texture2D</span><span class="op">(</span>uBaseTexture<span class="op">,</span> vUv<span class="op">);</span></span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a>    <span class="dt">vec4</span> bloomColor <span class="op">=</span> <span class="dt">texture2D</span><span class="op">(</span>uBloomTexture<span class="op">,</span> vUv<span class="op">);</span></span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Additive blend</span></span>
+<span id="cb3-14"><a href="#cb3-14" aria-hidden="true" tabindex="-1"></a>    <span class="va">gl_FragColor</span> <span class="op">=</span> baseColor <span class="op">+</span> <span class="op">(</span>bloomColor <span class="op">*</span> uBloomIntensity<span class="op">);</span></span>
+<span id="cb3-15"><a href="#cb3-15" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<h3 id="step-c-update-and-render-loop">Step C: Update and Render
+Loop</h3>
+<p>On each animation frame, clear the offscreen context, render your
+Matter.js bodies, upload the offscreen canvas to the WebGL texture, and
+execute the shader passes.</p>
+<div class="sourceCode" id="cb4"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">render</span>() {</span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>    <span class="co">// 1. Draw custom 2D graphics based on Matter.js body coordinates</span></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>    offscreenCtx<span class="op">.</span><span class="at">fillStyle</span> <span class="op">=</span> <span class="st">&#39;#050505&#39;</span><span class="op">;</span></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>    offscreenCtx<span class="op">.</span><span class="fu">fillRect</span>(<span class="dv">0</span><span class="op">,</span> <span class="dv">0</span><span class="op">,</span> offscreenCanvas<span class="op">.</span><span class="at">width</span><span class="op">,</span> offscreenCanvas<span class="op">.</span><span class="at">height</span>)<span class="op">;</span></span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a>    offscreenCtx<span class="op">.</span><span class="fu">save</span>()<span class="op">;</span></span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a>    offscreenCtx<span class="op">.</span><span class="fu">translate</span>(box<span class="op">.</span><span class="at">position</span><span class="op">.</span><span class="at">x</span><span class="op">,</span> box<span class="op">.</span><span class="at">position</span><span class="op">.</span><span class="at">y</span>)<span class="op">;</span></span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a>    offscreenCtx<span class="op">.</span><span class="fu">rotate</span>(box<span class="op">.</span><span class="at">angle</span>)<span class="op">;</span></span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Use bright or saturated colors for elements meant to bloom</span></span>
+<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a>    offscreenCtx<span class="op">.</span><span class="at">fillStyle</span> <span class="op">=</span> <span class="st">&#39;#00ffff&#39;</span><span class="op">;</span></span>
+<span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a>    offscreenCtx<span class="op">.</span><span class="fu">fillRect</span>(<span class="op">-</span><span class="dv">40</span><span class="op">,</span> <span class="op">-</span><span class="dv">40</span><span class="op">,</span> <span class="dv">80</span><span class="op">,</span> <span class="dv">80</span>)<span class="op">;</span></span>
+<span id="cb4-12"><a href="#cb4-12" aria-hidden="true" tabindex="-1"></a>    offscreenCtx<span class="op">.</span><span class="fu">restore</span>()<span class="op">;</span></span>
+<span id="cb4-13"><a href="#cb4-13" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-14"><a href="#cb4-14" aria-hidden="true" tabindex="-1"></a>    <span class="co">// 2. Upload offscreen canvas as WebGL texture</span></span>
+<span id="cb4-15"><a href="#cb4-15" aria-hidden="true" tabindex="-1"></a>    gl<span class="op">.</span><span class="fu">bindTexture</span>(gl<span class="op">.</span><span class="at">TEXTURE_2D</span><span class="op">,</span> baseTexture)<span class="op">;</span></span>
+<span id="cb4-16"><a href="#cb4-16" aria-hidden="true" tabindex="-1"></a>    gl<span class="op">.</span><span class="fu">texImage2D</span>(gl<span class="op">.</span><span class="at">TEXTURE_2D</span><span class="op">,</span> <span class="dv">0</span><span class="op">,</span> gl<span class="op">.</span><span class="at">RGBA</span><span class="op">,</span> gl<span class="op">.</span><span class="at">RGBA</span><span class="op">,</span> gl<span class="op">.</span><span class="at">UNSIGNED_BYTE</span><span class="op">,</span> offscreenCanvas)<span class="op">;</span></span>
+<span id="cb4-17"><a href="#cb4-17" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-18"><a href="#cb4-18" aria-hidden="true" tabindex="-1"></a>    <span class="co">// 3. Execute Brightness Threshold Pass to Framebuffer A</span></span>
+<span id="cb4-19"><a href="#cb4-19" aria-hidden="true" tabindex="-1"></a>    <span class="co">// 4. Execute Ping-Pong Gaussian Blur Passes between Framebuffer A and B</span></span>
+<span id="cb4-20"><a href="#cb4-20" aria-hidden="true" tabindex="-1"></a>    <span class="co">// 5. Draw final composite quad to screen canvas</span></span>
+<span id="cb4-21"><a href="#cb4-21" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-22"><a href="#cb4-22" aria-hidden="true" tabindex="-1"></a>    <span class="fu">requestAnimationFrame</span>(render)<span class="op">;</span></span>
+<span id="cb4-23"><a href="#cb4-23" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb4-24"><a href="#cb4-24" aria-hidden="true" tabindex="-1"></a><span class="fu">requestAnimationFrame</span>(render)<span class="op">;</span></span></code></pre></div>
+<h2 id="4-faster-alternative-using-threejs-post-processing">4. Faster
+Alternative: Using Three.js Post-Processing</h2>
+<p>Writing multi-pass framebuffer ping-pong buffers from scratch in raw
+WebGL is verbose. You can streamline the process using Three.js with an
+orthographic camera and the built-in <code>UnrealBloomPass</code>:</p>
+<ol type="1">
+<li><strong>Set Up an Orthographic Scene:</strong> Align camera bounds
+to match screen pixels (e.g., width 800, height 600).</li>
+<li><strong>Synchronize Meshes:</strong> Create flat 2D planes or meshes
+for each Matter.js body.</li>
+<li><strong>Configure EffectComposer:</strong>
+<ul>
+<li>Attach a <code>RenderPass</code>.</li>
+<li>Attach an <code>UnrealBloomPass</code> with custom threshold,
+strength, and radius values.</li>
+</ul></li>
+<li><strong>Update Coordinates:</strong> Update the Three.js mesh
+positions and rotations using <code>body.position.x</code>,
+<code>body.position.y</code>, and <code>body.angle</code> inside
+<code>requestAnimationFrame</code>.</li>
+<li><strong>Render:</strong> Call <code>composer.render()</code> instead
+of the standard renderer.</li>
+</ol>
+<h2 id="summary-checklist">Summary Checklist</h2>
+<ul>
+<li>Do not use <code>Matter.Render.create()</code> for custom WebGL
+effects.</li>
+<li>Isolate bodies intended to glow by giving them higher RGB values or
+rendering them into a distinct brightness-threshold buffer.</li>
+<li>Downsample the blur target buffers (e.g., half or quarter
+resolution) to maintain high frame rates during the multi-pass Gaussian
+blur.</li>
+<li>Keep the final composition additive to ensure dark backgrounds
+remain dark while glowing objects blend naturally.</li>
+</ul></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/matter.js'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/matter.js/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/matter.js/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

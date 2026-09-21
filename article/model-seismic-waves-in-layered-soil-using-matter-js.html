@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Model Seismic Waves in Layered Soil Using Matter.js - matter.js</title>
+    <meta name="description" content="This article explains how to simulate seismic wave propagation through stratified soil layers using a discrete particle-lattice approach in the 2D physics engine Matter.js. By representing soil strata as an interconnected network of mass particles and vi">
+    <link rel="canonical" href="https://salivity.github.io/matter.js/article/model-seismic-waves-in-layered-soil-using-matter-js">
+    <link rel="search" type="application/opensearchdescription+xml" title="matter.js" href="/matter.js/opensearch.xml">
+    <link rel="icon" href="/matter.js/favicon.ico">
+    <link rel="stylesheet" href="/matter.js/css/style.css">
+    <link media="print" rel="stylesheet" href="/matter.js/css/print.css">
+    <script src="/matter.js/js/fuse.min.js"></script>
+    <script src="/matter.js/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Model Seismic Waves in Layered Soil Using Matter.js - matter.js" />
+    <meta property="og:url" content="https://salivity.github.io/matter.js/article/model-seismic-waves-in-layered-soil-using-matter-js" />
+    <meta property="og:image" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article explains how to simulate seismic wave propagation through stratified soil layers using a discrete particle-lattice approach in the 2D physics engine Matter.js. By representing soil strata as an interconnected network of mass particles and vi" />
+    <link rel="manifest" href="/matter.js/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/matter.js/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>matter.js</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/matter.js/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="model-seismic-waves-in-layered-soil-using-matterjs">Model
+Seismic Waves in Layered Soil Using Matter.js</h1>
+<p>This article explains how to simulate seismic wave propagation
+through stratified soil layers using a discrete particle-lattice
+approach in the 2D physics engine Matter.js. By representing soil strata
+as an interconnected network of mass particles and viscoelastic
+constraints, you can model how seismic body and shear waves refract,
+attenuate, and amplify across varying geological media. The following
+guide covers domain setup, layer parameterization, boundary conditions,
+and seismic excitation.</p>
+<h3 id="representing-soil-as-a-discrete-element-network">Representing
+Soil as a Discrete Element Network</h3>
+<p>Matter.js is a rigid-body physics engine, so continuous soil
+mechanics must be discretized using a bonded-particle or lattice-spring
+model. In this approach, soil mass is concentrated at nodal particles
+(<code>Matter.Bodies.circle</code>), while inter-particle forces
+(elasticity and damping) are handled via distance constraints
+(<code>Matter.Constraint.create</code>).</p>
+<p>To model different soil strata—such as bedrock, dense sand, and soft
+clay—you vary three fundamental physical parameters across vertical
+depth:</p>
+<ul>
+<li><strong>Mass/Density:</strong> Assigned to individual particles via
+<code>density</code>.</li>
+<li><strong>Stiffness:</strong> Controlled by the <code>stiffness</code>
+property of the connecting constraints, proportional to the soil layer's
+shear modulus (<span class="math inline">\(G\)</span>) and elastic
+modulus (<span class="math inline">\(E\)</span>).</li>
+<li><strong>Damping:</strong> Controlled by constraint
+<code>damping</code>, representing material damping and energy
+dissipation.</li>
+</ul>
+<h3 id="constructing-layered-strata">Constructing Layered Strata</h3>
+<p>Generate the domain on a regular triangular or hexagonal grid to
+ensure isotropic wave propagation. Divide your domain vertically into
+distinct strata:</p>
+<ol type="1">
+<li><strong>Bedrock Layer (Bottom):</strong> High particle mass, maximum
+constraint stiffness (e.g., <code>stiffness: 0.9</code> to
+<code>1.0</code>), and low damping.</li>
+<li><strong>Intermediate Layer (e.g., Dense Sand/Gravel):</strong>
+Moderate mass, moderate constraint stiffness (e.g.,
+<code>stiffness: 0.4</code> to <code>0.6</code>).</li>
+<li><strong>Near-Surface Layer (e.g., Soft Clay/Alluvium):</strong>
+Lower mass, low constraint stiffness (e.g., <code>stiffness: 0.05</code>
+to <code>0.2</code>), and higher damping.</li>
+</ol>
+<p>Each particle is connected to its nearest neighbors using
+cross-braced constraints to support both compressional (P) waves and
+shear (S) waves. Setting <code>collisionFilter.group = -1</code> on all
+soil particles disables default contact collisions between bonded
+neighbors, allowing the constraints alone to dictate the linear elastic
+response without erratic contact chatter.</p>
+<h3 id="applying-non-reflecting-boundary-conditions">Applying
+Non-Reflecting Boundary Conditions</h3>
+<p>A common issue in computational geomechanics is the reflection of
+waves off domain edges. To mitigate artificial boundary reflections:</p>
+<ul>
+<li><strong>Lateral Boundaries (Left and Right):</strong> Attach edge
+particles to fixed anchor bodies using viscous dampers (constraints with
+high <code>damping</code> and zero rest-length deviation) to approximate
+absorbing boundaries.</li>
+<li><strong>Top Surface:</strong> Leave completely unconstrained to form
+a free boundary, allowing Rayleigh wave generation and natural surface
+amplification.</li>
+<li><strong>Bottom Boundary:</strong> Kept mobile horizontally or
+vertically depending on the type of wave being induced.</li>
+</ul>
+<h3 id="simulating-seismic-input">Simulating Seismic Input</h3>
+<p>Seismic excitation is introduced by driving the base layer particles.
+Instead of fixing the bottom particles in place, manipulate their
+kinematics directly in each simulation tick of the
+<code>beforeUpdate</code> event:</p>
+<ul>
+<li><strong>Harmonic Shear Waves (S-Waves):</strong> Modulate the
+horizontal velocity of the bedrock particles using a sine function:
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> velocityX <span class="op">=</span> amplitude <span class="op">*</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">sin</span>(<span class="dv">2</span> <span class="op">*</span> <span class="bu">Math</span><span class="op">.</span><span class="cn">PI</span> <span class="op">*</span> frequency <span class="op">*</span> engine<span class="op">.</span><span class="at">timing</span><span class="op">.</span><span class="at">timestamp</span>)<span class="op">;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>Matter<span class="op">.</span><span class="at">Body</span><span class="op">.</span><span class="fu">setVelocity</span>(baseParticle<span class="op">,</span> { <span class="dt">x</span><span class="op">:</span> velocityX<span class="op">,</span> <span class="dt">y</span><span class="op">:</span> <span class="dv">0</span> })<span class="op">;</span></span></code></pre></div></li>
+<li><strong>Compressional Waves (P-Waves):</strong> Apply the harmonic
+signal to the vertical velocity (<code>y</code> component) instead.</li>
+<li><strong>Earthquake Time-Histories:</strong> Read an external
+accelerogram file (e.g., acceleration data sampled at 0.01-second
+intervals), integrate to velocity, and set the base particle velocities
+accordingly.</li>
+</ul>
+<h3 id="tuning-the-engine-for-wave-fidelity">Tuning the Engine for Wave
+Fidelity</h3>
+<p>Standard physics engines prioritize speed over numerical precision.
+To accurately resolve dynamic wave propagation without numerical
+instability or artificial dispersion:</p>
+<ul>
+<li><strong>Sub-stepping:</strong> Increase solver fidelity by
+increasing <code>engine.positionIterations</code> and
+<code>engine.velocityIterations</code> to at least 10 or 15.</li>
+<li><strong>Timestep Stability:</strong> Keep the simulation delta fixed
+and small (e.g., <span class="math inline">\(\Delta t \le 16.6\text{
+ms}\)</span>). If stiffness values are near 1.0, reduce the timestep to
+prevent numerical explosion.</li>
+<li><strong>Wavelength Resolution:</strong> Ensure that the shortest
+physical wavelength expected in your simulation spans at least 8 to 10
+particles in the grid to minimize lattice dispersion.</li>
+</ul></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/matter.js'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/matter.js/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/matter.js/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

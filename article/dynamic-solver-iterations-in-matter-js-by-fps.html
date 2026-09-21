@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dynamic Solver Iterations in Matter.js by FPS - matter.js</title>
+    <meta name="description" content="Matter.js relies on iterative constraint solvers to resolve collisions and physics constraints accurately. Under heavy simulation loads or hardware strain, physics processing can overload the main execution thread, leading to noticeable frame rate drops.">
+    <link rel="canonical" href="https://salivity.github.io/matter.js/article/dynamic-solver-iterations-in-matter-js-by-fps">
+    <link rel="search" type="application/opensearchdescription+xml" title="matter.js" href="/matter.js/opensearch.xml">
+    <link rel="icon" href="/matter.js/favicon.ico">
+    <link rel="stylesheet" href="/matter.js/css/style.css">
+    <link media="print" rel="stylesheet" href="/matter.js/css/print.css">
+    <script src="/matter.js/js/fuse.min.js"></script>
+    <script src="/matter.js/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Dynamic Solver Iterations in Matter.js by FPS - matter.js" />
+    <meta property="og:url" content="https://salivity.github.io/matter.js/article/dynamic-solver-iterations-in-matter-js-by-fps" />
+    <meta property="og:image" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Matter.js relies on iterative constraint solvers to resolve collisions and physics constraints accurately. Under heavy simulation loads or hardware strain, physics processing can overload the main execution thread, leading to noticeable frame rate drops." />
+    <link rel="manifest" href="/matter.js/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/matter.js/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>matter.js</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/matter.js/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="dynamic-solver-iterations-in-matterjs-by-fps">Dynamic Solver
+Iterations in Matter.js by FPS</h1>
+<p>Matter.js relies on iterative constraint solvers to resolve
+collisions and physics constraints accurately. Under heavy simulation
+loads or hardware strain, physics processing can overload the main
+execution thread, leading to noticeable frame rate drops. This article
+explains how to monitor the frame rate in real time and dynamically
+scale down the engine's <code>positionIterations</code> and
+<code>velocityIterations</code> during performance dips, automatically
+restoring them once the frame rate stabilizes to maintain an optimal
+balance between visual smoothness and physical accuracy.</p>
+<h3 id="understanding-solver-iterations">Understanding Solver
+Iterations</h3>
+<p>Matter.js uses two core properties on the <code>Engine</code>
+instance to control physics fidelity:</p>
+<ul>
+<li><strong><code>engine.positionIterations</code></strong> (default:
+6): Determines how strictly overlapping bodies are pushed apart.</li>
+<li><strong><code>engine.velocityIterations</code></strong> (default:
+4): Determines how accurately velocities and impulses are transferred
+upon impact.</li>
+</ul>
+<p>Higher values produce stiffer, more stable physics but require
+significantly more CPU cycles per step. Reducing these values reduces
+computational overhead, freeing up thread time for the browser to render
+frames at the target rate.</p>
+<h3 id="implementing-dynamic-iteration-scaling">Implementing Dynamic
+Iteration Scaling</h3>
+<p>To scale iterations adaptively, track the elapsed time between
+frames, calculate a moving average of the frame rate, and adjust
+iteration values when thresholds are crossed.</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> { Engine<span class="op">,</span> Render<span class="op">,</span> Runner<span class="op">,</span> World<span class="op">,</span> Bodies<span class="op">,</span> Events } <span class="op">=</span> Matter<span class="op">;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> engine <span class="op">=</span> Engine<span class="op">.</span><span class="fu">create</span>()<span class="op">;</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> runner <span class="op">=</span> Runner<span class="op">.</span><span class="fu">create</span>()<span class="op">;</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a><span class="co">// Configuration limits</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> ITERATION_CONFIG <span class="op">=</span> {</span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>  <span class="dt">targetFps</span><span class="op">:</span> <span class="dv">60</span><span class="op">,</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>  <span class="dt">minPosition</span><span class="op">:</span> <span class="dv">2</span><span class="op">,</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>  <span class="dt">maxPosition</span><span class="op">:</span> <span class="dv">6</span><span class="op">,</span></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>  <span class="dt">minVelocity</span><span class="op">:</span> <span class="dv">1</span><span class="op">,</span></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>  <span class="dt">maxVelocity</span><span class="op">:</span> <span class="dv">4</span><span class="op">,</span></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>  <span class="dt">fpsDropThreshold</span><span class="op">:</span> <span class="dv">45</span><span class="op">,</span></span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>  <span class="dt">fpsRecoveryThreshold</span><span class="op">:</span> <span class="dv">55</span></span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a>}<span class="op">;</span></span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a><span class="co">// FPS calculation variables</span></span>
+<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a><span class="kw">let</span> lastTime <span class="op">=</span> <span class="bu">performance</span><span class="op">.</span><span class="fu">now</span>()<span class="op">;</span></span>
+<span id="cb1-19"><a href="#cb1-19" aria-hidden="true" tabindex="-1"></a><span class="kw">let</span> frameCount <span class="op">=</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb1-20"><a href="#cb1-20" aria-hidden="true" tabindex="-1"></a><span class="kw">let</span> fps <span class="op">=</span> <span class="dv">60</span><span class="op">;</span></span>
+<span id="cb1-21"><a href="#cb1-21" aria-hidden="true" tabindex="-1"></a><span class="kw">let</span> fpsCheckInterval <span class="op">=</span> <span class="dv">500</span><span class="op">;</span> <span class="co">// Recalculate every 500ms</span></span>
+<span id="cb1-22"><a href="#cb1-22" aria-hidden="true" tabindex="-1"></a><span class="kw">let</span> lastFpsUpdate <span class="op">=</span> <span class="bu">performance</span><span class="op">.</span><span class="fu">now</span>()<span class="op">;</span></span>
+<span id="cb1-23"><a href="#cb1-23" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-24"><a href="#cb1-24" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">updateSolverFidelity</span>(currentFps) {</span>
+<span id="cb1-25"><a href="#cb1-25" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (currentFps <span class="op">&lt;</span> ITERATION_CONFIG<span class="op">.</span><span class="at">fpsDropThreshold</span>) {</span>
+<span id="cb1-26"><a href="#cb1-26" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Under heavy load: drop to lower fidelity to recover frame rate</span></span>
+<span id="cb1-27"><a href="#cb1-27" aria-hidden="true" tabindex="-1"></a>    engine<span class="op">.</span><span class="at">positionIterations</span> <span class="op">=</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">max</span>(</span>
+<span id="cb1-28"><a href="#cb1-28" aria-hidden="true" tabindex="-1"></a>      ITERATION_CONFIG<span class="op">.</span><span class="at">minPosition</span><span class="op">,</span></span>
+<span id="cb1-29"><a href="#cb1-29" aria-hidden="true" tabindex="-1"></a>      engine<span class="op">.</span><span class="at">positionIterations</span> <span class="op">-</span> <span class="dv">1</span></span>
+<span id="cb1-30"><a href="#cb1-30" aria-hidden="true" tabindex="-1"></a>    )<span class="op">;</span></span>
+<span id="cb1-31"><a href="#cb1-31" aria-hidden="true" tabindex="-1"></a>    engine<span class="op">.</span><span class="at">velocityIterations</span> <span class="op">=</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">max</span>(</span>
+<span id="cb1-32"><a href="#cb1-32" aria-hidden="true" tabindex="-1"></a>      ITERATION_CONFIG<span class="op">.</span><span class="at">minVelocity</span><span class="op">,</span></span>
+<span id="cb1-33"><a href="#cb1-33" aria-hidden="true" tabindex="-1"></a>      engine<span class="op">.</span><span class="at">velocityIterations</span> <span class="op">-</span> <span class="dv">1</span></span>
+<span id="cb1-34"><a href="#cb1-34" aria-hidden="true" tabindex="-1"></a>    )<span class="op">;</span></span>
+<span id="cb1-35"><a href="#cb1-35" aria-hidden="true" tabindex="-1"></a>  } <span class="cf">else</span> <span class="cf">if</span> (currentFps <span class="op">&gt;=</span> ITERATION_CONFIG<span class="op">.</span><span class="at">fpsRecoveryThreshold</span>) {</span>
+<span id="cb1-36"><a href="#cb1-36" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Performance has recovered: step fidelity back up</span></span>
+<span id="cb1-37"><a href="#cb1-37" aria-hidden="true" tabindex="-1"></a>    engine<span class="op">.</span><span class="at">positionIterations</span> <span class="op">=</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">min</span>(</span>
+<span id="cb1-38"><a href="#cb1-38" aria-hidden="true" tabindex="-1"></a>      ITERATION_CONFIG<span class="op">.</span><span class="at">maxPosition</span><span class="op">,</span></span>
+<span id="cb1-39"><a href="#cb1-39" aria-hidden="true" tabindex="-1"></a>      engine<span class="op">.</span><span class="at">positionIterations</span> <span class="op">+</span> <span class="dv">1</span></span>
+<span id="cb1-40"><a href="#cb1-40" aria-hidden="true" tabindex="-1"></a>    )<span class="op">;</span></span>
+<span id="cb1-41"><a href="#cb1-41" aria-hidden="true" tabindex="-1"></a>    engine<span class="op">.</span><span class="at">velocityIterations</span> <span class="op">=</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">min</span>(</span>
+<span id="cb1-42"><a href="#cb1-42" aria-hidden="true" tabindex="-1"></a>      ITERATION_CONFIG<span class="op">.</span><span class="at">maxVelocity</span><span class="op">,</span></span>
+<span id="cb1-43"><a href="#cb1-43" aria-hidden="true" tabindex="-1"></a>      engine<span class="op">.</span><span class="at">velocityIterations</span> <span class="op">+</span> <span class="dv">1</span></span>
+<span id="cb1-44"><a href="#cb1-44" aria-hidden="true" tabindex="-1"></a>    )<span class="op">;</span></span>
+<span id="cb1-45"><a href="#cb1-45" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb1-46"><a href="#cb1-46" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb1-47"><a href="#cb1-47" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-48"><a href="#cb1-48" aria-hidden="true" tabindex="-1"></a><span class="co">// Hook into engine updates to monitor frame rate</span></span>
+<span id="cb1-49"><a href="#cb1-49" aria-hidden="true" tabindex="-1"></a>Events<span class="op">.</span><span class="fu">on</span>(engine<span class="op">,</span> <span class="st">&#39;beforeUpdate&#39;</span><span class="op">,</span> () <span class="kw">=&gt;</span> {</span>
+<span id="cb1-50"><a href="#cb1-50" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> now <span class="op">=</span> <span class="bu">performance</span><span class="op">.</span><span class="fu">now</span>()<span class="op">;</span></span>
+<span id="cb1-51"><a href="#cb1-51" aria-hidden="true" tabindex="-1"></a>  frameCount<span class="op">++;</span></span>
+<span id="cb1-52"><a href="#cb1-52" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-53"><a href="#cb1-53" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (now <span class="op">-</span> lastFpsUpdate <span class="op">&gt;=</span> fpsCheckInterval) {</span>
+<span id="cb1-54"><a href="#cb1-54" aria-hidden="true" tabindex="-1"></a>    fps <span class="op">=</span> (frameCount <span class="op">*</span> <span class="dv">1000</span>) <span class="op">/</span> (now <span class="op">-</span> lastFpsUpdate)<span class="op">;</span></span>
+<span id="cb1-55"><a href="#cb1-55" aria-hidden="true" tabindex="-1"></a>    frameCount <span class="op">=</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb1-56"><a href="#cb1-56" aria-hidden="true" tabindex="-1"></a>    lastFpsUpdate <span class="op">=</span> now<span class="op">;</span></span>
+<span id="cb1-57"><a href="#cb1-57" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-58"><a href="#cb1-58" aria-hidden="true" tabindex="-1"></a>    <span class="fu">updateSolverFidelity</span>(fps)<span class="op">;</span></span>
+<span id="cb1-59"><a href="#cb1-59" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb1-60"><a href="#cb1-60" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div>
+<h3 id="critical-trade-offs-and-best-practices">Critical Trade-offs and
+Best Practices</h3>
+<ol type="1">
+<li><strong>Avoid Zero Iterations</strong>: Setting iterations to
+<code>0</code> causes collisions to fail completely. Maintain a hard
+floor of at least <code>2</code> for <code>positionIterations</code> and
+<code>1</code> for <code>velocityIterations</code> to prevent bodies
+from passing through each other entirely.</li>
+<li><strong>Prevent Rapid Oscillation (Hysteresis)</strong>: Do not use
+a single threshold for scaling up and down. Using separated boundaries
+(e.g., drop below 45 FPS, recover above 55 FPS) prevents the engine from
+constantly toggling iteration counts every second.</li>
+<li><strong>Tunneling Mitigation</strong>: Lowering iterations increases
+the risk of "tunneling" (fast-moving objects passing through
+boundaries). Ensure static boundaries have adequate thickness to
+compensate for lower position resolution during dropped-frame
+intervals.</li>
+</ol></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/matter.js'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/matter.js/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/matter.js/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

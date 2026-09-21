@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Static vs Dynamic Bodies in Matter.js Explained - matter.js</title>
+    <meta name="description" content="In Matter.js, rigid bodies represent the physical objects that interact within a simulation, and they fall into two primary categories: static bodies and dynamic bodies. The core difference between the two lies in how they respond to forces, gravity, and">
+    <link rel="canonical" href="https://salivity.github.io/matter.js/article/static-vs-dynamic-bodies-in-matter-js-explained">
+    <link rel="search" type="application/opensearchdescription+xml" title="matter.js" href="/matter.js/opensearch.xml">
+    <link rel="icon" href="/matter.js/favicon.ico">
+    <link rel="stylesheet" href="/matter.js/css/style.css">
+    <link media="print" rel="stylesheet" href="/matter.js/css/print.css">
+    <script src="/matter.js/js/fuse.min.js"></script>
+    <script src="/matter.js/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Static vs Dynamic Bodies in Matter.js Explained - matter.js" />
+    <meta property="og:url" content="https://salivity.github.io/matter.js/article/static-vs-dynamic-bodies-in-matter-js-explained" />
+    <meta property="og:image" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="In Matter.js, rigid bodies represent the physical objects that interact within a simulation, and they fall into two primary categories: static bodies and dynamic bodies. The core difference between the two lies in how they respond to forces, gravity, and" />
+    <link rel="manifest" href="/matter.js/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/matter.js/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>matter.js</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/matter.js/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="static-vs-dynamic-bodies-in-matterjs-explained">Static vs
+Dynamic Bodies in Matter.js Explained</h1>
+<p>In Matter.js, rigid bodies represent the physical objects that
+interact within a simulation, and they fall into two primary categories:
+static bodies and dynamic bodies. The core difference between the two
+lies in how they respond to forces, gravity, and collisions. While
+dynamic bodies move freely, respond to physics forces, and bounce off
+other objects, static bodies remain completely fixed in place, acting as
+immovable obstacles or boundaries. Understanding how to configure and
+utilize these two body types is fundamental to building any realistic
+physics simulation with the library.</p>
+<h3 id="what-is-a-dynamic-body">What is a Dynamic Body?</h3>
+<p>By default, any rigid body created in Matter.js is a dynamic body.
+Dynamic bodies possess standard physical properties such as mass,
+density, velocity, restitution (bounciness), and friction.</p>
+<p>Key characteristics of dynamic bodies include:</p>
+<ul>
+<li><strong>Response to Gravity:</strong> Dynamic bodies naturally
+accelerate downward when an engine-level gravity force is active.</li>
+<li><strong>Force and Collision Reactions:</strong> When another body
+collides with a dynamic body, momentum is transferred, causing the
+dynamic body to push, rotate, or bounce based on its mass and
+velocity.</li>
+<li><strong>Continuous Motion:</strong> They update their positions and
+angles automatically on every tick of the physics engine loop.</li>
+</ul>
+<p>Common use cases for dynamic bodies include player-controlled
+characters, falling crates, bouncing balls, projectiles, or any element
+meant to simulate natural physical motion.</p>
+<h3 id="what-is-a-static-body">What is a Static Body?</h3>
+<p>A static body is created by explicitly setting the
+<code>isStatic</code> property to <code>true</code> in its configuration
+options. Conceptually, a static body has infinite mass and infinite
+inertia within the physics calculation engine.</p>
+<p>Key characteristics of static bodies include:</p>
+<ul>
+<li><strong>Immunity to Forces:</strong> Static bodies completely ignore
+gravity, drag, and any applied forces or impulses.</li>
+<li><strong>Immovable in Collisions:</strong> When a dynamic body
+strikes a static body, the static body will not budge or rotate. It
+reflects forces entirely back onto the colliding dynamic object.</li>
+<li><strong>Manual Repositioning:</strong> Although they do not move via
+physics forces, developers can still move static bodies programmatically
+using utility methods like <code>Body.setPosition()</code> or
+<code>Body.setVelocity()</code> to create moving platforms or animated
+hazards.</li>
+</ul>
+<p>Common use cases for static bodies include floors, boundary walls,
+non-destructible obstacles, and terrain.</p>
+<h3 id="key-differences-at-a-glance">Key Differences at a Glance</h3>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">Feature</th>
+<th style="text-align: left;">Dynamic Bodies</th>
+<th style="text-align: left;">Static Bodies</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><strong>Default State</strong></td>
+<td style="text-align: left;">Yes (<code>isStatic: false</code>)</td>
+<td style="text-align: left;">No (requires
+<code>isStatic: true</code>)</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Mass &amp; Inertia</strong></td>
+<td style="text-align: left;">Finite, calculated from size and
+density</td>
+<td style="text-align: left;">Infinite</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Affected by Gravity</strong></td>
+<td style="text-align: left;">Yes</td>
+<td style="text-align: left;">No</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Pushed by Collisions</strong></td>
+<td style="text-align: left;">Yes</td>
+<td style="text-align: left;">No</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Primary Purpose</strong></td>
+<td style="text-align: left;">Movable objects, physics actors</td>
+<td style="text-align: left;">Floors, walls, immovable boundaries</td>
+</tr>
+</tbody>
+</table>
+<h3 id="code-implementation-example">Code Implementation Example</h3>
+<p>Configuring whether a body is dynamic or static is handled during
+body initialization via the options object:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Creating a dynamic body (default)</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> dynamicBox <span class="op">=</span> Matter<span class="op">.</span><span class="at">Bodies</span><span class="op">.</span><span class="fu">rectangle</span>(<span class="dv">400</span><span class="op">,</span> <span class="dv">200</span><span class="op">,</span> <span class="dv">50</span><span class="op">,</span> <span class="dv">50</span><span class="op">,</span> {</span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>  <span class="dt">restitution</span><span class="op">:</span> <span class="fl">0.8</span><span class="op">,</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>  <span class="dt">density</span><span class="op">:</span> <span class="fl">0.001</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a><span class="co">// Creating a static body</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> staticFloor <span class="op">=</span> Matter<span class="op">.</span><span class="at">Bodies</span><span class="op">.</span><span class="fu">rectangle</span>(<span class="dv">400</span><span class="op">,</span> <span class="dv">600</span><span class="op">,</span> <span class="dv">800</span><span class="op">,</span> <span class="dv">50</span><span class="op">,</span> {</span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>  <span class="dt">isStatic</span><span class="op">:</span> <span class="kw">true</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a><span class="co">// Adding both to the engine world</span></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>Matter<span class="op">.</span><span class="at">Composite</span><span class="op">.</span><span class="fu">add</span>(engine<span class="op">.</span><span class="at">world</span><span class="op">,</span> [dynamicBox<span class="op">,</span> staticFloor])<span class="op">;</span></span></code></pre></div>
+<p>You can also dynamically change a body's type during runtime using
+the <code>Body.setStatic()</code> method:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Convert a dynamic body into a static body</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>Matter<span class="op">.</span><span class="at">Body</span><span class="op">.</span><span class="fu">setStatic</span>(dynamicBox<span class="op">,</span> <span class="kw">true</span>)<span class="op">;</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a><span class="co">// Convert a static body into a dynamic body</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>Matter<span class="op">.</span><span class="at">Body</span><span class="op">.</span><span class="fu">setStatic</span>(staticFloor<span class="op">,</span> <span class="kw">false</span>)<span class="op">;</span></span></code></pre></div>
+<h3 id="performance-considerations">Performance Considerations</h3>
+<p>Static bodies offer performance advantages in Matter.js because the
+engine does not need to compute collision resolutions or trajectory
+paths between two static bodies. Keeping non-moving environment pieces
+strictly static reduces unnecessary collision checks and keeps
+simulation frame rates smooth.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/matter.js'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/matter.js/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/matter.js/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

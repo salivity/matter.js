@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How to Stop Bodies Passing Through in Matter.js - matter.js</title>
+    <meta name="description" content="In 2D physics simulations built with Matter.js, fast-moving objects or thin boundaries often cause "tunneling," an artifact where rigid bodies pass straight through one another instead of colliding. This issue stems from discrete collision detection, whi">
+    <link rel="canonical" href="https://salivity.github.io/matter.js/article/how-to-stop-bodies-passing-through-in-matter-js">
+    <link rel="search" type="application/opensearchdescription+xml" title="matter.js" href="/matter.js/opensearch.xml">
+    <link rel="icon" href="/matter.js/favicon.ico">
+    <link rel="stylesheet" href="/matter.js/css/style.css">
+    <link media="print" rel="stylesheet" href="/matter.js/css/print.css">
+    <script src="/matter.js/js/fuse.min.js"></script>
+    <script src="/matter.js/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How to Stop Bodies Passing Through in Matter.js - matter.js" />
+    <meta property="og:url" content="https://salivity.github.io/matter.js/article/how-to-stop-bodies-passing-through-in-matter-js" />
+    <meta property="og:image" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="In 2D physics simulations built with Matter.js, fast-moving objects or thin boundaries often cause "tunneling," an artifact where rigid bodies pass straight through one another instead of colliding. This issue stems from discrete collision detection, whi" />
+    <link rel="manifest" href="/matter.js/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/matter.js/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>matter.js</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/matter.js/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="how-to-stop-bodies-passing-through-in-matterjs">How to Stop
+Bodies Passing Through in Matter.js</h1>
+<p>In 2D physics simulations built with Matter.js, fast-moving objects
+or thin boundaries often cause "tunneling," an artifact where rigid
+bodies pass straight through one another instead of colliding. This
+issue stems from discrete collision detection, which checks for
+intersections only at specific intervals rather than continuously. This
+guide outlines the most effective techniques to resolve tunneling in
+Matter.js, including adjusting engine solver iterations, implementing
+custom sub-stepping, increasing obstacle thickness, and clamping body
+velocities.</p>
+<h3 id="1-increase-engine-solver-iterations">1. Increase Engine Solver
+Iterations</h3>
+<p>Matter.js uses iterative solvers to resolve collisions and
+constraints. By default, the engine runs a low number of iterations to
+conserve performance. Increasing these values makes collision resolution
+significantly more accurate and rigid.</p>
+<p>Modify your engine's <code>positionIterations</code> and
+<code>velocityIterations</code>:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> engine <span class="op">=</span> Matter<span class="op">.</span><span class="at">Engine</span><span class="op">.</span><span class="fu">create</span>({</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>  <span class="dt">positionIterations</span><span class="op">:</span> <span class="dv">10</span><span class="op">,</span> <span class="co">// Default is 6</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>  <span class="dt">velocityIterations</span><span class="op">:</span> <span class="dv">8</span>   <span class="co">// Default is 4</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div>
+<p>Raising these values forces the engine to spend more calculations
+resolving overlaps, preventing objects from sinking into or escaping
+through opposing surfaces.</p>
+<h3 id="2-implement-sub-stepping-smaller-time-steps">2. Implement
+Sub-Stepping (Smaller Time Steps)</h3>
+<p>If an object moves faster than its own width in a single simulation
+frame, it will completely skip past a barrier without triggering a
+collision. The most reliable fix is to break the engine update into
+smaller, multiple sub-steps per frame.</p>
+<p>Instead of running a single <code>Matter.Engine.update</code> per
+render tick, execute multiple updates with smaller delta values:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> subSteps <span class="op">=</span> <span class="dv">4</span><span class="op">;</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> delta <span class="op">=</span> <span class="dv">1000</span> <span class="op">/</span> <span class="dv">60</span><span class="op">;</span> <span class="co">// 60 FPS standard delta</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">gameLoop</span>() {</span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> subDelta <span class="op">=</span> delta <span class="op">/</span> subSteps<span class="op">;</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>  <span class="cf">for</span> (<span class="kw">let</span> i <span class="op">=</span> <span class="dv">0</span><span class="op">;</span> i <span class="op">&lt;</span> subSteps<span class="op">;</span> i<span class="op">++</span>) {</span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>    Matter<span class="op">.</span><span class="at">Engine</span><span class="op">.</span><span class="fu">update</span>(engine<span class="op">,</span> subDelta)<span class="op">;</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>  <span class="fu">requestAnimationFrame</span>(gameLoop)<span class="op">;</span></span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a><span class="fu">requestAnimationFrame</span>(gameLoop)<span class="op">;</span></span></code></pre></div>
+<p>Sub-stepping effectively reduces the distance a body travels between
+collision checks, virtually eliminating tunneling for fast-moving
+bodies.</p>
+<h3 id="3-increase-boundary-thickness">3. Increase Boundary
+Thickness</h3>
+<p>Thin static bodies (such as lines or 1-pixel walls) are the most
+common victims of tunneling. A fast-moving body will easily step over
+thin barriers from one frame to the next.</p>
+<ul>
+<li>Make boundary walls and static obstacles significantly thicker than
+they appear visually.</li>
+<li>For boundaries off-screen, give walls a thickness of 100 to 200
+pixels.</li>
+<li>If a visual element must remain thin, decouple the visual rendering
+from the physical body, or place a thick, invisible physics body behind
+the visible surface.</li>
+</ul>
+<h3 id="4-clamp-maximum-body-velocity">4. Clamp Maximum Body
+Velocity</h3>
+<p>If sub-stepping is too computationally expensive for your target
+platform, you can enforce a terminal velocity on fast-moving bodies.
+This prevents objects from ever reaching a speed that allows them to
+skip boundaries.</p>
+<p>Listen to the <code>beforeUpdate</code> event to constrain object
+speeds:</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> MAX_SPEED <span class="op">=</span> <span class="dv">15</span><span class="op">;</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>Matter<span class="op">.</span><span class="at">Events</span><span class="op">.</span><span class="fu">on</span>(engine<span class="op">,</span> <span class="st">&#39;beforeUpdate&#39;</span><span class="op">,</span> () <span class="kw">=&gt;</span> {</span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> speed <span class="op">=</span> Matter<span class="op">.</span><span class="at">Vector</span><span class="op">.</span><span class="fu">magnitude</span>(body<span class="op">.</span><span class="at">velocity</span>)<span class="op">;</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (speed <span class="op">&gt;</span> MAX_SPEED) {</span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> clampedVelocity <span class="op">=</span> Matter<span class="op">.</span><span class="at">Vector</span><span class="op">.</span><span class="fu">mult</span>(</span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>      Matter<span class="op">.</span><span class="at">Vector</span><span class="op">.</span><span class="fu">normalise</span>(body<span class="op">.</span><span class="at">velocity</span>)<span class="op">,</span></span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a>      MAX_SPEED</span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a>    )<span class="op">;</span></span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a>    Matter<span class="op">.</span><span class="at">Body</span><span class="op">.</span><span class="fu">setVelocity</span>(body<span class="op">,</span> clampedVelocity)<span class="op">;</span></span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div>
+<h3 id="summary-of-best-practices">Summary of Best Practices</h3>
+<p>To achieve stable collisions in Matter.js:</p>
+<ul>
+<li>Combine moderately increased solver iterations
+(<code>positionIterations: 8</code> or <code>10</code>) with thicker
+static boundaries for general physics stability.</li>
+<li>Use manual sub-stepping for projects featuring high-speed
+projectiles or fast-paced gameplay.</li>
+<li>Use velocity clamping as a safeguard against edge cases where
+extreme forces are applied.</li>
+</ul></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/matter.js'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/matter.js/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/matter.js/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

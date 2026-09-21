@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Drone Motor Failure and Landing in Matter.js - matter.js</title>
+    <meta name="description" content="This article explains how to simulate motor failure and emergency landing dynamics for a multirotor drone using the Matter.js 2D physics engine. By breaking down drone physics into rigid-body components, asymmetric thrust calculations, aerodynamic drag,">
+    <link rel="canonical" href="https://salivity.github.io/matter.js/article/drone-motor-failure-and-landing-in-matter-js">
+    <link rel="search" type="application/opensearchdescription+xml" title="matter.js" href="/matter.js/opensearch.xml">
+    <link rel="icon" href="/matter.js/favicon.ico">
+    <link rel="stylesheet" href="/matter.js/css/style.css">
+    <link media="print" rel="stylesheet" href="/matter.js/css/print.css">
+    <script src="/matter.js/js/fuse.min.js"></script>
+    <script src="/matter.js/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Drone Motor Failure and Landing in Matter.js - matter.js" />
+    <meta property="og:url" content="https://salivity.github.io/matter.js/article/drone-motor-failure-and-landing-in-matter-js" />
+    <meta property="og:image" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article explains how to simulate motor failure and emergency landing dynamics for a multirotor drone using the Matter.js 2D physics engine. By breaking down drone physics into rigid-body components, asymmetric thrust calculations, aerodynamic drag," />
+    <link rel="manifest" href="/matter.js/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/matter.js/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>matter.js</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/matter.js/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="drone-motor-failure-and-landing-in-matterjs">Drone Motor Failure
+and Landing in Matter.js</h1>
+<p>This article explains how to simulate motor failure and emergency
+landing dynamics for a multirotor drone using the Matter.js 2D physics
+engine. By breaking down drone physics into rigid-body components,
+asymmetric thrust calculations, aerodynamic drag, and reactive emergency
+descent logic, developers can create realistic aeronautical failure
+scenarios.</p>
+<h3 id="modeling-the-base-drone-physics">Modeling the Base Drone
+Physics</h3>
+<p>In Matter.js, a 2D quadcopter or hexacopter is typically modeled as a
+single rectangular rigid body or a composite body with distinct thrust
+points representing the left and right motor sets.</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> { Bodies<span class="op">,</span> Body<span class="op">,</span> Vector } <span class="op">=</span> Matter<span class="op">;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> drone <span class="op">=</span> Bodies<span class="op">.</span><span class="fu">rectangle</span>(<span class="dv">400</span><span class="op">,</span> <span class="dv">200</span><span class="op">,</span> <span class="dv">120</span><span class="op">,</span> <span class="dv">20</span><span class="op">,</span> {</span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>    <span class="dt">mass</span><span class="op">:</span> <span class="fl">1.5</span><span class="op">,</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>    <span class="dt">frictionAir</span><span class="op">:</span> <span class="fl">0.02</span><span class="op">,</span> <span class="co">// Simulates ambient aerodynamic drag</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>    <span class="dt">restitution</span><span class="op">:</span> <span class="fl">0.1</span>   <span class="co">// Low bounce for realistic impact</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div>
+<p>Normal flight requires applying vertical forces at offset points
+relative to the drone’s center of mass:</p>
+<ul>
+<li><strong>Left Motor Force:</strong> Applied at
+<code>(-width / 2, 0)</code> relative to the center.</li>
+<li><strong>Right Motor Force:</strong> Applied at
+<code>(+width / 2, 0)</code> relative to the center.</li>
+</ul>
+<p>When both forces equal half of <code>mass * gravity</code>, the drone
+hovers. Differential thrust generates torque, allowing the drone to
+rotate and translate laterally.</p>
+<h3 id="simulating-motor-failure">Simulating Motor Failure</h3>
+<p>A motor failure event is modeled by abruptly reducing or completely
+zeroing out the thrust vector of one motor point.</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">let</span> droneState <span class="op">=</span> {</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>    <span class="dt">leftMotorThrust</span><span class="op">:</span> <span class="fl">0.015</span><span class="op">,</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>    <span class="dt">rightMotorThrust</span><span class="op">:</span> <span class="fl">0.015</span><span class="op">,</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>    <span class="dt">failedMotor</span><span class="op">:</span> <span class="kw">null</span> <span class="co">// &#39;left&#39;, &#39;right&#39;, or null</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>}<span class="op">;</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">triggerMotorFailure</span>(side) {</span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>    droneState<span class="op">.</span><span class="at">failedMotor</span> <span class="op">=</span> side<span class="op">;</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (side <span class="op">===</span> <span class="st">&#39;left&#39;</span>) droneState<span class="op">.</span><span class="at">leftMotorThrust</span> <span class="op">=</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (side <span class="op">===</span> <span class="st">&#39;right&#39;</span>) droneState<span class="op">.</span><span class="at">rightMotorThrust</span> <span class="op">=</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<p>Once a motor fails, asymmetric thrust introduces extreme angular
+acceleration. If the remaining motor continues firing at hover power,
+the drone spins rapidly along its z-axis and falls because net upward
+thrust drops below gravitational force.</p>
+<h3 id="emergency-landing-dynamics-and-control">Emergency Landing
+Dynamics and Control</h3>
+<p>Real-world drones cannot maintain standard flight with a single rotor
+failure in a quadcopter configuration, but they can execute an emergency
+landing strategy: reducing remaining thrust to limit rotational velocity
+while keeping the descent speed survivable.</p>
+<h4 id="1-angular-velocity-mitigation">1. Angular Velocity
+Mitigation</h4>
+<p>To prevent violent tumbling, the emergency controller dynamically
+throttles the surviving motor based on current orientation and angular
+velocity:</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">updateEmergencyFlight</span>(drone<span class="op">,</span> droneState) {</span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (<span class="op">!</span>droneState<span class="op">.</span><span class="at">failedMotor</span>) <span class="cf">return</span><span class="op">;</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Detect deviation from level horizon (drone.angle = 0)</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> angle <span class="op">=</span> drone<span class="op">.</span><span class="at">angle</span><span class="op">;</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> angularVelocity <span class="op">=</span> drone<span class="op">.</span><span class="at">angularVelocity</span><span class="op">;</span></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Apply intermittent thrust on surviving motor only when oriented upward</span></span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> isUpright <span class="op">=</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">cos</span>(angle) <span class="op">&gt;</span> <span class="fl">0.5</span><span class="op">;</span> <span class="co">// Within ~60 degrees of upright</span></span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (isUpright <span class="op">&amp;&amp;</span> drone<span class="op">.</span><span class="at">velocity</span><span class="op">.</span><span class="at">y</span> <span class="op">&gt;</span> <span class="dv">2</span>) {</span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a>        <span class="co">// Pulse thrust to brake vertical descent without over-rotating</span></span>
+<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a>        <span class="kw">const</span> brakeForce <span class="op">=</span> <span class="fl">0.012</span><span class="op">;</span></span>
+<span id="cb3-14"><a href="#cb3-14" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> (droneState<span class="op">.</span><span class="at">failedMotor</span> <span class="op">===</span> <span class="st">&#39;left&#39;</span>) {</span>
+<span id="cb3-15"><a href="#cb3-15" aria-hidden="true" tabindex="-1"></a>            <span class="fu">applyMotorForce</span>(drone<span class="op">,</span> <span class="dv">1</span><span class="op">,</span> brakeForce)<span class="op">;</span> <span class="co">// Fire right motor</span></span>
+<span id="cb3-16"><a href="#cb3-16" aria-hidden="true" tabindex="-1"></a>        } <span class="cf">else</span> {</span>
+<span id="cb3-17"><a href="#cb3-17" aria-hidden="true" tabindex="-1"></a>            <span class="fu">applyMotorForce</span>(drone<span class="op">,</span> <span class="op">-</span><span class="dv">1</span><span class="op">,</span> brakeForce)<span class="op">;</span> <span class="co">// Fire left motor</span></span>
+<span id="cb3-18"><a href="#cb3-18" aria-hidden="true" tabindex="-1"></a>        }</span>
+<span id="cb3-19"><a href="#cb3-19" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb3-20"><a href="#cb3-20" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<h4 id="2-passive-aerodynamic-stabilization">2. Passive Aerodynamic
+Stabilization</h4>
+<p>In Matter.js, rotational drag can be supplemented using custom torque
+damping. As the drone tumbles, air resistance counters rapid
+spinning:</p>
+<div class="sourceCode" id="cb4"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Apply rotational damping during descent</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>drone<span class="op">.</span><span class="at">torque</span> <span class="op">=</span> <span class="op">-</span>drone<span class="op">.</span><span class="at">angularVelocity</span> <span class="op">*</span> <span class="fl">0.5</span><span class="op">;</span></span></code></pre></div>
+<h4 id="3-force-application-loop">3. Force Application Loop</h4>
+<p>The forces must be mapped from the drone's local coordinate space to
+the global world space in the engine's <code>beforeUpdate</code>
+event:</p>
+<div class="sourceCode" id="cb5"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">applyMotorForce</span>(drone<span class="op">,</span> localXOffset<span class="op">,</span> magnitude) {</span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> angle <span class="op">=</span> drone<span class="op">.</span><span class="at">angle</span><span class="op">;</span></span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> forceVector <span class="op">=</span> Vector<span class="op">.</span><span class="fu">rotate</span>({ <span class="dt">x</span><span class="op">:</span> <span class="dv">0</span><span class="op">,</span> <span class="dt">y</span><span class="op">:</span> <span class="op">-</span>magnitude }<span class="op">,</span> angle)<span class="op">;</span></span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> positionVector <span class="op">=</span> {</span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a>        <span class="dt">x</span><span class="op">:</span> drone<span class="op">.</span><span class="at">position</span><span class="op">.</span><span class="at">x</span> <span class="op">+</span> (localXOffset <span class="op">*</span> (drone<span class="op">.</span><span class="at">bounds</span><span class="op">.</span><span class="at">max</span><span class="op">.</span><span class="at">x</span> <span class="op">-</span> drone<span class="op">.</span><span class="at">bounds</span><span class="op">.</span><span class="at">min</span><span class="op">.</span><span class="at">x</span>) <span class="op">/</span> <span class="dv">2</span>) <span class="op">*</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">cos</span>(angle)<span class="op">,</span></span>
+<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a>        <span class="dt">y</span><span class="op">:</span> drone<span class="op">.</span><span class="at">position</span><span class="op">.</span><span class="at">y</span> <span class="op">+</span> (localXOffset <span class="op">*</span> (drone<span class="op">.</span><span class="at">bounds</span><span class="op">.</span><span class="at">max</span><span class="op">.</span><span class="at">x</span> <span class="op">-</span> drone<span class="op">.</span><span class="at">bounds</span><span class="op">.</span><span class="at">min</span><span class="op">.</span><span class="at">x</span>) <span class="op">/</span> <span class="dv">2</span>) <span class="op">*</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">sin</span>(angle)</span>
+<span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a>    }<span class="op">;</span></span>
+<span id="cb5-8"><a href="#cb5-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-9"><a href="#cb5-9" aria-hidden="true" tabindex="-1"></a>    Body<span class="op">.</span><span class="fu">applyForce</span>(drone<span class="op">,</span> positionVector<span class="op">,</span> forceVector)<span class="op">;</span></span>
+<span id="cb5-10"><a href="#cb5-10" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<h3 id="impact-and-structural-damage-handling">Impact and Structural
+Damage Handling</h3>
+<p>When the drone hits the ground, impact forces determine whether the
+emergency landing was successful or fatal. Listen to the
+<code>collisionStart</code> event to calculate the impact impulse:</p>
+<div class="sourceCode" id="cb6"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a>Matter<span class="op">.</span><span class="at">Events</span><span class="op">.</span><span class="fu">on</span>(engine<span class="op">,</span> <span class="st">&#39;collisionStart&#39;</span><span class="op">,</span> (<span class="bu">event</span>) <span class="kw">=&gt;</span> {</span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a>    <span class="bu">event</span><span class="op">.</span><span class="at">pairs</span><span class="op">.</span><span class="fu">forEach</span>((pair) <span class="kw">=&gt;</span> {</span>
+<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> (pair<span class="op">.</span><span class="at">bodyA</span> <span class="op">===</span> drone <span class="op">||</span> pair<span class="op">.</span><span class="at">bodyB</span> <span class="op">===</span> drone) {</span>
+<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a>            <span class="kw">const</span> impactSpeed <span class="op">=</span> Vector<span class="op">.</span><span class="fu">magnitude</span>(drone<span class="op">.</span><span class="at">velocity</span>)<span class="op">;</span></span>
+<span id="cb6-5"><a href="#cb6-5" aria-hidden="true" tabindex="-1"></a>            <span class="kw">const</span> survivableSpeedLimit <span class="op">=</span> <span class="fl">5.0</span><span class="op">;</span> <span class="co">// Units per tick</span></span>
+<span id="cb6-6"><a href="#cb6-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-7"><a href="#cb6-7" aria-hidden="true" tabindex="-1"></a>            <span class="cf">if</span> (impactSpeed <span class="op">&gt;</span> survivableSpeedLimit) {</span>
+<span id="cb6-8"><a href="#cb6-8" aria-hidden="true" tabindex="-1"></a>                <span class="co">// Catastrophic crash</span></span>
+<span id="cb6-9"><a href="#cb6-9" aria-hidden="true" tabindex="-1"></a>                drone<span class="op">.</span><span class="at">isStatic</span> <span class="op">=</span> <span class="kw">true</span><span class="op">;</span> <span class="co">// Stop movement or trigger debris spawning</span></span>
+<span id="cb6-10"><a href="#cb6-10" aria-hidden="true" tabindex="-1"></a>            } <span class="cf">else</span> {</span>
+<span id="cb6-11"><a href="#cb6-11" aria-hidden="true" tabindex="-1"></a>                <span class="co">// Successful emergency landing</span></span>
+<span id="cb6-12"><a href="#cb6-12" aria-hidden="true" tabindex="-1"></a>                droneState<span class="op">.</span><span class="at">leftMotorThrust</span> <span class="op">=</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb6-13"><a href="#cb6-13" aria-hidden="true" tabindex="-1"></a>                droneState<span class="op">.</span><span class="at">rightMotorThrust</span> <span class="op">=</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb6-14"><a href="#cb6-14" aria-hidden="true" tabindex="-1"></a>            }</span>
+<span id="cb6-15"><a href="#cb6-15" aria-hidden="true" tabindex="-1"></a>        }</span>
+<span id="cb6-16"><a href="#cb6-16" aria-hidden="true" tabindex="-1"></a>    })<span class="op">;</span></span>
+<span id="cb6-17"><a href="#cb6-17" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div>
+<p>Using this setup, the drone transitions realistically from controlled
+flight to a torque-imbalanced tumble, applies emergency descent
+management, and resolves landing forces against the terrain.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/matter.js'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/matter.js/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/matter.js/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

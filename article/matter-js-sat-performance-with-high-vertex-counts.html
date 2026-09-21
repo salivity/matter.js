@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Matter.js SAT Performance with High Vertex Counts - matter.js</title>
+    <meta name="description" content="Using rigid bodies with high vertex counts in Matter.js significantly degrades physics simulation performance, primarily due to the mathematical overhead of the Separating Axis Theorem (SAT) during collision detection. In Matter.js, SAT serves as the cor">
+    <link rel="canonical" href="https://salivity.github.io/matter.js/article/matter-js-sat-performance-with-high-vertex-counts">
+    <link rel="search" type="application/opensearchdescription+xml" title="matter.js" href="/matter.js/opensearch.xml">
+    <link rel="icon" href="/matter.js/favicon.ico">
+    <link rel="stylesheet" href="/matter.js/css/style.css">
+    <link media="print" rel="stylesheet" href="/matter.js/css/print.css">
+    <script src="/matter.js/js/fuse.min.js"></script>
+    <script src="/matter.js/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Matter.js SAT Performance with High Vertex Counts - matter.js" />
+    <meta property="og:url" content="https://salivity.github.io/matter.js/article/matter-js-sat-performance-with-high-vertex-counts" />
+    <meta property="og:image" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Using rigid bodies with high vertex counts in Matter.js significantly degrades physics simulation performance, primarily due to the mathematical overhead of the Separating Axis Theorem (SAT) during collision detection. In Matter.js, SAT serves as the cor" />
+    <link rel="manifest" href="/matter.js/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/matter.js/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>matter.js</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/matter.js/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="matterjs-sat-performance-with-high-vertex-counts">Matter.js SAT
+Performance with High Vertex Counts</h1>
+<p>Using rigid bodies with high vertex counts in Matter.js significantly
+degrades physics simulation performance, primarily due to the
+mathematical overhead of the Separating Axis Theorem (SAT) during
+collision detection. In Matter.js, SAT serves as the core narrowphase
+algorithm to determine whether two convex shapes overlap and to
+calculate collision vectors. When vertex density increases, the
+calculations required per frame multiply quadratically, causing CPU
+bottlenecks, garbage collection pressure, and noticeable drops in
+framerate.</p>
+<h3 id="the-mathematical-cost-of-sat-projection">The Mathematical Cost
+of SAT Projection</h3>
+<p>The Separating Axis Theorem dictates that two convex bodies do not
+collide if an axis exists along which their projections do not overlap.
+To evaluate this:</p>
+<ol type="1">
+<li><strong>Axis Generation:</strong> The algorithm generates potential
+separating axes, which correspond to the perpendicular normal vectors of
+every edge on both polygons. A body with <span
+class="math inline">\(N\)</span> vertices produces <span
+class="math inline">\(N\)</span> potential axes. For two interacting
+bodies with <span class="math inline">\(N\)</span> and <span
+class="math inline">\(M\)</span> vertices, the engine must evaluate up
+to <span class="math inline">\(N + M\)</span> axes.</li>
+<li><strong>Vertex Projection:</strong> On each tested axis, every
+single vertex from both bodies must be projected via vector dot products
+to find the minimum and maximum extents of the shapes.</li>
+</ol>
+<p>Because every axis requires projecting all vertices of both shapes,
+testing collision between two bodies scales at approximately <span
+class="math inline">\(\mathcal{O}((N + M) \times (N + M))\)</span>
+operations in the worst-case scenario where bodies overlap or are in
+close proximity. As vertex counts escalate from basic shapes (4–8
+vertices) to complex silhouettes (50–100+ vertices), the number of dot
+products executed in a single frame increases by orders of
+magnitude.</p>
+<h3 id="narrowphase-bottlenecks-in-matterjs">Narrowphase Bottlenecks in
+Matter.js</h3>
+<p>Matter.js uses a broadphase step (bounding box trees or spatial
+hashing) to quickly discard bodies that are nowhere near each other.
+However, once bounding boxes intersect, the engine must invoke
+<code>Matter.SAT.collides</code>.</p>
+<p>When high-vertex bodies are closely grouped, stacked, or resting:</p>
+<ul>
+<li><strong>Early Exits Fail:</strong> While SAT can exit early the
+moment a separating axis is identified, intersecting or deeply
+contacting bodies require checking nearly every axis before confirming
+collision and determining the Minimum Translation Vector (MTV).</li>
+<li><strong>Contact Point Generation:</strong> In addition to verifying
+overlap, Matter.js must calculate contact manifolds and support points
+for solver iterations, an operation that grows increasingly expensive
+with dense vertex arrays.</li>
+</ul>
+<h3 id="compounding-effects-of-non-convex-decomposition">Compounding
+Effects of Non-Convex Decomposition</h3>
+<p>Matter.js only supports convex polygons for SAT. If a concave body
+with a high vertex count is imported, it must be decomposed into a set
+of convex sub-bodies (typically using tools like
+<code>poly-decomp</code>).</p>
+<p>A single complex concave shape can easily split into dozens of convex
+parts. In this scenario, the total collision cost multiplies
+exponentially: every sub-part of body A must run SAT against every
+overlapping sub-part of body B. This turns what appears to be a single
+collision check into dozens of high-vertex polygon evaluations per
+frame.</p>
+<h3 id="cpu-and-memory-pressure">CPU and Memory Pressure</h3>
+<p>In browser environments, Matter.js runs on a single JavaScript
+thread. Heavy SAT operations directly contend with application logic and
+rendering routines. The excessive vector allocations and mathematical
+operations within the SAT loop create:</p>
+<ul>
+<li><strong>Thermal Throttling:</strong> Sustained mathematical
+execution causes mobile devices to throttle performance quickly.</li>
+<li><strong>Garbage Collection Spikes:</strong> Frequent vector creation
+and math manipulation in tight loops can increase memory churn, leading
+to sporadic garbage collection pauses and physics stutter.</li>
+</ul>
+<h3 id="optimization-strategies">Optimization Strategies</h3>
+<p>To maintain stable 60 FPS simulations while working with complex
+shapes in Matter.js:</p>
+<ul>
+<li><strong>Vertex Decimation:</strong> Pre-process custom polygon paths
+using simplification algorithms (such as Ramer-Douglas-Peucker) to
+reduce vertices to the functional minimum required for visual
+fidelity.</li>
+<li><strong>Compound Primitive Colliders:</strong> Approximate complex
+silhouettes using combinations of simple geometric primitives
+(rectangles and circles). Circles are especially efficient because SAT
+evaluates circle-polygon collisions with fewer axes.</li>
+<li><strong>Broadphase and Category Filtering:</strong> Strictly tune
+collision masks, categories, and sleep thresholds
+(<code>body.isSleeping</code>) to prevent high-vertex resting bodies
+from triggering unnecessary narrowphase SAT passes.</li>
+</ul></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/matter.js'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/matter.js/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/matter.js/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

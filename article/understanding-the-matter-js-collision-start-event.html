@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Understanding the Matter.js collisionStart Event - matter.js</title>
+    <meta name="description" content="In Matter.js, the collisionStart event fires at the beginning of a tick when two or more rigid bodies begin colliding. Listening to this event provides access to a comprehensive event payload that details the context of the physics engine at that moment,">
+    <link rel="canonical" href="https://salivity.github.io/matter.js/article/understanding-the-matter-js-collision-start-event">
+    <link rel="search" type="application/opensearchdescription+xml" title="matter.js" href="/matter.js/opensearch.xml">
+    <link rel="icon" href="/matter.js/favicon.ico">
+    <link rel="stylesheet" href="/matter.js/css/style.css">
+    <link media="print" rel="stylesheet" href="/matter.js/css/print.css">
+    <script src="/matter.js/js/fuse.min.js"></script>
+    <script src="/matter.js/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Understanding the Matter.js collisionStart Event - matter.js" />
+    <meta property="og:url" content="https://salivity.github.io/matter.js/article/understanding-the-matter-js-collision-start-event" />
+    <meta property="og:image" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="In Matter.js, the collisionStart event fires at the beginning of a tick when two or more rigid bodies begin colliding. Listening to this event provides access to a comprehensive event payload that details the context of the physics engine at that moment," />
+    <link rel="manifest" href="/matter.js/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/matter.js/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>matter.js</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/matter.js/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="understanding-the-matterjs-collisionstart-event">Understanding
+the Matter.js collisionStart Event</h1>
+<p>In Matter.js, the <code>collisionStart</code> event fires at the
+beginning of a tick when two or more rigid bodies begin colliding.
+Listening to this event provides access to a comprehensive event payload
+that details the context of the physics engine at that moment,
+specifically delivering an array of colliding body pairs alongside
+geometric collision details, contact coordinates, and physical
+interaction properties.</p>
+<h3 id="top-level-event-object-properties">Top-Level Event Object
+Properties</h3>
+<p>When an event callback is attached via
+<code>Matter.Events.on(engine, 'collisionStart', callback)</code>, the
+callback receives an event object with the following primary
+properties:</p>
+<ul>
+<li><strong><code>name</code></strong>: A string containing the event
+name, which is <code>"collisionStart"</code>.</li>
+<li><strong><code>source</code></strong>: A reference to the object that
+triggered the event, typically the <code>Matter.Engine</code>
+instance.</li>
+<li><strong><code>timestamp</code></strong>: The engine's internal
+update timestamp for the step during which the collision was
+detected.</li>
+<li><strong><code>pairs</code></strong>: An array of <code>Pair</code>
+objects. This is the most crucial property, containing individual
+collision records for every pair of overlapping bodies detected during
+the current frame.</li>
+</ul>
+<h3 id="the-pairs-array-and-pair-structure">The <code>pairs</code> Array
+and Pair Structure</h3>
+<p>Because multiple collisions can occur in a single physics update
+step, <code>event.pairs</code> groups all active collisions. Each
+element in the <code>pairs</code> array represents a distinct
+interaction between two bodies and contains the following key
+properties:</p>
+<ul>
+<li><strong><code>bodyA</code></strong>: A reference to the first
+<code>Matter.Body</code> involved in the collision.</li>
+<li><strong><code>bodyB</code></strong>: A reference to the second
+<code>Matter.Body</code> involved in the collision.</li>
+<li><strong><code>id</code></strong>: A unique string identifier
+assigned to this specific pair, usually formed by joining the unique IDs
+of <code>bodyA</code> and <code>bodyB</code> (e.g.,
+<code>"A1_B2"</code>).</li>
+<li><strong><code>isActive</code></strong>: A boolean flag indicating
+whether the collision pair is currently intersecting.</li>
+<li><strong><code>isSensor</code></strong>: A boolean flag indicating if
+either <code>bodyA</code> or <code>bodyB</code> has its
+<code>isSensor</code> property set to <code>true</code>. When true,
+physical resolution (bouncing or sliding) is ignored, but collision
+detection is still reported.</li>
+<li><strong><code>timeCreated</code></strong>: The engine timestamp when
+the collision pair was first instantiated.</li>
+<li><strong><code>timeUpdated</code></strong>: The engine timestamp when
+the collision pair was most recently updated.</li>
+<li><strong><code>separation</code></strong>: The calculated distance
+value showing the separation between the shapes.</li>
+</ul>
+<h3 id="geometric-collision-data-paircollision">Geometric Collision Data
+(<code>pair.collision</code>)</h3>
+<p>Nested within each pair is the <code>collision</code> object, which
+provides low-level geometric and manifold data calculated by the
+Separating Axis Theorem (SAT) engine:</p>
+<ul>
+<li><strong><code>normal</code></strong>: A normalized vector
+(<code>{ x, y }</code>) representing the direction of the collision
+force perpendicular to the contact surface.</li>
+<li><strong><code>penetration</code></strong>: A vector
+(<code>{ x, y }</code>) indicating the direction and magnitude of the
+overlap between the two bodies.</li>
+<li><strong><code>depth</code></strong>: A numeric scalar representing
+how deeply the two bodies have penetrated each other along the normal
+axis.</li>
+<li><strong><code>supports</code></strong>: An array of vertex
+coordinates on the bodies that are closest to or forming the contact
+edge.</li>
+<li><strong><code>tangent</code></strong>: A vector perpendicular to the
+normal, used for calculating friction and lateral forces.</li>
+</ul>
+<h3 id="contact-points-and-dynamics-data">Contact Points and Dynamics
+Data</h3>
+<p>The pair object also includes details regarding the physical
+resolution parameters determined by combining properties of both
+bodies:</p>
+<ul>
+<li><strong><code>contacts</code></strong>: An array containing active
+contact point objects. Each contact holds vertex data where the two
+bodies physically touch in world space.</li>
+<li><strong><code>friction</code></strong>: The calculated dynamic
+friction coefficient applied to the collision response.</li>
+<li><strong><code>frictionStatic</code></strong>: The calculated static
+friction coefficient between the colliding surfaces.</li>
+<li><strong><code>restitution</code></strong>: The calculated elasticity
+(bounciness) factor resulting from the restitution values of both
+bodies.</li>
+<li><strong><code>slop</code></strong>: The numerical tolerance margin
+used to prevent computational jitter during continuous collision
+resolution.</li>
+</ul></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/matter.js'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/matter.js/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/matter.js/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How requestAnimationFrame Affects Matter.js Tick Rate - matter.js</title>
+    <meta name="description" content="This article explores how the browser's requestAnimationFrame API directly governs the execution and tick rate of physics simulations in Matter.js. You will learn how browser rendering loops synchronize with the Matter.js engine, why varying monitor refr">
+    <link rel="canonical" href="https://salivity.github.io/matter.js/article/how-request-animation-frame-affects-matter-js-tick-rate">
+    <link rel="search" type="application/opensearchdescription+xml" title="matter.js" href="/matter.js/opensearch.xml">
+    <link rel="icon" href="/matter.js/favicon.ico">
+    <link rel="stylesheet" href="/matter.js/css/style.css">
+    <link media="print" rel="stylesheet" href="/matter.js/css/print.css">
+    <script src="/matter.js/js/fuse.min.js"></script>
+    <script src="/matter.js/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How requestAnimationFrame Affects Matter.js Tick Rate - matter.js" />
+    <meta property="og:url" content="https://salivity.github.io/matter.js/article/how-request-animation-frame-affects-matter-js-tick-rate" />
+    <meta property="og:image" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article explores how the browser's requestAnimationFrame API directly governs the execution and tick rate of physics simulations in Matter.js. You will learn how browser rendering loops synchronize with the Matter.js engine, why varying monitor refr" />
+    <link rel="manifest" href="/matter.js/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/matter.js/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>matter.js</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/matter.js/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="how-requestanimationframe-affects-matterjs-tick-rate">How
+requestAnimationFrame Affects Matter.js Tick Rate</h1>
+<p>This article explores how the browser's
+<code>requestAnimationFrame</code> API directly governs the execution
+and tick rate of physics simulations in Matter.js. You will learn how
+browser rendering loops synchronize with the Matter.js engine, why
+varying monitor refresh rates and dropped frames alter simulation
+behavior, and how to stabilize physics calculations across different
+hardware environments.</p>
+<h2 id="the-connection-between-requestanimationframe-and-matterjs">The
+Connection Between requestAnimationFrame and Matter.js</h2>
+<p>By default, Matter.js delegates its timing logic to
+<code>Matter.Runner</code>, which relies on
+<code>window.requestAnimationFrame</code> (rAF) to synchronize
+simulation updates with the browser’s render cycle. When you start an
+engine with <code>Matter.Runner.run(runner, engine)</code>, the runner
+invokes <code>requestAnimationFrame</code> on a continuous loop. On each
+frame, it calculates the elapsed time (delta) since the previous call
+and passes this value to <code>Engine.update(engine, delta)</code>.</p>
+<p>Because <code>requestAnimationFrame</code> is tethered to the display
+subsystem of the user's device, the tick rate of Matter.js is
+fundamentally tied to the client's screen refresh rate rather than a
+guaranteed internal timer.</p>
+<h2 id="display-refresh-rates-and-tick-inconsistency">Display Refresh
+Rates and Tick Inconsistency</h2>
+<p>The frequency at which <code>requestAnimationFrame</code> executes
+varies significantly across devices:</p>
+<ul>
+<li><strong>Standard displays (60Hz):</strong> Fires roughly every 16.67
+milliseconds (~60 ticks per second).</li>
+<li><strong>High-refresh displays (120Hz, 144Hz, 240Hz):</strong> Fires
+every 8.33ms, 6.94ms, or 4.16ms respectively.</li>
+<li><strong>Low-power or throttled states (30Hz or variable):</strong>
+Fires at fluctuating, lower rates.</li>
+</ul>
+<p>If <code>Matter.Runner</code> is set to run with a dynamic delta
+based strictly on the timestamp provided by
+<code>requestAnimationFrame</code>, a 120Hz monitor will run twice as
+many update cycles per second as a 60Hz monitor. While a dynamically
+calculated delta attempts to compensate by stepping the physics by
+smaller increments on faster displays, numerical integration in physics
+engines (specifically Verlet or Euler integration) is not completely
+scale-invariant. Consequently, springs, constraints, and friction can
+behave differently at 120Hz compared to 60Hz.</p>
+<h2 id="frame-drops-background-tabs-and-the-spiral-of-death">Frame
+Drops, Background Tabs, and the "Spiral of Death"</h2>
+<p>Using <code>requestAnimationFrame</code> means that the tick rate
+drops whenever the main thread is blocked or the browser tab loses
+focus.</p>
+<ol type="1">
+<li><strong>Background Throttling:</strong> Browsers pause or throttle
+<code>requestAnimationFrame</code> calls to 1Hz or lower when a user
+switches tabs to conserve battery and CPU resources. When the tab
+regains focus, the delta time between the previous frame and the current
+frame can be hundreds or thousands of milliseconds. If passed directly
+to <code>Engine.update()</code>, this massive delta can launch bodies
+through walls (tunneling) or tear constraints apart.</li>
+<li><strong>Delta Clamping:</strong> <code>Matter.Runner</code>
+mitigates large jumps by enforcing an upper bound on the delta
+(controlled by <code>runner.isFixed</code> and default clamping
+mechanics), discarding excessively large time jumps. However, this
+causes the physics simulation to appear in slow motion during severe
+performance dips rather than maintaining real-world time
+synchronization.</li>
+</ol>
+<h2 id="achieving-consistent-physics-with-a-fixed-timestep">Achieving
+Consistent Physics with a Fixed Timestep</h2>
+<p>To eliminate hardware-dependent physics discrepancies caused by
+<code>requestAnimationFrame</code>, you can decouple the physics step
+from the visual frame rate using a fixed timestep with an
+accumulator.</p>
+<p>Instead of allowing <code>requestAnimationFrame</code> to pass
+arbitrary delta values directly into <code>Engine.update()</code>, use
+<code>requestAnimationFrame</code> solely for rendering and tracking
+accumulated real time:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> engine <span class="op">=</span> Matter<span class="op">.</span><span class="at">Engine</span><span class="op">.</span><span class="fu">create</span>()<span class="op">;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> fixedDelta <span class="op">=</span> <span class="dv">1000</span> <span class="op">/</span> <span class="dv">60</span><span class="op">;</span> <span class="co">// Exact 60Hz physics step (16.66ms)</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="kw">let</span> lastTime <span class="op">=</span> <span class="bu">performance</span><span class="op">.</span><span class="fu">now</span>()<span class="op">;</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="kw">let</span> accumulator <span class="op">=</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">loop</span>(currentTime) {</span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> frameTime <span class="op">=</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">min</span>(currentTime <span class="op">-</span> lastTime<span class="op">,</span> <span class="dv">100</span>)<span class="op">;</span> <span class="co">// Clamp maximum frame time</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>    lastTime <span class="op">=</span> currentTime<span class="op">;</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>    accumulator <span class="op">+=</span> frameTime<span class="op">;</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>    <span class="cf">while</span> (accumulator <span class="op">&gt;=</span> fixedDelta) {</span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>        Matter<span class="op">.</span><span class="at">Engine</span><span class="op">.</span><span class="fu">update</span>(engine<span class="op">,</span> fixedDelta)<span class="op">;</span></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>        accumulator <span class="op">-=</span> fixedDelta<span class="op">;</span></span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Trigger visual rendering here</span></span>
+<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a>    <span class="fu">requestAnimationFrame</span>(loop)<span class="op">;</span></span>
+<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb1-19"><a href="#cb1-19" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-20"><a href="#cb1-20" aria-hidden="true" tabindex="-1"></a><span class="fu">requestAnimationFrame</span>(loop)<span class="op">;</span></span></code></pre></div>
+<p>Using this pattern, <code>requestAnimationFrame</code> still drives
+the drawing loop, but the physics engine consistently computes
+deterministic updates regardless of whether the user is on a 60Hz office
+monitor or a 240Hz gaming display.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/matter.js'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/matter.js/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/matter.js/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

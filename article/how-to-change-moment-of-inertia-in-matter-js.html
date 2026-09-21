@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How to Change Moment of Inertia in Matter.js - matter.js</title>
+    <meta name="description" content="This article explains how to modify the moment of inertia for rigid bodies in the Matter.js 2D physics engine. You will learn what inertia controls in Matter.js, how to configure it during initial body instantiation, and how to update it dynamically duri">
+    <link rel="canonical" href="https://salivity.github.io/matter.js/article/how-to-change-moment-of-inertia-in-matter-js">
+    <link rel="search" type="application/opensearchdescription+xml" title="matter.js" href="/matter.js/opensearch.xml">
+    <link rel="icon" href="/matter.js/favicon.ico">
+    <link rel="stylesheet" href="/matter.js/css/style.css">
+    <link media="print" rel="stylesheet" href="/matter.js/css/print.css">
+    <script src="/matter.js/js/fuse.min.js"></script>
+    <script src="/matter.js/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How to Change Moment of Inertia in Matter.js - matter.js" />
+    <meta property="og:url" content="https://salivity.github.io/matter.js/article/how-to-change-moment-of-inertia-in-matter-js" />
+    <meta property="og:image" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article explains how to modify the moment of inertia for rigid bodies in the Matter.js 2D physics engine. You will learn what inertia controls in Matter.js, how to configure it during initial body instantiation, and how to update it dynamically duri" />
+    <link rel="manifest" href="/matter.js/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/matter.js/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>matter.js</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/matter.js/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="how-to-change-moment-of-inertia-in-matterjs">How to Change
+Moment of Inertia in Matter.js</h1>
+<p>This article explains how to modify the moment of inertia for rigid
+bodies in the Matter.js 2D physics engine. You will learn what inertia
+controls in Matter.js, how to configure it during initial body
+instantiation, and how to update it dynamically during runtime using
+built-in engine methods, including how to lock rotation entirely by
+using infinite inertia.</p>
+<h2 id="understanding-inertia-in-matterjs">Understanding Inertia in
+Matter.js</h2>
+<p>In Matter.js, the moment of inertia represents a rigid body's
+resistance to rotational acceleration when torque is applied. By
+default, Matter.js calculates this value automatically based on the
+body's mass and geometric dimensions. Lower values allow an object to
+spin freely with minimal torque, while higher values make an object
+harder to rotate.</p>
+<h2 id="setting-inertia-during-body-creation">Setting Inertia During
+Body Creation</h2>
+<p>You can define a custom moment of inertia directly in the options
+object when instantiating a new body using the
+<code>Matter.Bodies</code> factory methods.</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Create a rectangle with a custom inertia value</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> box <span class="op">=</span> Matter<span class="op">.</span><span class="at">Bodies</span><span class="op">.</span><span class="fu">rectangle</span>(<span class="dv">400</span><span class="op">,</span> <span class="dv">200</span><span class="op">,</span> <span class="dv">80</span><span class="op">,</span> <span class="dv">80</span><span class="op">,</span> {</span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>    <span class="dt">mass</span><span class="op">:</span> <span class="dv">5</span><span class="op">,</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>    <span class="dt">inertia</span><span class="op">:</span> <span class="dv">5000</span> <span class="co">// Custom moment of inertia</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>Matter<span class="op">.</span><span class="at">Composite</span><span class="op">.</span><span class="fu">add</span>(engine<span class="op">.</span><span class="at">world</span><span class="op">,</span> box)<span class="op">;</span></span></code></pre></div>
+<p>When you define <code>inertia</code> at creation, Matter.js also
+computes the corresponding <code>inverseInertia</code> property
+(<code>1 / inertia</code>), which the physics engine uses internally
+during collision and constraint solving.</p>
+<h2 id="changing-inertia-dynamically-at-runtime">Changing Inertia
+Dynamically at Runtime</h2>
+<p>If a body has already been created, you should never mutate
+<code>body.inertia</code> directly. Direct mutation leaves internal
+engine properties—such as <code>inverseInertia</code>—out of sync,
+leading to physics calculation errors.</p>
+<p>Instead, use the <code>Matter.Body.setInertia</code> utility
+method:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Import the Body module</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> { Body } <span class="op">=</span> Matter<span class="op">;</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a><span class="co">// Dynamically update the body&#39;s moment of inertia</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>Body<span class="op">.</span><span class="fu">setInertia</span>(box<span class="op">,</span> <span class="dv">12000</span>)<span class="op">;</span></span></code></pre></div>
+<p>Calling <code>Body.setInertia()</code> recalculates both
+<code>body.inertia</code> and <code>body.inverseInertia</code>
+safely.</p>
+<h2 id="preventing-rotation-entirely">Preventing Rotation Entirely</h2>
+<p>To make an object immune to rotational forces (such as for a player
+character that should stay upright without tipping), set the inertia to
+<code>Infinity</code>:</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="co">// During creation</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> player <span class="op">=</span> Matter<span class="op">.</span><span class="at">Bodies</span><span class="op">.</span><span class="fu">rectangle</span>(<span class="dv">100</span><span class="op">,</span> <span class="dv">100</span><span class="op">,</span> <span class="dv">40</span><span class="op">,</span> <span class="dv">80</span><span class="op">,</span> {</span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>    <span class="dt">inertia</span><span class="op">:</span> <span class="kw">Infinity</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a><span class="co">// Or dynamically at runtime</span></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>Matter<span class="op">.</span><span class="at">Body</span><span class="op">.</span><span class="fu">setInertia</span>(player<span class="op">,</span> <span class="kw">Infinity</span>)<span class="op">;</span></span></code></pre></div>
+<p>Alternatively, Matter.js provides a shorthand method for setting
+infinite inertia:</p>
+<div class="sourceCode" id="cb4"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a>Matter<span class="op">.</span><span class="at">Body</span><span class="op">.</span><span class="fu">setStatic</span>(body<span class="op">,</span> <span class="kw">false</span>)<span class="op">;</span> <span class="co">// Keep dynamic translation</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>Matter<span class="op">.</span><span class="at">Body</span><span class="op">.</span><span class="fu">setInertia</span>(body<span class="op">,</span> <span class="kw">Infinity</span>)<span class="op">;</span> <span class="co">// Prevents rotation</span></span></code></pre></div>
+<p>Setting <code>inertia: Infinity</code> changes
+<code>inverseInertia</code> to <code>0</code>, effectively stopping any
+angular acceleration regardless of collision impacts or applied
+torque.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/matter.js'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/matter.js/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/matter.js/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simulate Microfluidic Cell Sorting in Matter.js - matter.js</title>
+    <meta name="description" content="Simulating microfluidic cell sorting via hydrodynamic channel splitting in Matter.js requires approximating continuous fluid-particle interactions within a 2D rigid-body physics engine. Because Matter.js is designed for rigid bodies rather than computati">
+    <link rel="canonical" href="https://salivity.github.io/matter.js/article/simulate-microfluidic-cell-sorting-in-matter-js">
+    <link rel="search" type="application/opensearchdescription+xml" title="matter.js" href="/matter.js/opensearch.xml">
+    <link rel="icon" href="/matter.js/favicon.ico">
+    <link rel="stylesheet" href="/matter.js/css/style.css">
+    <link media="print" rel="stylesheet" href="/matter.js/css/print.css">
+    <script src="/matter.js/js/fuse.min.js"></script>
+    <script src="/matter.js/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Simulate Microfluidic Cell Sorting in Matter.js - matter.js" />
+    <meta property="og:url" content="https://salivity.github.io/matter.js/article/simulate-microfluidic-cell-sorting-in-matter-js" />
+    <meta property="og:image" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Simulating microfluidic cell sorting via hydrodynamic channel splitting in Matter.js requires approximating continuous fluid-particle interactions within a 2D rigid-body physics engine. Because Matter.js is designed for rigid bodies rather than computati" />
+    <link rel="manifest" href="/matter.js/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/matter.js/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>matter.js</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/matter.js/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="simulate-microfluidic-cell-sorting-in-matterjs">Simulate
+Microfluidic Cell Sorting in Matter.js</h1>
+<p>Simulating microfluidic cell sorting via hydrodynamic channel
+splitting in Matter.js requires approximating continuous fluid-particle
+interactions within a 2D rigid-body physics engine. Because Matter.js is
+designed for rigid bodies rather than computational fluid dynamics
+(CFD), hydrodynamic phenomena—such as laminar velocity profiles, Stokes'
+drag, and dividing streamlines at a channel bifurcation—must be modeled
+by applying programmatic forces to cell-like bodies at each engine
+update. This guide explains how to construct channel boundaries, define
+distinct cell properties, simulate laminar drag forces, and achieve
+particle separation at a fluidic junction.</p>
+<h3 id="1-constructing-the-channel-geometry">1. Constructing the Channel
+Geometry</h3>
+<p>The microfluidic device consists of an inlet channel, a constriction
+or alignment zone, and a bifurcation dividing into two or more outlet
+channels. In Matter.js, channel walls are constructed using static rigid
+bodies.</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> { Engine<span class="op">,</span> Render<span class="op">,</span> Runner<span class="op">,</span> Bodies<span class="op">,</span> Composite<span class="op">,</span> Events<span class="op">,</span> Body<span class="op">,</span> Vector } <span class="op">=</span> Matter<span class="op">;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> engine <span class="op">=</span> Engine<span class="op">.</span><span class="fu">create</span>({ <span class="dt">gravity</span><span class="op">:</span> { <span class="dt">x</span><span class="op">:</span> <span class="dv">0</span><span class="op">,</span> <span class="dt">y</span><span class="op">:</span> <span class="dv">0</span> } })<span class="op">;</span> <span class="co">// Zero gravity</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> world <span class="op">=</span> engine<span class="op">.</span><span class="at">world</span><span class="op">;</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a><span class="co">// Channel dimensions</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> channelWidth <span class="op">=</span> <span class="dv">60</span><span class="op">;</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> wallThickness <span class="op">=</span> <span class="dv">10</span><span class="op">;</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a><span class="co">// Example: Static walls creating a main channel that branches into two symmetric outlets</span></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> walls <span class="op">=</span> [</span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>  <span class="co">// Main channel walls</span></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>  Bodies<span class="op">.</span><span class="fu">rectangle</span>(<span class="dv">150</span><span class="op">,</span> <span class="dv">100</span> <span class="op">-</span> channelWidth <span class="op">/</span> <span class="dv">2</span><span class="op">,</span> <span class="dv">300</span><span class="op">,</span> wallThickness<span class="op">,</span> { <span class="dt">isStatic</span><span class="op">:</span> <span class="kw">true</span> })<span class="op">,</span></span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>  Bodies<span class="op">.</span><span class="fu">rectangle</span>(<span class="dv">150</span><span class="op">,</span> <span class="dv">100</span> <span class="op">+</span> channelWidth <span class="op">/</span> <span class="dv">2</span><span class="op">,</span> <span class="dv">300</span><span class="op">,</span> wallThickness<span class="op">,</span> { <span class="dt">isStatic</span><span class="op">:</span> <span class="kw">true</span> })<span class="op">,</span></span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a>  <span class="co">// Bifurcation splitter (central wedge)</span></span>
+<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a>  Bodies<span class="op">.</span><span class="fu">polygon</span>(<span class="dv">350</span><span class="op">,</span> <span class="dv">100</span><span class="op">,</span> <span class="dv">3</span><span class="op">,</span> <span class="dv">30</span><span class="op">,</span> { <span class="dt">isStatic</span><span class="op">:</span> <span class="kw">true</span><span class="op">,</span> <span class="dt">angle</span><span class="op">:</span> <span class="bu">Math</span><span class="op">.</span><span class="cn">PI</span> <span class="op">/</span> <span class="dv">6</span> })<span class="op">,</span></span>
+<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb1-19"><a href="#cb1-19" aria-hidden="true" tabindex="-1"></a>  <span class="co">// Upper outlet outer wall</span></span>
+<span id="cb1-20"><a href="#cb1-20" aria-hidden="true" tabindex="-1"></a>  Bodies<span class="op">.</span><span class="fu">rectangle</span>(<span class="dv">450</span><span class="op">,</span> <span class="dv">50</span><span class="op">,</span> <span class="dv">200</span><span class="op">,</span> wallThickness<span class="op">,</span> { <span class="dt">isStatic</span><span class="op">:</span> <span class="kw">true</span><span class="op">,</span> <span class="dt">angle</span><span class="op">:</span> <span class="op">-</span><span class="bu">Math</span><span class="op">.</span><span class="cn">PI</span> <span class="op">/</span> <span class="dv">12</span> })<span class="op">,</span></span>
+<span id="cb1-21"><a href="#cb1-21" aria-hidden="true" tabindex="-1"></a>  <span class="co">// Lower outlet outer wall</span></span>
+<span id="cb1-22"><a href="#cb1-22" aria-hidden="true" tabindex="-1"></a>  Bodies<span class="op">.</span><span class="fu">rectangle</span>(<span class="dv">450</span><span class="op">,</span> <span class="dv">150</span><span class="op">,</span> <span class="dv">200</span><span class="op">,</span> wallThickness<span class="op">,</span> { <span class="dt">isStatic</span><span class="op">:</span> <span class="kw">true</span><span class="op">,</span> <span class="dt">angle</span><span class="op">:</span> <span class="bu">Math</span><span class="op">.</span><span class="cn">PI</span> <span class="op">/</span> <span class="dv">12</span> })</span>
+<span id="cb1-23"><a href="#cb1-23" aria-hidden="true" tabindex="-1"></a>]<span class="op">;</span></span>
+<span id="cb1-24"><a href="#cb1-24" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-25"><a href="#cb1-25" aria-hidden="true" tabindex="-1"></a>Composite<span class="op">.</span><span class="fu">add</span>(world<span class="op">,</span> walls)<span class="op">;</span></span></code></pre></div>
+<h3 id="2-defining-cell-particles">2. Defining Cell Particles</h3>
+<p>Cells are represented as circular dynamic bodies. Sorting in
+hydrodynamic channel splitting typically relies on size differences
+(pinched flow fractionation) or deformability. Differentiate cell types
+by radius and density:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">createCell</span>(x<span class="op">,</span> y<span class="op">,</span> type) {</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> isLarge <span class="op">=</span> type <span class="op">===</span> <span class="st">&#39;large&#39;</span><span class="op">;</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> radius <span class="op">=</span> isLarge <span class="op">?</span> <span class="dv">8</span> <span class="op">:</span> <span class="dv">4</span><span class="op">;</span> <span class="co">// Distinct hydrodynamic radii</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> mass <span class="op">=</span> isLarge <span class="op">?</span> <span class="fl">2.0</span> <span class="op">:</span> <span class="fl">0.5</span><span class="op">;</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>  <span class="cf">return</span> Bodies<span class="op">.</span><span class="fu">circle</span>(x<span class="op">,</span> y<span class="op">,</span> radius<span class="op">,</span> {</span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>    <span class="dt">mass</span><span class="op">:</span> mass<span class="op">,</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>    <span class="dt">friction</span><span class="op">:</span> <span class="dv">0</span><span class="op">,</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>    <span class="dt">frictionAir</span><span class="op">:</span> <span class="dv">0</span><span class="op">,</span> <span class="co">// Handled manually via Stokes&#39; drag</span></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>    <span class="dt">restitution</span><span class="op">:</span> <span class="fl">0.1</span><span class="op">,</span></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>    <span class="dt">label</span><span class="op">:</span> type</span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>  })<span class="op">;</span></span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<h3 id="3-hydrodynamic-flow-field-approximation">3. Hydrodynamic Flow
+Field Approximation</h3>
+<p>In a microfluidic channel, Reynolds numbers are low (<span
+class="math inline">\(Re \ll 1\)</span>), resulting in laminar,
+parabolic Poiseuille flow.</p>
+<p>For a channel of width <span class="math inline">\(W\)</span>
+centered at <span class="math inline">\(y_c\)</span>, the fluid velocity
+<span class="math inline">\(u(y)\)</span> parallel to the channel axis
+is:</p>
+<p><span class="math display">\[u(y) = u_{max} \left( 1 - \left( \frac{y
+- y_c}{W / 2} \right)^2 \right)\]</span></p>
+<p>At the bifurcation, the fluid flux splits based on the hydraulic
+resistance of the outlet channels. Define an analytical vector field
+function <span class="math inline">\(\vec{v}_{\text{fluid}}(x,
+y)\)</span> representing the flow velocity at any coordinate.</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">getFluidVelocity</span>(x<span class="op">,</span> y) {</span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> yc <span class="op">=</span> <span class="dv">100</span><span class="op">;</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> halfWidth <span class="op">=</span> channelWidth <span class="op">/</span> <span class="dv">2</span><span class="op">;</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>  <span class="co">// Main straight channel</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (x <span class="op">&lt;</span> <span class="dv">300</span>) {</span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> distFromCenter <span class="op">=</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">abs</span>(y <span class="op">-</span> yc)<span class="op">;</span></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (distFromCenter <span class="op">&gt;=</span> halfWidth) <span class="cf">return</span> { <span class="dt">x</span><span class="op">:</span> <span class="dv">0</span><span class="op">,</span> <span class="dt">y</span><span class="op">:</span> <span class="dv">0</span> }<span class="op">;</span></span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> uMax <span class="op">=</span> <span class="dv">4</span><span class="op">;</span></span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> vx <span class="op">=</span> uMax <span class="op">*</span> (<span class="dv">1</span> <span class="op">-</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">pow</span>(distFromCenter <span class="op">/</span> halfWidth<span class="op">,</span> <span class="dv">2</span>))<span class="op">;</span></span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> { <span class="dt">x</span><span class="op">:</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">max</span>(<span class="dv">0</span><span class="op">,</span> vx)<span class="op">,</span> <span class="dt">y</span><span class="op">:</span> <span class="dv">0</span> }<span class="op">;</span></span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb3-14"><a href="#cb3-14" aria-hidden="true" tabindex="-1"></a>  <span class="co">// Splitting region: streamline deflection</span></span>
+<span id="cb3-15"><a href="#cb3-15" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> uOutlet <span class="op">=</span> <span class="dv">3</span><span class="op">;</span></span>
+<span id="cb3-16"><a href="#cb3-16" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (y <span class="op">&lt;</span> yc) {</span>
+<span id="cb3-17"><a href="#cb3-17" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Upper branch vector (upward and rightward)</span></span>
+<span id="cb3-18"><a href="#cb3-18" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> Vector<span class="op">.</span><span class="fu">normalise</span>({ <span class="dt">x</span><span class="op">:</span> <span class="dv">1</span><span class="op">,</span> <span class="dt">y</span><span class="op">:</span> <span class="op">-</span><span class="fl">0.5</span> })<span class="op">;</span></span>
+<span id="cb3-19"><a href="#cb3-19" aria-hidden="true" tabindex="-1"></a>  } <span class="cf">else</span> {</span>
+<span id="cb3-20"><a href="#cb3-20" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Lower branch vector (downward and rightward)</span></span>
+<span id="cb3-21"><a href="#cb3-21" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> Vector<span class="op">.</span><span class="fu">normalise</span>({ <span class="dt">x</span><span class="op">:</span> <span class="dv">1</span><span class="op">,</span> <span class="dt">y</span><span class="op">:</span> <span class="fl">0.5</span> })<span class="op">;</span></span>
+<span id="cb3-22"><a href="#cb3-22" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb3-23"><a href="#cb3-23" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<h3 id="4-applying-stokes-drag-force">4. Applying Stokes' Drag
+Force</h3>
+<p>Instead of native physics engine damping, apply Stokes' drag force
+(<span class="math inline">\(\vec{F}_d = 6 \pi \mu R
+(\vec{v}_{\text{fluid}} - \vec{v}_{\text{cell}})\)</span>) on every
+simulation tick via the <code>beforeUpdate</code> event.</p>
+<div class="sourceCode" id="cb4"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> dynamicViscosity <span class="op">=</span> <span class="fl">0.05</span><span class="op">;</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>Events<span class="op">.</span><span class="fu">on</span>(engine<span class="op">,</span> <span class="st">&#39;beforeUpdate&#39;</span><span class="op">,</span> () <span class="kw">=&gt;</span> {</span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> cells <span class="op">=</span> Composite<span class="op">.</span><span class="fu">allBodies</span>(world)<span class="op">.</span><span class="fu">filter</span>(b <span class="kw">=&gt;</span> <span class="op">!</span>b<span class="op">.</span><span class="at">isStatic</span>)<span class="op">;</span></span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a>  cells<span class="op">.</span><span class="fu">forEach</span>(cell <span class="kw">=&gt;</span> {</span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> vFluid <span class="op">=</span> <span class="fu">getFluidVelocity</span>(cell<span class="op">.</span><span class="at">position</span><span class="op">.</span><span class="at">x</span><span class="op">,</span> cell<span class="op">.</span><span class="at">position</span><span class="op">.</span><span class="at">y</span>)<span class="op">;</span></span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> radius <span class="op">=</span> cell<span class="op">.</span><span class="at">circleRadius</span> <span class="op">||</span> <span class="dv">4</span><span class="op">;</span></span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Relative velocity between fluid and cell</span></span>
+<span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> vRelX <span class="op">=</span> vFluid<span class="op">.</span><span class="at">x</span> <span class="op">-</span> cell<span class="op">.</span><span class="at">velocity</span><span class="op">.</span><span class="at">x</span><span class="op">;</span></span>
+<span id="cb4-12"><a href="#cb4-12" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> vRelY <span class="op">=</span> vFluid<span class="op">.</span><span class="at">y</span> <span class="op">-</span> cell<span class="op">.</span><span class="at">velocity</span><span class="op">.</span><span class="at">y</span><span class="op">;</span></span>
+<span id="cb4-13"><a href="#cb4-13" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-14"><a href="#cb4-14" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Stokes&#39; drag: F = 6 * pi * dynamicViscosity * R * vRel</span></span>
+<span id="cb4-15"><a href="#cb4-15" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> dragCoeff <span class="op">=</span> <span class="dv">6</span> <span class="op">*</span> <span class="bu">Math</span><span class="op">.</span><span class="cn">PI</span> <span class="op">*</span> dynamicViscosity <span class="op">*</span> radius<span class="op">;</span></span>
+<span id="cb4-16"><a href="#cb4-16" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> force <span class="op">=</span> {</span>
+<span id="cb4-17"><a href="#cb4-17" aria-hidden="true" tabindex="-1"></a>      <span class="dt">x</span><span class="op">:</span> dragCoeff <span class="op">*</span> vRelX <span class="op">*</span> <span class="fl">0.001</span><span class="op">,</span> <span class="co">// Scaled for Matter.js engine units</span></span>
+<span id="cb4-18"><a href="#cb4-18" aria-hidden="true" tabindex="-1"></a>      <span class="dt">y</span><span class="op">:</span> dragCoeff <span class="op">*</span> vRelY <span class="op">*</span> <span class="fl">0.001</span></span>
+<span id="cb4-19"><a href="#cb4-19" aria-hidden="true" tabindex="-1"></a>    }<span class="op">;</span></span>
+<span id="cb4-20"><a href="#cb4-20" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-21"><a href="#cb4-21" aria-hidden="true" tabindex="-1"></a>    Body<span class="op">.</span><span class="fu">applyForce</span>(cell<span class="op">,</span> cell<span class="op">.</span><span class="at">position</span><span class="op">,</span> force)<span class="op">;</span></span>
+<span id="cb4-22"><a href="#cb4-22" aria-hidden="true" tabindex="-1"></a>  })<span class="op">;</span></span>
+<span id="cb4-23"><a href="#cb4-23" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div>
+<h3 id="5-achieving-sorting-via-hydrodynamic-alignment">5. Achieving
+Sorting via Hydrodynamic Alignment</h3>
+<p>To separate particles at the junction:</p>
+<ol type="1">
+<li><strong>Focusing/Pinching</strong>: Align all incoming cells against
+one wall using a sheath flow (simulated via an asymmetric velocity field
+or an initial offset position).</li>
+<li><strong>Radial Offset</strong>: Because the rigid boundary prevents
+a cell's center of mass from getting closer to the wall than its radius
+<span class="math inline">\(R\)</span>, larger cells occupy streamlines
+further toward the channel center than smaller cells.</li>
+<li><strong>Streamline Splitting</strong>: Position the bifurcation
+splitter so that the dividing streamline passes between the
+center-of-mass positions of the aligned large and small cells. Large
+cells are carried across the dividing line into the outer stream, while
+small cells remain in the wall-adjacent stream.</li>
+</ol></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/matter.js'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/matter.js/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/matter.js/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

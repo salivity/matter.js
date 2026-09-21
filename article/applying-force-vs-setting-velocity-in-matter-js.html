@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Applying Force vs Setting Velocity in Matter.js - matter.js</title>
+    <meta name="description" content="In Matter.js, manipulating body movement is primarily achieved either by applying a force or directly setting velocity. While applying a force alters an object's acceleration gradually by respecting its mass and the physics engine's time step, setting ve">
+    <link rel="canonical" href="https://salivity.github.io/matter.js/article/applying-force-vs-setting-velocity-in-matter-js">
+    <link rel="search" type="application/opensearchdescription+xml" title="matter.js" href="/matter.js/opensearch.xml">
+    <link rel="icon" href="/matter.js/favicon.ico">
+    <link rel="stylesheet" href="/matter.js/css/style.css">
+    <link media="print" rel="stylesheet" href="/matter.js/css/print.css">
+    <script src="/matter.js/js/fuse.min.js"></script>
+    <script src="/matter.js/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Applying Force vs Setting Velocity in Matter.js - matter.js" />
+    <meta property="og:url" content="https://salivity.github.io/matter.js/article/applying-force-vs-setting-velocity-in-matter-js" />
+    <meta property="og:image" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="In Matter.js, manipulating body movement is primarily achieved either by applying a force or directly setting velocity. While applying a force alters an object's acceleration gradually by respecting its mass and the physics engine's time step, setting ve" />
+    <link rel="manifest" href="/matter.js/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/matter.js/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>matter.js</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/matter.js/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="applying-force-vs-setting-velocity-in-matterjs">Applying Force
+vs Setting Velocity in Matter.js</h1>
+<p>In Matter.js, manipulating body movement is primarily achieved either
+by applying a force or directly setting velocity. While applying a force
+alters an object's acceleration gradually by respecting its mass and the
+physics engine's time step, setting velocity instantly overwrites the
+object's speed and direction regardless of its mass. Understanding the
+mechanics, practical differences, and appropriate use cases of
+<code>Body.applyForce</code> versus <code>Body.setVelocity</code> is
+essential for building stable and realistic 2D physics simulations.</p>
+<h2 id="how-applying-force-works">How Applying Force Works</h2>
+<p>Forces in Matter.js adhere to classic Newtonian mechanics (<span
+class="math inline">\(F = ma\)</span>). When you use
+<code>Matter.Body.applyForce(body, position, force)</code>, you apply an
+impulse vector to a specific coordinate on the body.</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a>Matter<span class="op">.</span><span class="at">Body</span><span class="op">.</span><span class="fu">applyForce</span>(body<span class="op">,</span> body<span class="op">.</span><span class="at">position</span><span class="op">,</span> { <span class="dt">x</span><span class="op">:</span> <span class="fl">0.05</span><span class="op">,</span> <span class="dt">y</span><span class="op">:</span> <span class="op">-</span><span class="fl">0.05</span> })<span class="op">;</span></span></code></pre></div>
+<p>Key characteristics of applying a force include:</p>
+<ul>
+<li><strong>Mass Dependence:</strong> A heavier object (greater mass)
+requires a larger force vector to achieve the same change in speed as a
+lighter object.</li>
+<li><strong>Torque and Rotation:</strong> Because
+<code>applyForce</code> accepts a world position argument, applying a
+force away from the body's center of mass automatically induces angular
+velocity (torque), causing the body to spin realistically.</li>
+<li><strong>Continuous and Additive:</strong> Forces accumulate. They
+combine with environmental variables such as gravity, friction, and
+collision reactions during the engine update cycle.</li>
+</ul>
+<h2 id="how-setting-velocity-works">How Setting Velocity Works</h2>
+<p>Setting velocity directly modifies the rate of displacement per
+physics step using <code>Matter.Body.setVelocity(body, velocity)</code>.
+This bypasses the engine's internal force integration steps.</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a>Matter<span class="op">.</span><span class="at">Body</span><span class="op">.</span><span class="fu">setVelocity</span>(body<span class="op">,</span> { <span class="dt">x</span><span class="op">:</span> <span class="dv">5</span><span class="op">,</span> <span class="dt">y</span><span class="op">:</span> <span class="op">-</span><span class="dv">10</span> })<span class="op">;</span></span></code></pre></div>
+<p>Key characteristics of setting velocity include:</p>
+<ul>
+<li><strong>Mass Independence:</strong> The object's mass is ignored. A
+feather and an immovable boulder will both travel at identical speeds if
+assigned the same velocity vector.</li>
+<li><strong>Instantaneous Overwrite:</strong> Calling
+<code>setVelocity</code> replaces the current movement vector
+completely, discarding any momentum or trajectory the body previously
+possessed.</li>
+<li><strong>No Inherent Torque:</strong> Setting linear velocity moves
+the body linearly without inducing spin, unless you independently modify
+angular velocity using <code>Matter.Body.setAngularVelocity</code>.</li>
+</ul>
+<h2 id="key-differences-summary">Key Differences Summary</h2>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">Feature</th>
+<th style="text-align: left;">Applying Force
+(<code>Body.applyForce</code>)</th>
+<th style="text-align: left;">Setting Velocity
+(<code>Body.setVelocity</code>)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><strong>Physics Realism</strong></td>
+<td style="text-align: left;">High (accords with <span
+class="math inline">\(F = ma\)</span>)</td>
+<td style="text-align: left;">Low (direct kinematic override)</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Mass Factor</strong></td>
+<td style="text-align: left;">Directly affects resulting
+acceleration</td>
+<td style="text-align: left;">Ignored</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Rotation</strong></td>
+<td style="text-align: left;">Generated automatically if applied
+off-center</td>
+<td style="text-align: left;">None (linear motion only)</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Accumulation</strong></td>
+<td style="text-align: left;">Adds to gravity, collisions, and other
+forces</td>
+<td style="text-align: left;">Overwrites current speed and
+direction</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Frame Consistency</strong></td>
+<td style="text-align: left;">Must often be applied continuously over
+time</td>
+<td style="text-align: left;">Can be set once or set per-frame</td>
+</tr>
+</tbody>
+</table>
+<h2 id="when-to-use-which-method">When to Use Which Method</h2>
+<p><strong>Use <code>Body.applyForce</code> when simulating realistic
+physical phenomena:</strong></p>
+<ul>
+<li>Implementing thrusters, wind, water buoyancy, or magnetic
+fields.</li>
+<li>Simulating explosions or impulse-based impacts where the point of
+contact matters.</li>
+<li>Launching objects via springs, catapults, or slingshots.</li>
+</ul>
+<p><strong>Use <code>Body.setVelocity</code> when you need direct,
+responsive control:</strong></p>
+<ul>
+<li>Designing arcade-style character controllers where input must
+produce immediate movement without acceleration delays.</li>
+<li>Creating moving platforms, elevators, or conveyor belts that must
+move at fixed speeds regardless of weight placed on them.</li>
+<li>Completely halting an object's momentum (e.g., setting velocity to
+<code>{ x: 0, y: 0 }</code>).</li>
+</ul></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/matter.js'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/matter.js/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/matter.js/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

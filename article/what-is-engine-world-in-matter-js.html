@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>What is engine.world in Matter.js? - matter.js</title>
+    <meta name="description" content="In Matter.js, the engine.world property serves as the top-level container and physical environment for a 2D physics simulation. It is a specialized Composite instance that holds every physical body, constraint, and nested composite that the engine simula">
+    <link rel="canonical" href="https://salivity.github.io/matter.js/article/what-is-engine-world-in-matter-js">
+    <link rel="search" type="application/opensearchdescription+xml" title="matter.js" href="/matter.js/opensearch.xml">
+    <link rel="icon" href="/matter.js/favicon.ico">
+    <link rel="stylesheet" href="/matter.js/css/style.css">
+    <link media="print" rel="stylesheet" href="/matter.js/css/print.css">
+    <script src="/matter.js/js/fuse.min.js"></script>
+    <script src="/matter.js/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="What is engine.world in Matter.js? - matter.js" />
+    <meta property="og:url" content="https://salivity.github.io/matter.js/article/what-is-engine-world-in-matter-js" />
+    <meta property="og:image" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="In Matter.js, the engine.world property serves as the top-level container and physical environment for a 2D physics simulation. It is a specialized Composite instance that holds every physical body, constraint, and nested composite that the engine simula" />
+    <link rel="manifest" href="/matter.js/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/matter.js/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>matter.js</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/matter.js/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="what-is-engineworld-in-matterjs">What is engine.world in
+Matter.js?</h1>
+<p>In Matter.js, the <code>engine.world</code> property serves as the
+top-level container and physical environment for a 2D physics
+simulation. It is a specialized <code>Composite</code> instance that
+holds every physical body, constraint, and nested composite that the
+engine simulates. Understanding <code>engine.world</code> is essential
+for creating simulations, as it dictates what objects exist in the
+physics loop, how global forces like gravity behave, and what data gets
+passed to renderers.</p>
+<h3 id="the-role-of-engineworld">The Role of
+<code>engine.world</code></h3>
+<p>When you initialize an engine using <code>Engine.create()</code>,
+Matter.js automatically creates a root <code>Composite</code> and
+assigns it to <code>engine.world</code>.</p>
+<p>The primary purposes of <code>engine.world</code> include:</p>
+<ul>
+<li><strong>Object Management:</strong> Any rigid body (such as
+rectangles, circles, or custom polygons) or constraint (such as springs
+or distance joints) must be added to <code>engine.world</code> to
+participate in collision detection and physical updates. If an object is
+not added to this world instance—or to a composite nested within it—the
+engine will ignore it.</li>
+<li><strong>Global Physics Configuration:</strong> Properties affecting
+the entire environment, such as gravity, are configured directly through
+<code>engine.world</code>. By adjusting
+<code>engine.world.gravity.x</code>,
+<code>engine.world.gravity.y</code>, or
+<code>engine.world.gravity.scale</code>, you define the directional
+acceleration applied to all dynamic bodies in the scene.</li>
+<li><strong>Hierarchical Organization:</strong> Because
+<code>engine.world</code> is a <code>Composite</code>, it can hold other
+composites. This allows developers to group related bodies and
+constraints into self-contained assemblies (like a vehicle or a ragdoll)
+and add the entire group to <code>engine.world</code> in a single
+operation.</li>
+<li><strong>Renderer Integration:</strong> Visual modules, such as
+<code>Matter.Render</code>, accept an engine reference and draw the
+contents of its <code>world</code>. Adding or removing an entity from
+<code>engine.world</code> automatically updates both its physical
+behavior and its visual representation on the canvas.</li>
+</ul>
+<h3 id="basic-usage">Basic Usage</h3>
+<p>To add objects to the simulation space, developers pass
+<code>engine.world</code> as the target container to the
+<code>Composite.add</code> method:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Initialize engine</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> engine <span class="op">=</span> Matter<span class="op">.</span><span class="at">Engine</span><span class="op">.</span><span class="fu">create</span>()<span class="op">;</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="co">// Configure global properties</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>engine<span class="op">.</span><span class="at">world</span><span class="op">.</span><span class="at">gravity</span><span class="op">.</span><span class="at">y</span> <span class="op">=</span> <span class="dv">1</span><span class="op">;</span> <span class="co">// Standard downward gravity</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a><span class="co">// Create physical bodies</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> ground <span class="op">=</span> Matter<span class="op">.</span><span class="at">Bodies</span><span class="op">.</span><span class="fu">rectangle</span>(<span class="dv">400</span><span class="op">,</span> <span class="dv">600</span><span class="op">,</span> <span class="dv">810</span><span class="op">,</span> <span class="dv">60</span><span class="op">,</span> { <span class="dt">isStatic</span><span class="op">:</span> <span class="kw">true</span> })<span class="op">;</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> box <span class="op">=</span> Matter<span class="op">.</span><span class="at">Bodies</span><span class="op">.</span><span class="fu">rectangle</span>(<span class="dv">400</span><span class="op">,</span> <span class="dv">200</span><span class="op">,</span> <span class="dv">80</span><span class="op">,</span> <span class="dv">80</span>)<span class="op">;</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a><span class="co">// Register bodies to the world</span></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>Matter<span class="op">.</span><span class="at">Composite</span><span class="op">.</span><span class="fu">add</span>(engine<span class="op">.</span><span class="at">world</span><span class="op">,</span> [ground<span class="op">,</span> box])<span class="op">;</span></span></code></pre></div>
+<p>In summary, <code>engine.world</code> acts as the single source of
+truth for the spatial state of your Matter.js application, binding
+individual physical entities to the engine's step calculations and
+broadphase collision detection routines.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/matter.js'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/matter.js/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/matter.js/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

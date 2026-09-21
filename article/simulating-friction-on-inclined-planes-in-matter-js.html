@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simulating Friction on Inclined Planes in Matter.js - matter.js</title>
+    <meta name="description" content="This article explains how to model and test friction coefficients on an inclined plane with variable angles using the Matter.js 2D physics engine. It covers the underlying physics of static and kinetic friction on slopes, walks through configuring the Ma">
+    <link rel="canonical" href="https://salivity.github.io/matter.js/article/simulating-friction-on-inclined-planes-in-matter-js">
+    <link rel="search" type="application/opensearchdescription+xml" title="matter.js" href="/matter.js/opensearch.xml">
+    <link rel="icon" href="/matter.js/favicon.ico">
+    <link rel="stylesheet" href="/matter.js/css/style.css">
+    <link media="print" rel="stylesheet" href="/matter.js/css/print.css">
+    <script src="/matter.js/js/fuse.min.js"></script>
+    <script src="/matter.js/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Simulating Friction on Inclined Planes in Matter.js - matter.js" />
+    <meta property="og:url" content="https://salivity.github.io/matter.js/article/simulating-friction-on-inclined-planes-in-matter-js" />
+    <meta property="og:image" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article explains how to model and test friction coefficients on an inclined plane with variable angles using the Matter.js 2D physics engine. It covers the underlying physics of static and kinetic friction on slopes, walks through configuring the Ma" />
+    <link rel="manifest" href="/matter.js/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/matter.js/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>matter.js</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/matter.js/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="simulating-friction-on-inclined-planes-in-matterjs">Simulating
+Friction on Inclined Planes in Matter.js</h1>
+<p>This article explains how to model and test friction coefficients on
+an inclined plane with variable angles using the Matter.js 2D physics
+engine. It covers the underlying physics of static and kinetic friction
+on slopes, walks through configuring the Matter.js engine and bodies,
+demonstrates how to dynamically change the plane's angle, and provides a
+complete implementation code snippet.</p>
+<h3 id="the-physics-of-the-inclined-plane">The Physics of the Inclined
+Plane</h3>
+<p>When an object rests on a ramp inclined at an angle <span
+class="math inline">\(\theta\)</span>, gravity pulls it down the slope
+with a force proportional to <span
+class="math inline">\(\sin(\theta)\)</span>, while normal force presses
+it against the surface proportional to <span
+class="math inline">\(\cos(\theta)\)</span>.</p>
+<p>Sliding begins at the critical angle <span
+class="math inline">\(\theta_c\)</span>, defined by:</p>
+<p><span class="math display">\[\tan(\theta_c) = \mu_s\]</span></p>
+<p>Where <span class="math inline">\(\mu_s\)</span> is the coefficient
+of static friction. Once the angle exceeds <span
+class="math inline">\(\theta_c\)</span>, static friction is overcome,
+and the block accelerates down the ramp governed by the coefficient of
+kinetic friction (<span class="math inline">\(\mu_k\)</span>).</p>
+<h3 id="key-matterjs-friction-properties">Key Matter.js Friction
+Properties</h3>
+<p>Matter.js models surface resistance using properties defined on rigid
+bodies:</p>
+<ul>
+<li><strong><code>friction</code></strong>: Defines kinetic friction
+during sliding. Ranges from <code>0</code> (frictionless) to
+<code>1</code> (high friction).</li>
+<li><strong><code>frictionStatic</code></strong>: Defines the resistance
+required to initiate motion. Setting this higher than
+<code>friction</code> creates realistic "sticking" behavior.</li>
+<li><strong>Pair Friction Rule</strong>: By default, Matter.js
+calculates the friction between two colliding bodies using
+<code>Math.min(bodyA.friction, bodyB.friction)</code>. To properly test
+the block's friction against a standard surface, set the ramp's friction
+properties to <code>1.0</code> or match them explicitly.</li>
+</ul>
+<h3 id="implementation-steps">Implementation Steps</h3>
+<h4 id="1-setup-engine-and-world">1. Setup Engine and World</h4>
+<p>Initialize the core Matter.js modules:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> { Engine<span class="op">,</span> Render<span class="op">,</span> Runner<span class="op">,</span> Bodies<span class="op">,</span> Composite<span class="op">,</span> Body } <span class="op">=</span> Matter<span class="op">;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> engine <span class="op">=</span> Engine<span class="op">.</span><span class="fu">create</span>()<span class="op">;</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> world <span class="op">=</span> engine<span class="op">.</span><span class="at">world</span><span class="op">;</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> render <span class="op">=</span> Render<span class="op">.</span><span class="fu">create</span>({</span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>  <span class="dt">element</span><span class="op">:</span> <span class="bu">document</span><span class="op">.</span><span class="at">body</span><span class="op">,</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>  <span class="dt">engine</span><span class="op">:</span> engine<span class="op">,</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>  <span class="dt">options</span><span class="op">:</span> {</span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>    <span class="dt">width</span><span class="op">:</span> <span class="dv">800</span><span class="op">,</span></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>    <span class="dt">height</span><span class="op">:</span> <span class="dv">600</span><span class="op">,</span></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>    <span class="dt">wireframes</span><span class="op">:</span> <span class="kw">false</span></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a>Render<span class="op">.</span><span class="fu">run</span>(render)<span class="op">;</span></span>
+<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a>Runner<span class="op">.</span><span class="fu">run</span>(Runner<span class="op">.</span><span class="fu">create</span>()<span class="op">,</span> engine)<span class="op">;</span></span></code></pre></div>
+<h4 id="2-create-the-plane-and-the-test-block">2. Create the Plane and
+the Test Block</h4>
+<p>Create the ramp as a static body and the block as a dynamic body
+placed on top of it.</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> rampWidth <span class="op">=</span> <span class="dv">500</span><span class="op">;</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> rampHeight <span class="op">=</span> <span class="dv">20</span><span class="op">;</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> rampX <span class="op">=</span> <span class="dv">400</span><span class="op">;</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> rampY <span class="op">=</span> <span class="dv">350</span><span class="op">;</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a><span class="co">// Static ramp</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> ramp <span class="op">=</span> Bodies<span class="op">.</span><span class="fu">rectangle</span>(rampX<span class="op">,</span> rampY<span class="op">,</span> rampWidth<span class="op">,</span> rampHeight<span class="op">,</span> {</span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>  <span class="dt">isStatic</span><span class="op">:</span> <span class="kw">true</span><span class="op">,</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>  <span class="dt">friction</span><span class="op">:</span> <span class="fl">1.0</span><span class="op">,</span></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>  <span class="dt">frictionStatic</span><span class="op">:</span> <span class="fl">1.0</span><span class="op">,</span></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>  <span class="dt">render</span><span class="op">:</span> { <span class="dt">fillStyle</span><span class="op">:</span> <span class="st">&#39;#555&#39;</span> }</span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a><span class="co">// Dynamic block to test friction</span></span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> block <span class="op">=</span> Bodies<span class="op">.</span><span class="fu">rectangle</span>(<span class="dv">300</span><span class="op">,</span> <span class="dv">200</span><span class="op">,</span> <span class="dv">40</span><span class="op">,</span> <span class="dv">40</span><span class="op">,</span> {</span>
+<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a>  <span class="dt">friction</span><span class="op">:</span> <span class="fl">0.3</span><span class="op">,</span>          <span class="co">// Kinetic friction</span></span>
+<span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a>  <span class="dt">frictionStatic</span><span class="op">:</span> <span class="fl">0.5</span><span class="op">,</span>    <span class="co">// Static friction (critical angle ~ 26.5°)</span></span>
+<span id="cb2-18"><a href="#cb2-18" aria-hidden="true" tabindex="-1"></a>  <span class="dt">restitution</span><span class="op">:</span> <span class="fl">0.0</span><span class="op">,</span>       <span class="co">// Prevent bouncing</span></span>
+<span id="cb2-19"><a href="#cb2-19" aria-hidden="true" tabindex="-1"></a>  <span class="dt">render</span><span class="op">:</span> { <span class="dt">fillStyle</span><span class="op">:</span> <span class="st">&#39;#e74c3c&#39;</span> }</span>
+<span id="cb2-20"><a href="#cb2-20" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span>
+<span id="cb2-21"><a href="#cb2-21" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-22"><a href="#cb2-22" aria-hidden="true" tabindex="-1"></a>Composite<span class="op">.</span><span class="fu">add</span>(world<span class="op">,</span> [ramp<span class="op">,</span> block])<span class="op">;</span></span></code></pre></div>
+<h4 id="3-adjusting-the-angle-dynamically">3. Adjusting the Angle
+Dynamically</h4>
+<p>To demonstrate variable angles, update the ramp's angle using
+<code>Body.setAngle()</code>. To prevent unnatural collisions when
+adjusting an already active simulation, reset the block position when
+the angle changes:</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">setInclineAngle</span>(degrees) {</span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> radians <span class="op">=</span> (degrees <span class="op">*</span> <span class="bu">Math</span><span class="op">.</span><span class="cn">PI</span>) <span class="op">/</span> <span class="dv">180</span><span class="op">;</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>  <span class="co">// Rotate ramp around its center</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>  Body<span class="op">.</span><span class="fu">setAngle</span>(ramp<span class="op">,</span> radians)<span class="op">;</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>  <span class="co">// Calculate position along the rotated surface to reset the test block</span></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> offset <span class="op">=</span> <span class="op">-</span><span class="dv">150</span><span class="op">;</span> <span class="co">// Distance from center up the ramp</span></span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> spawnX <span class="op">=</span> rampX <span class="op">+</span> offset <span class="op">*</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">cos</span>(radians) <span class="op">-</span> (rampHeight <span class="op">/</span> <span class="dv">2</span> <span class="op">+</span> <span class="dv">20</span>) <span class="op">*</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">sin</span>(radians)<span class="op">;</span></span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> spawnY <span class="op">=</span> rampY <span class="op">+</span> offset <span class="op">*</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">sin</span>(radians) <span class="op">+</span> (rampHeight <span class="op">/</span> <span class="dv">2</span> <span class="op">+</span> <span class="dv">20</span>) <span class="op">*</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">cos</span>(radians)<span class="op">;</span></span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a>  Body<span class="op">.</span><span class="fu">setPosition</span>(block<span class="op">,</span> { <span class="dt">x</span><span class="op">:</span> spawnX<span class="op">,</span> <span class="dt">y</span><span class="op">:</span> spawnY })<span class="op">;</span></span>
+<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a>  Body<span class="op">.</span><span class="fu">setAngle</span>(block<span class="op">,</span> radians)<span class="op">;</span></span>
+<span id="cb3-14"><a href="#cb3-14" aria-hidden="true" tabindex="-1"></a>  Body<span class="op">.</span><span class="fu">setVelocity</span>(block<span class="op">,</span> { <span class="dt">x</span><span class="op">:</span> <span class="dv">0</span><span class="op">,</span> <span class="dt">y</span><span class="op">:</span> <span class="dv">0</span> })<span class="op">;</span></span>
+<span id="cb3-15"><a href="#cb3-15" aria-hidden="true" tabindex="-1"></a>  Body<span class="op">.</span><span class="fu">setAngularVelocity</span>(block<span class="op">,</span> <span class="dv">0</span>)<span class="op">;</span></span>
+<span id="cb3-16"><a href="#cb3-16" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<h4 id="4-connecting-user-controls">4. Connecting User Controls</h4>
+<p>Hook the function up to an HTML range slider to let users
+continuously vary the angle and observe the threshold where static
+friction gives way to motion:</p>
+<div class="sourceCode" id="cb4"><pre
+class="sourceCode html"><code class="sourceCode html"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="dt">&lt;</span><span class="kw">label</span><span class="ot"> for</span><span class="op">=</span><span class="st">&quot;angleSlider&quot;</span><span class="dt">&gt;</span>Ramp Angle: <span class="dt">&lt;</span><span class="kw">span</span><span class="ot"> id</span><span class="op">=</span><span class="st">&quot;angleValue&quot;</span><span class="dt">&gt;</span>0<span class="dt">&lt;/</span><span class="kw">span</span><span class="dt">&gt;</span>°<span class="dt">&lt;/</span><span class="kw">label</span><span class="dt">&gt;</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a><span class="dt">&lt;</span><span class="kw">input</span><span class="ot"> id</span><span class="op">=</span><span class="st">&quot;angleSlider&quot;</span><span class="ot"> type</span><span class="op">=</span><span class="st">&quot;range&quot;</span><span class="ot"> min</span><span class="op">=</span><span class="st">&quot;0&quot;</span><span class="ot"> max</span><span class="op">=</span><span class="st">&quot;60&quot;</span><span class="ot"> value</span><span class="op">=</span><span class="st">&quot;0&quot;</span><span class="ot"> step</span><span class="op">=</span><span class="st">&quot;1&quot;</span><span class="dt">&gt;</span></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a><span class="dt">&lt;</span><span class="kw">script</span><span class="dt">&gt;</span></span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> slider <span class="op">=</span> <span class="bu">document</span><span class="op">.</span><span class="fu">getElementById</span>(<span class="st">&#39;angleSlider&#39;</span>)<span class="op">;</span></span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> display <span class="op">=</span> <span class="bu">document</span><span class="op">.</span><span class="fu">getElementById</span>(<span class="st">&#39;angleValue&#39;</span>)<span class="op">;</span></span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a>  slider<span class="op">.</span><span class="fu">addEventListener</span>(<span class="st">&#39;input&#39;</span><span class="op">,</span> (<span class="bu">event</span>) <span class="kw">=&gt;</span> {</span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> angle <span class="op">=</span> <span class="pp">parseFloat</span>(<span class="bu">event</span><span class="op">.</span><span class="at">target</span><span class="op">.</span><span class="at">value</span>)<span class="op">;</span></span>
+<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a>    display<span class="op">.</span><span class="at">textContent</span> <span class="op">=</span> angle<span class="op">;</span></span>
+<span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a>    <span class="fu">setInclineAngle</span>(angle)<span class="op">;</span></span>
+<span id="cb4-12"><a href="#cb4-12" aria-hidden="true" tabindex="-1"></a>  })<span class="op">;</span></span>
+<span id="cb4-13"><a href="#cb4-13" aria-hidden="true" tabindex="-1"></a><span class="dt">&lt;/</span><span class="kw">script</span><span class="dt">&gt;</span></span></code></pre></div>
+<h3 id="observing-the-results">Observing the Results</h3>
+<p>With <code>frictionStatic: 0.5</code>, the block remains stationary
+until the slider passes approximately <span
+class="math inline">\(26.5^\circ\)</span> (<span
+class="math inline">\(\arctan(0.5)\)</span>). Beyond this angle,
+gravitational component down the slope exceeds the maximum static
+frictional force, causing the block to slide down the ramp under the
+influence of its kinetic friction coefficient (<code>0.3</code>).</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/matter.js'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/matter.js/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/matter.js/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

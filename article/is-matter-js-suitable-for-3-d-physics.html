@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Is Matter.js Suitable for 3D Physics? - matter.js</title>
+    <meta name="description" content="Matter.js is fundamentally not suitable for native 3D physics simulations because it is exclusively engineered as a 2D rigid-body physics engine for the web. While developers frequently pair Matter.js with 3D rendering libraries like Three.js to create s">
+    <link rel="canonical" href="https://salivity.github.io/matter.js/article/is-matter-js-suitable-for-3-d-physics">
+    <link rel="search" type="application/opensearchdescription+xml" title="matter.js" href="/matter.js/opensearch.xml">
+    <link rel="icon" href="/matter.js/favicon.ico">
+    <link rel="stylesheet" href="/matter.js/css/style.css">
+    <link media="print" rel="stylesheet" href="/matter.js/css/print.css">
+    <script src="/matter.js/js/fuse.min.js"></script>
+    <script src="/matter.js/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Is Matter.js Suitable for 3D Physics? - matter.js" />
+    <meta property="og:url" content="https://salivity.github.io/matter.js/article/is-matter-js-suitable-for-3-d-physics" />
+    <meta property="og:image" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Matter.js is fundamentally not suitable for native 3D physics simulations because it is exclusively engineered as a 2D rigid-body physics engine for the web. While developers frequently pair Matter.js with 3D rendering libraries like Three.js to create s" />
+    <link rel="manifest" href="/matter.js/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/matter.js/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>matter.js</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/matter.js/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="is-matterjs-suitable-for-3d-physics">Is Matter.js Suitable for
+3D Physics?</h1>
+<p>Matter.js is fundamentally not suitable for native 3D physics
+simulations because it is exclusively engineered as a 2D rigid-body
+physics engine for the web. While developers frequently pair Matter.js
+with 3D rendering libraries like Three.js to create stylized or
+flat-plane effects, the underlying mathematics, collision detection, and
+spatial calculations operate strictly along two axes. This article
+explains why Matter.js cannot calculate true 3D physics, how its limited
+"2.5D" implementation works, and which engines you should use instead
+for authentic three-dimensional simulations.</p>
+<h3 id="the-technical-limitations-of-matterjs-in-3d-space">The Technical
+Limitations of Matter.js in 3D Space</h3>
+<p>Matter.js is built from the ground up to solve Newtonian physics in a
+Cartesian coordinate system with only <span
+class="math inline">\(X\)</span> and <span
+class="math inline">\(Y\)</span> axes. Because of this architectural
+design, it lacks the mathematical framework required to simulate 3D
+environments:</p>
+<ul>
+<li><strong>Vector Mathematics:</strong> Vector operations in Matter.js
+contain only two dimensions. It cannot calculate velocity, acceleration,
+or position changes along a <span class="math inline">\(Z\)</span>
+axis.</li>
+<li><strong>Rotational Constraints:</strong> 2D physics relies on
+single-axis scalar rotation (spinning around a single point). 3D physics
+requires complex matrix transformations, Euler angles, or quaternions to
+handle pitch, yaw, and roll across three axes.</li>
+<li><strong>Collision Detection:</strong> Matter.js uses algorithms like
+the Separating Axis Theorem (SAT) optimized for convex 2D polygons and
+circles. It cannot calculate collisions for 3D geometric volumes such as
+boxes, spheres, cylinders, capsules, or arbitrary 3D triangular
+meshes.</li>
+<li><strong>Inertia and Mass Properties:</strong> In 3D space, mass
+distribution is defined by a 3x3 inertia tensor matrix. Matter.js only
+calculates a scalar moment of inertia suitable for flat planes.</li>
+</ul>
+<h3 id="the-pseudo-3d-25d-exception">The Pseudo-3D (2.5D) Exception</h3>
+<p>The common misconception that Matter.js can handle 3D comes from
+projects that use it alongside 3D renderers like Three.js or Babylon.js.
+In these setups, Matter.js handles the simulation strictly on a flat 2D
+plane, and the resulting <span class="math inline">\((x, y)\)</span>
+positions are mapped to <span class="math inline">\((x, y)\)</span> or
+<span class="math inline">\((x, z)\)</span> coordinates on 3D
+meshes.</p>
+<p>This approach works for games with fixed perspective, like top-down
+titles, side-scrollers, or pinball games where objects never physically
+pass over, under, or tumble around one another in three dimensions.
+However, the simulation remains entirely two-dimensional. If your
+project requires objects to roll down multi-axis ramps, stack in volume,
+or collide dynamically in free space, Matter.js cannot perform these
+tasks.</p>
+<h3 id="better-alternatives-for-web-based-3d-physics">Better
+Alternatives for Web-Based 3D Physics</h3>
+<p>If your project requires authentic 3D physics calculations, several
+dedicated web libraries are designed specifically for the task:</p>
+<ul>
+<li><strong>Rapier (rapier.rs):</strong> A modern, high-performance
+physics engine written in Rust and compiled to WebAssembly (WASM). It
+supports both 2D and 3D simulations and is currently one of the most
+efficient options for web projects.</li>
+<li><strong>Cannon-es:</strong> A maintained, modern fork of the classic
+Cannon.js library. It is written in pure JavaScript, making it
+lightweight and easy to integrate with Three.js, though it lacks the raw
+performance of WASM-based engines for complex simulations.</li>
+<li><strong>Ammo.js:</strong> A direct WebAssembly/Emscripten port of
+the industrial-grade Bullet physics engine. It is feature-complete,
+highly stable, and capable of complex collision shapes and soft-body
+simulations, though it carries a steeper learning curve and larger file
+footprint.</li>
+<li><strong>PhysX (via WebAssembly):</strong> Ports of NVIDIA's PhysX
+engine exist for JavaScript and WebAssembly, ideal for enterprise-level
+physics simulations that require maximum fidelity.</li>
+</ul>
+<h3 id="verdict">Verdict</h3>
+<p>Matter.js is an exceptional, developer-friendly choice for 2D web
+physics, but it is not viable for 3D physics. Projects requiring genuine
+spatial depth, 3D volume collisions, and multi-axis rotational dynamics
+should use dedicated 3D engines like Rapier, Cannon-es, or Ammo.js
+instead.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/matter.js'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/matter.js/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/matter.js/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

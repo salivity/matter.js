@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Prevent Vehicle Flipping in Matter.js Physics - matter.js</title>
+    <meta name="description" content="Preventing vehicles from flipping over during aggressive cornering in Matter.js requires managing the physical forces that generate rotational torque on the chassis. By default, high friction and a central mass distribution cause lateral momentum to pivo">
+    <link rel="canonical" href="https://salivity.github.io/matter.js/article/prevent-vehicle-flipping-in-matter-js-physics">
+    <link rel="search" type="application/opensearchdescription+xml" title="matter.js" href="/matter.js/opensearch.xml">
+    <link rel="icon" href="/matter.js/favicon.ico">
+    <link rel="stylesheet" href="/matter.js/css/style.css">
+    <link media="print" rel="stylesheet" href="/matter.js/css/print.css">
+    <script src="/matter.js/js/fuse.min.js"></script>
+    <script src="/matter.js/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Prevent Vehicle Flipping in Matter.js Physics - matter.js" />
+    <meta property="og:url" content="https://salivity.github.io/matter.js/article/prevent-vehicle-flipping-in-matter-js-physics" />
+    <meta property="og:image" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Preventing vehicles from flipping over during aggressive cornering in Matter.js requires managing the physical forces that generate rotational torque on the chassis. By default, high friction and a central mass distribution cause lateral momentum to pivo" />
+    <link rel="manifest" href="/matter.js/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/matter.js/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>matter.js</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/matter.js/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="prevent-vehicle-flipping-in-matterjs-physics">Prevent Vehicle
+Flipping in Matter.js Physics</h1>
+<p>Preventing vehicles from flipping over during aggressive cornering in
+Matter.js requires managing the physical forces that generate rotational
+torque on the chassis. By default, high friction and a central mass
+distribution cause lateral momentum to pivot over the outer wheels,
+causing a rollover. This guide covers practical solutions to stabilize
+your 2D vehicle, including lowering the center of mass, adjusting tire
+friction, constraining angular velocity, tuning suspension constraints,
+and applying stabilizing forces.</p>
+<h3 id="lower-the-center-of-mass">Lower the Center of Mass</h3>
+<p>The most physically accurate way to stop rollovers is to lower the
+chassis body's center of mass. A lower center of mass reduces the lever
+arm that lateral forces use to flip the vehicle.</p>
+<p>In Matter.js, you can shift the center of mass downward using
+<code>Body.setCentreOfMass</code>:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Shift the center of mass down along the Y-axis</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>Matter<span class="op">.</span><span class="at">Body</span><span class="op">.</span><span class="fu">setCentreOfMass</span>(chassis<span class="op">,</span> { <span class="dt">x</span><span class="op">:</span> <span class="dv">0</span><span class="op">,</span> <span class="dt">y</span><span class="op">:</span> <span class="dv">20</span> }<span class="op">,</span> <span class="kw">true</span>)<span class="op">;</span></span></code></pre></div>
+<p>Alternatively, you can construct a compound body where a dense, heavy
+shape sits low on the chassis while a lighter, non-colliding shape
+defines the upper bodywork.</p>
+<h3 id="tune-tire-friction-and-lateral-grip">Tune Tire Friction and
+Lateral Grip</h3>
+<p>Standard Matter.js friction applies equally in all directions. During
+a hard turn, excessive friction acts as a tripping point for the
+vehicle.</p>
+<p>To resolve this:</p>
+<ul>
+<li>Reduce the default <code>friction</code> on wheel bodies (e.g., from
+<code>0.8</code> down to <code>0.1</code> - <code>0.3</code>).</li>
+<li>Simulate lateral slip by selectively applying counter-forces in your
+update loop rather than relying solely on high native contact
+friction.</li>
+</ul>
+<h3 id="clamp-angular-velocity-and-limit-roll-angle">Clamp Angular
+Velocity and Limit Roll Angle</h3>
+<p>To prevent severe rotational snap during sharp turns, cap the maximum
+angular velocity of the chassis during the engine update step.</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a>Matter<span class="op">.</span><span class="at">Events</span><span class="op">.</span><span class="fu">on</span>(engine<span class="op">,</span> <span class="st">&#39;beforeUpdate&#39;</span><span class="op">,</span> () <span class="kw">=&gt;</span> {</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> maxAngularVelocity <span class="op">=</span> <span class="fl">0.05</span><span class="op">;</span> <span class="co">// Adjust based on desired responsiveness</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (<span class="bu">Math</span><span class="op">.</span><span class="fu">abs</span>(chassis<span class="op">.</span><span class="at">angularVelocity</span>) <span class="op">&gt;</span> maxAngularVelocity) {</span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>        Matter<span class="op">.</span><span class="at">Body</span><span class="op">.</span><span class="fu">setAngularVelocity</span>(</span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>            chassis<span class="op">,</span> </span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>            <span class="bu">Math</span><span class="op">.</span><span class="fu">sign</span>(chassis<span class="op">.</span><span class="at">angularVelocity</span>) <span class="op">*</span> maxAngularVelocity</span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>        )<span class="op">;</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div>
+<p>You can also apply an active stabilizing torque if the vehicle tilts
+beyond an acceptable angle:</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a>Matter<span class="op">.</span><span class="at">Events</span><span class="op">.</span><span class="fu">on</span>(engine<span class="op">,</span> <span class="st">&#39;beforeUpdate&#39;</span><span class="op">,</span> () <span class="kw">=&gt;</span> {</span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> rollAngle <span class="op">=</span> chassis<span class="op">.</span><span class="at">angle</span><span class="op">;</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> uprightStiffness <span class="op">=</span> <span class="fl">0.02</span><span class="op">;</span> <span class="co">// Strength of self-righting behavior</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Apply restorative angular torque toward angle 0</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>    chassis<span class="op">.</span><span class="at">torque</span> <span class="op">=</span> <span class="op">-</span>rollAngle <span class="op">*</span> uprightStiffness<span class="op">;</span></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div>
+<h3 id="stiffen-suspension-constraints">Stiffen Suspension
+Constraints</h3>
+<p>If you build vehicles using wheel bodies attached to the chassis via
+<code>Constraint.create</code>, weak suspension allows the chassis to
+tilt excessively toward the outer wheels, initiating a flip.</p>
+<p>Adjust the suspension parameters:</p>
+<ul>
+<li>Increase <code>stiffness</code> (e.g., set closer to
+<code>0.8</code> – <code>1.0</code>) to limit chassis roll.</li>
+<li>Increase <code>damping</code> to prevent the vehicle from bouncing
+violently after entering or exiting a turn.</li>
+</ul>
+<h3 id="apply-artificial-downforce">Apply Artificial Downforce</h3>
+<p>High-speed cornering stability can be maintained by adding an
+artificial downforce that increases with the vehicle's speed. Apply a
+downward force directly to the chassis to keep wheels planted against
+the ground:</p>
+<div class="sourceCode" id="cb4"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a>Matter<span class="op">.</span><span class="at">Events</span><span class="op">.</span><span class="fu">on</span>(engine<span class="op">,</span> <span class="st">&#39;beforeUpdate&#39;</span><span class="op">,</span> () <span class="kw">=&gt;</span> {</span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> speed <span class="op">=</span> Matter<span class="op">.</span><span class="at">Vector</span><span class="op">.</span><span class="fu">magnitude</span>(chassis<span class="op">.</span><span class="at">velocity</span>)<span class="op">;</span></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> downforceMagnitude <span class="op">=</span> speed <span class="op">*</span> <span class="fl">0.0005</span><span class="op">;</span> <span class="co">// Scale to vehicle weight</span></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>    Matter<span class="op">.</span><span class="at">Body</span><span class="op">.</span><span class="fu">applyForce</span>(chassis<span class="op">,</span> chassis<span class="op">.</span><span class="at">position</span><span class="op">,</span> {</span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a>        <span class="dt">x</span><span class="op">:</span> <span class="dv">0</span><span class="op">,</span></span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a>        <span class="dt">y</span><span class="op">:</span> downforceMagnitude</span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a>    })<span class="op">;</span></span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/matter.js'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/matter.js/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/matter.js/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

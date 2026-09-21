@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Matter.js Body timeScale Property Explained - matter.js</title>
+    <meta name="description" content="The timeScale property on a specific body in Matter.js is a local modifier that controls the speed of simulation for that individual physics body relative to the rest of the world. While the engine typically updates all bodies uniformly, setting a unique">
+    <link rel="canonical" href="https://salivity.github.io/matter.js/article/matter-js-body-time-scale-property-explained">
+    <link rel="search" type="application/opensearchdescription+xml" title="matter.js" href="/matter.js/opensearch.xml">
+    <link rel="icon" href="/matter.js/favicon.ico">
+    <link rel="stylesheet" href="/matter.js/css/style.css">
+    <link media="print" rel="stylesheet" href="/matter.js/css/print.css">
+    <script src="/matter.js/js/fuse.min.js"></script>
+    <script src="/matter.js/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Matter.js Body timeScale Property Explained - matter.js" />
+    <meta property="og:url" content="https://salivity.github.io/matter.js/article/matter-js-body-time-scale-property-explained" />
+    <meta property="og:image" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="The timeScale property on a specific body in Matter.js is a local modifier that controls the speed of simulation for that individual physics body relative to the rest of the world. While the engine typically updates all bodies uniformly, setting a unique" />
+    <link rel="manifest" href="/matter.js/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/matter.js/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>matter.js</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/matter.js/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="matterjs-body-timescale-property-explained">Matter.js Body
+timeScale Property Explained</h1>
+<p>The <code>timeScale</code> property on a specific body in Matter.js
+is a local modifier that controls the speed of simulation for that
+individual physics body relative to the rest of the world. While the
+engine typically updates all bodies uniformly, setting a unique
+<code>timeScale</code> on a single body allows developers to create
+localized slow-motion, fast-forward, or freeze effects without altering
+the global physics timing. This article explains how the
+<code>body.timeScale</code> property works, how to implement it, and the
+technical considerations to keep in mind.</p>
+<h3 id="how-bodytimescale-works">How <code>body.timeScale</code>
+Works</h3>
+<p>In Matter.js, every rigid body created via <code>Matter.Bodies</code>
+or <code>Matter.Body.create</code> inherits a set of default properties,
+including <code>timeScale</code>. By default, this value is set to
+<code>1</code>, meaning the body updates at normal speed synchronized
+with the physics engine.</p>
+<p>When you modify this property, it scales the integration step for
+that specific body:</p>
+<ul>
+<li><strong><code>1.0</code> (Default):</strong> The body moves at
+normal speed.</li>
+<li><strong><code>&lt; 1.0</code> (e.g., <code>0.5</code>):</strong> The
+body moves in slow motion, updating position and velocity at half the
+standard rate.</li>
+<li><strong><code>&gt; 1.0</code> (e.g., <code>2.0</code>):</strong> The
+body accelerates through time, moving twice as fast as other
+objects.</li>
+<li><strong><code>0</code>:</strong> The body effectively pauses in
+place relative to motion updates, though it still participates in
+collisions.</li>
+</ul>
+<h3 id="code-example">Code Example</h3>
+<p>You can set the <code>timeScale</code> during body instantiation or
+adjust it dynamically during runtime:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Setting timeScale at creation</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> slowMovingBox <span class="op">=</span> Matter<span class="op">.</span><span class="at">Bodies</span><span class="op">.</span><span class="fu">rectangle</span>(<span class="dv">400</span><span class="op">,</span> <span class="dv">200</span><span class="op">,</span> <span class="dv">80</span><span class="op">,</span> <span class="dv">80</span><span class="op">,</span> {</span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>    <span class="dt">timeScale</span><span class="op">:</span> <span class="fl">0.5</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a><span class="co">// Modifying timeScale dynamically</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>Matter<span class="op">.</span><span class="at">Body</span><span class="op">.</span><span class="fu">set</span>(slowMovingBox<span class="op">,</span> <span class="st">&#39;timeScale&#39;</span><span class="op">,</span> <span class="fl">0.2</span>)<span class="op">;</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a><span class="co">// Or direct assignment</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>slowMovingBox<span class="op">.</span><span class="at">timeScale</span> <span class="op">=</span> <span class="fl">1.5</span><span class="op">;</span></span></code></pre></div>
+<h3 id="global-vs-local-time-scaling">Global vs. Local Time Scaling</h3>
+<p>Matter.js provides two levels of temporal control:</p>
+<ol type="1">
+<li><strong><code>engine.timing.timeScale</code>:</strong> Affects the
+entire simulation globally. Changing this slows down or speeds up every
+body, constraint, and collision resolution simultaneously.</li>
+<li><strong><code>body.timeScale</code>:</strong> Affects only the
+specified body's linear and angular velocity integration. Other bodies
+in the scene continue to update at their standard rates.</li>
+</ol>
+<p>When both are used, the effects compound. For example, if
+<code>engine.timing.timeScale</code> is <code>0.5</code> and a body’s
+<code>timeScale</code> is <code>0.5</code>, that specific body
+effectively updates at <code>0.25</code> times the normal speed.</p>
+<h3 id="limitations-and-considerations">Limitations and
+Considerations</h3>
+<p>While <code>body.timeScale</code> is useful for visual effects like
+"bullet time" on a player character or creating low-gravity-style
+floating objects, it has limitations:</p>
+<ul>
+<li><strong>Numerical Stability:</strong> Modifying the time scale
+alters the numerical integration steps. High time scales can cause
+tunneling (passing through objects) or jittery collision responses
+because the body moves further between collision checks.</li>
+<li><strong>Collision Dynamics:</strong> When two bodies with different
+<code>timeScale</code> values collide, momentum and impulse resolution
+can behave unnaturally because the objects do not share the same
+physical time step.</li>
+<li><strong>Constraints and Joints:</strong> If a body with a custom
+<code>timeScale</code> is connected via constraints to another body with
+a default <code>timeScale</code>, the constraint solver may produce
+stiff or unpredictable behavior.</li>
+</ul></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/matter.js'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/matter.js/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/matter.js/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

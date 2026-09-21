@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Perfectly Elastic Collisions in Matter.js - matter.js</title>
+    <meta name="description" content="This guide explains how to configure physics bodies and simulation settings in Matter.js to achieve perfectly elastic collisions. In a perfectly elastic system, colliding bodies conserve total kinetic energy, rebounding without any loss of speed or momen">
+    <link rel="canonical" href="https://salivity.github.io/matter.js/article/perfectly-elastic-collisions-in-matter-js">
+    <link rel="search" type="application/opensearchdescription+xml" title="matter.js" href="/matter.js/opensearch.xml">
+    <link rel="icon" href="/matter.js/favicon.ico">
+    <link rel="stylesheet" href="/matter.js/css/style.css">
+    <link media="print" rel="stylesheet" href="/matter.js/css/print.css">
+    <script src="/matter.js/js/fuse.min.js"></script>
+    <script src="/matter.js/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Perfectly Elastic Collisions in Matter.js - matter.js" />
+    <meta property="og:url" content="https://salivity.github.io/matter.js/article/perfectly-elastic-collisions-in-matter-js" />
+    <meta property="og:image" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This guide explains how to configure physics bodies and simulation settings in Matter.js to achieve perfectly elastic collisions. In a perfectly elastic system, colliding bodies conserve total kinetic energy, rebounding without any loss of speed or momen" />
+    <link rel="manifest" href="/matter.js/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/matter.js/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>matter.js</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/matter.js/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="perfectly-elastic-collisions-in-matterjs">Perfectly Elastic
+Collisions in Matter.js</h1>
+<p>This guide explains how to configure physics bodies and simulation
+settings in Matter.js to achieve perfectly elastic collisions. In a
+perfectly elastic system, colliding bodies conserve total kinetic
+energy, rebounding without any loss of speed or momentum. Achieving this
+behavior requires setting maximum restitution, eliminating all forms of
+friction and drag, and tuning the simulation engine to prevent subtle
+numerical energy losses.</p>
+<h3 id="configure-body-restitution">Configure Body Restitution</h3>
+<p>The core property governing bounce in Matter.js is
+<code>restitution</code>. A value of <code>0</code> represents a
+completely inelastic collision where bodies stick together, while a
+value of <code>1</code> represents a fully elastic collision.</p>
+<p>When two bodies collide, Matter.js calculates the resulting bounce
+using <code>Math.max(bodyA.restitution, bodyB.restitution)</code>. While
+setting one body to <code>1</code> is technically sufficient for
+collisions involving that body, you should explicitly set
+<code>restitution: 1</code> on all interacting bodies—including walls
+and boundaries—to ensure consistent elastic behavior throughout the
+entire canvas.</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> elasticBody <span class="op">=</span> Matter<span class="op">.</span><span class="at">Bodies</span><span class="op">.</span><span class="fu">circle</span>(x<span class="op">,</span> y<span class="op">,</span> radius<span class="op">,</span> {</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>  <span class="dt">restitution</span><span class="op">:</span> <span class="dv">1</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div>
+<h3 id="eliminate-friction-and-drag">Eliminate Friction and Drag</h3>
+<p>Even with maximum restitution, bodies will lose energy if friction is
+present. You must strip away linear surface friction, static friction,
+and air resistance:</p>
+<ul>
+<li><strong><code>friction: 0</code></strong>: Prevents tangential
+energy loss when bodies scrape or glance off one another.</li>
+<li><strong><code>frictionAir: 0</code></strong>: Prevents the engine
+from applying velocity drag over time. If left at its default value
+(<code>0.01</code>), bodies will steadily lose speed even if every
+collision is elastic.</li>
+<li><strong><code>frictionStatic: 0</code></strong>: Ensures that bodies
+do not stick or bind when in contact.</li>
+</ul>
+<p>Combine these values into a standard definition for your elastic
+bodies:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> defaultElasticOptions <span class="op">=</span> {</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>  <span class="dt">restitution</span><span class="op">:</span> <span class="dv">1</span><span class="op">,</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>  <span class="dt">friction</span><span class="op">:</span> <span class="dv">0</span><span class="op">,</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>  <span class="dt">frictionAir</span><span class="op">:</span> <span class="dv">0</span><span class="op">,</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>  <span class="dt">frictionStatic</span><span class="op">:</span> <span class="dv">0</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>}<span class="op">;</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> ballA <span class="op">=</span> Matter<span class="op">.</span><span class="at">Bodies</span><span class="op">.</span><span class="fu">circle</span>(<span class="dv">100</span><span class="op">,</span> <span class="dv">200</span><span class="op">,</span> <span class="dv">20</span><span class="op">,</span> defaultElasticOptions)<span class="op">;</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> ballB <span class="op">=</span> Matter<span class="op">.</span><span class="at">Bodies</span><span class="op">.</span><span class="fu">circle</span>(<span class="dv">300</span><span class="op">,</span> <span class="dv">200</span><span class="op">,</span> <span class="dv">20</span><span class="op">,</span> defaultElasticOptions)<span class="op">;</span></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> wall <span class="op">=</span> Matter<span class="op">.</span><span class="at">Bodies</span><span class="op">.</span><span class="fu">rectangle</span>(<span class="dv">400</span><span class="op">,</span> <span class="dv">200</span><span class="op">,</span> <span class="dv">50</span><span class="op">,</span> <span class="dv">400</span><span class="op">,</span> {</span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>  <span class="dt">isStatic</span><span class="op">:</span> <span class="kw">true</span><span class="op">,</span></span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>  <span class="op">...</span>defaultElasticOptions</span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div>
+<h3 id="adjust-engine-and-solver-settings">Adjust Engine and Solver
+Settings</h3>
+<p>Matter.js uses an iterative impulse solver. In high-speed scenarios
+or dense clusters of objects, default engine thresholds can introduce
+minor energy drift (either damping the motion or artificially adding
+energy).</p>
+<p>To maintain energy conservation:</p>
+<ol type="1">
+<li><strong>Disable Gravity</strong>: If gravity is active, bodies will
+accelerate downward. Set <code>engine.gravity.y = 0</code> and
+<code>engine.gravity.x = 0</code> if you want closed-system kinetic
+conservation.</li>
+<li><strong>Increase Solver Iterations</strong>: Increase
+<code>engine.positionIterations</code> and
+<code>engine.velocityIterations</code> (e.g., from default
+<code>6</code> and <code>4</code> up to <code>10</code> or higher) to
+minimize calculation errors during impacts.</li>
+<li><strong>Disable Sleeping</strong>: Set
+<code>enableSleeping: false</code> on the engine to prevent bodies with
+low velocities from falling asleep and halting unexpectedly.</li>
+<li><strong>Cap Maximum Velocity (Optional)</strong>: If numerical
+errors cause bodies to slowly gain energy over thousands of frames,
+manually clamp body velocities in a <code>beforeUpdate</code> event
+listener to ensure strict physical consistency.</li>
+</ol></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/matter.js'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/matter.js/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/matter.js/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

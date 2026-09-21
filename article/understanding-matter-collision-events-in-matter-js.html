@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Understanding Matter-Collision-Events in Matter.js - matter.js</title>
+    <meta name="description" content="The matter-collision-events plugin is an extension for the Matter.js 2D physics engine designed to simplify how developers detect and handle collisions between physics bodies. By default, Matter.js requires developers to listen for collisions globally th">
+    <link rel="canonical" href="https://salivity.github.io/matter.js/article/understanding-matter-collision-events-in-matter-js">
+    <link rel="search" type="application/opensearchdescription+xml" title="matter.js" href="/matter.js/opensearch.xml">
+    <link rel="icon" href="/matter.js/favicon.ico">
+    <link rel="stylesheet" href="/matter.js/css/style.css">
+    <link media="print" rel="stylesheet" href="/matter.js/css/print.css">
+    <script src="/matter.js/js/fuse.min.js"></script>
+    <script src="/matter.js/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Understanding Matter-Collision-Events in Matter.js - matter.js" />
+    <meta property="og:url" content="https://salivity.github.io/matter.js/article/understanding-matter-collision-events-in-matter-js" />
+    <meta property="og:image" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="The matter-collision-events plugin is an extension for the Matter.js 2D physics engine designed to simplify how developers detect and handle collisions between physics bodies. By default, Matter.js requires developers to listen for collisions globally th" />
+    <link rel="manifest" href="/matter.js/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/matter.js/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>matter.js</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/matter.js/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="understanding-matter-collision-events-in-matterjs">Understanding
+Matter-Collision-Events in Matter.js</h1>
+<p>The <code>matter-collision-events</code> plugin is an extension for
+the Matter.js 2D physics engine designed to simplify how developers
+detect and handle collisions between physics bodies. By default,
+Matter.js requires developers to listen for collisions globally through
+the central physics engine and manually filter through pairs of
+colliding objects. This article explains the core purpose of
+<code>matter-collision-events</code>, the limitations it solves, its key
+methods, and how it streamlines event-driven game logic.</p>
+<h3 id="the-problem-with-native-matterjs-collision-handling">The Problem
+with Native Matter.js Collision Handling</h3>
+<p>In standard Matter.js, collision detection is handled at the engine
+level using global events such as <code>collisionStart</code>,
+<code>collisionActive</code>, and <code>collisionEnd</code>. When a
+collision occurs, the engine emits an event containing an array of all
+colliding pairs across the entire simulation:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a>Matter<span class="op">.</span><span class="at">Events</span><span class="op">.</span><span class="fu">on</span>(engine<span class="op">,</span> <span class="st">&#39;collisionStart&#39;</span><span class="op">,</span> <span class="kw">function</span>(<span class="bu">event</span>) {</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> pairs <span class="op">=</span> <span class="bu">event</span><span class="op">.</span><span class="at">pairs</span><span class="op">;</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> (<span class="kw">let</span> i <span class="op">=</span> <span class="dv">0</span><span class="op">;</span> i <span class="op">&lt;</span> pairs<span class="op">.</span><span class="at">length</span><span class="op">;</span> i<span class="op">++</span>) {</span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>        <span class="kw">const</span> pair <span class="op">=</span> pairs[i]<span class="op">;</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> (pair<span class="op">.</span><span class="at">bodyA</span> <span class="op">===</span> player <span class="op">||</span> pair<span class="op">.</span><span class="at">bodyB</span> <span class="op">===</span> player) {</span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>            <span class="co">// Handle collision</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>        }</span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div>
+<p>As a simulation or game scales in complexity, this centralized
+approach requires extensive conditional logic and loops to identify
+specific interactions. This often leads to tightly coupled code and
+unnecessary boilerplate.</p>
+<h3 id="what-matter-collision-events-does">What
+<code>matter-collision-events</code> Does</h3>
+<p>The <code>matter-collision-events</code> plugin shifts the collision
+handling model from a centralized engine listener to an individual
+body-based listener. It decorates <code>Matter.Body</code> objects with
+direct callback functions, allowing developers to attach collision
+listeners directly to the specific bodies involved.</p>
+<p>By delegating event listeners to individual entities, the plugin
+aligns with object-oriented and component-based architectures common in
+game development.</p>
+<h3 id="key-features-and-event-handlers">Key Features and Event
+Handlers</h3>
+<p>Once installed and registered with Matter.js, the plugin injects
+three primary collision lifecycle methods onto body instances:</p>
+<ol type="1">
+<li><strong><code>body.onCollide(callback)</code></strong>: Executes
+immediately when another body first makes contact with this body
+(analogous to <code>collisionStart</code>).</li>
+<li><strong><code>body.onCollideActive(callback)</code></strong>: Fires
+continuously on every frame or engine update where the contact persists
+(analogous to <code>collisionActive</code>).</li>
+<li><strong><code>body.onCollideEnd(callback)</code></strong>: Triggers
+once the bodies separate and the collision ceases (analogous to
+<code>collisionEnd</code>).</li>
+</ol>
+<p>The callback function automatically receives an object containing the
+collision pair data, eliminating the need to search through global event
+arrays.</p>
+<h3 id="basic-usage-example">Basic Usage Example</h3>
+<p>To use the plugin, register it with the <code>Matter</code> module
+before creating your physics bodies:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Register the plugin</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>Matter<span class="op">.</span><span class="fu">use</span>(<span class="st">&#39;matter-collision-events&#39;</span>)<span class="op">;</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a><span class="co">// Create a body</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> player <span class="op">=</span> Matter<span class="op">.</span><span class="at">Bodies</span><span class="op">.</span><span class="fu">rectangle</span>(<span class="dv">100</span><span class="op">,</span> <span class="dv">100</span><span class="op">,</span> <span class="dv">50</span><span class="op">,</span> <span class="dv">50</span>)<span class="op">;</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a><span class="co">// Attach a collision event directly to the player body</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>player<span class="op">.</span><span class="fu">onCollide</span>(<span class="kw">function</span>(pair) {</span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> otherBody <span class="op">=</span> pair<span class="op">.</span><span class="at">bodyA</span> <span class="op">===</span> player <span class="op">?</span> pair<span class="op">.</span><span class="at">bodyB</span> <span class="op">:</span> pair<span class="op">.</span><span class="at">bodyA</span><span class="op">;</span></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>    <span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(<span class="st">&#39;Player collided with:&#39;</span><span class="op">,</span> otherBody)<span class="op">;</span></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a><span class="co">// Add to the world</span></span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a>Matter<span class="op">.</span><span class="at">World</span><span class="op">.</span><span class="fu">add</span>(engine<span class="op">.</span><span class="at">world</span><span class="op">,</span> player)<span class="op">;</span></span></code></pre></div>
+<h3 id="summary-of-benefits">Summary of Benefits</h3>
+<ul>
+<li><strong>Decoupled Architecture</strong>: Logic for specific entities
+(e.g., enemies, projectiles, coins) can be encapsulated within their own
+classes or modules.</li>
+<li><strong>Reduced Boilerplate</strong>: Removes the need to manually
+iterate over <code>event.pairs</code> inside a global listener.</li>
+<li><strong>Readability</strong>: Code becomes more self-documenting by
+attaching behaviors directly to the objects they govern.</li>
+</ul></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/matter.js'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/matter.js/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/matter.js/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

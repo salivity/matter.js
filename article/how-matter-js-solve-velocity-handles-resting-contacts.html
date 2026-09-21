@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How Matter.js solveVelocity Handles Resting Contacts - matter.js</title>
+    <meta name="description" content="In Matter.js, the Matter.Resolver.solveVelocity function is responsible for adjusting the linear and angular velocities of colliding bodies to ensure realistic physical interactions. This article explores how the engine processes collision pairs, suppres">
+    <link rel="canonical" href="https://salivity.github.io/matter.js/article/how-matter-js-solve-velocity-handles-resting-contacts">
+    <link rel="search" type="application/opensearchdescription+xml" title="matter.js" href="/matter.js/opensearch.xml">
+    <link rel="icon" href="/matter.js/favicon.ico">
+    <link rel="stylesheet" href="/matter.js/css/style.css">
+    <link media="print" rel="stylesheet" href="/matter.js/css/print.css">
+    <script src="/matter.js/js/fuse.min.js"></script>
+    <script src="/matter.js/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How Matter.js solveVelocity Handles Resting Contacts - matter.js" />
+    <meta property="og:url" content="https://salivity.github.io/matter.js/article/how-matter-js-solve-velocity-handles-resting-contacts" />
+    <meta property="og:image" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="In Matter.js, the Matter.Resolver.solveVelocity function is responsible for adjusting the linear and angular velocities of colliding bodies to ensure realistic physical interactions. This article explores how the engine processes collision pairs, suppres" />
+    <link rel="manifest" href="/matter.js/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/matter.js/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>matter.js</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/matter.js/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="how-matterjs-solvevelocity-handles-resting-contacts">How
+Matter.js solveVelocity Handles Resting Contacts</h1>
+<p>In Matter.js, the <code>Matter.Resolver.solveVelocity</code> function
+is responsible for adjusting the linear and angular velocities of
+colliding bodies to ensure realistic physical interactions. This article
+explores how the engine processes collision pairs, suppresses
+micro-bouncing on resting contacts, computes normal and frictional
+impulses, and applies those impulses to update both linear speed and
+rotational velocity across resting bodies.</p>
+<h2 id="the-role-of-solvevelocity-in-the-engine-pipeline">The Role of
+solveVelocity in the Engine Pipeline</h2>
+<p><code>Matter.Resolver.solveVelocity</code> executes during the
+collision resolution phase of the physics update loop. After collision
+detection identifies overlapping bodies and generates contact manifolds,
+<code>solveVelocity</code> iterates over these contact points to
+calculate and apply momentum transfers (impulses).</p>
+<p>When bodies are at rest relative to one another—such as a box resting
+on a floor or stacked crates—the goal of <code>solveVelocity</code> is
+to eliminate relative normal velocity at the contact points and oppose
+relative tangential velocity (sliding) without causing instability or
+visual jitter.</p>
+<h2 id="1-calculating-relative-contact-velocity">1. Calculating Relative
+Contact Velocity</h2>
+<p>For each contact point between two bodies, Body A and Body B, the
+solver computes the total velocity at the exact point of contact.
+Because a rigid body's local point velocity depends on both its
+center-of-mass translation and its rotation, the velocity at contact
+offset vector <span class="math inline">\(r\)</span> is:</p>
+<p><span class="math display">\[v_{point} = v + \omega \times
+r\]</span></p>
+<p>Where:</p>
+<ul>
+<li><span class="math inline">\(v\)</span> is the linear velocity vector
+of the body's center of mass.</li>
+<li><span class="math inline">\(\omega\)</span> is the scalar angular
+velocity (in 2D).</li>
+<li><span class="math inline">\(r\)</span> is the vector pointing from
+the body's center of mass to the contact point.</li>
+</ul>
+<p>The relative velocity <span class="math inline">\(v_{rel}\)</span>
+between the two bodies at the contact point is then:</p>
+<p><span class="math display">\[v_{rel} = (v_B + \omega_B \times r_B) -
+(v_A + \omega_A \times r_A)\]</span></p>
+<h2 id="2-restitution-thresholding-for-resting-contacts">2. Restitution
+Thresholding for Resting Contacts</h2>
+<p>Restitution defines how bouncy a collision is. Under standard
+conditions, separating velocity equals approaching velocity multiplied
+by the restitution coefficient. However, if applied continuously to
+resting contacts, even minute velocities would cause objects to vibrate
+or bounce perpetually.</p>
+<p>To manage resting contacts, Matter.js evaluates whether the
+approaching velocity along the contact normal falls below a minimum
+threshold. When relative normal velocity is sufficiently small, the
+engine overrides the restitution coefficient, treating it effectively as
+zero. This dampening stops restitution from generating artificial
+kinetic energy, allowing bodies to settle into equilibrium.</p>
+<h2 id="3-resolving-normal-and-tangential-impulses">3. Resolving Normal
+and Tangential Impulses</h2>
+<p>Once relative velocity is determined, <code>solveVelocity</code>
+computes the corrective impulses required to satisfy physical
+constraints:</p>
+<h3 id="normal-impulse-penetration-prevention">Normal Impulse
+(Penetration Prevention)</h3>
+<p>The solver projects <span class="math inline">\(v_{rel}\)</span> onto
+the contact normal. It determines the scalar impulse magnitude <span
+class="math inline">\(J_n\)</span> necessary to bring the relative
+normal speed to zero (or the restitution target). The impulse is scaled
+by the effective mass of the system, which accounts for both the inverse
+masses (<span class="math inline">\(1/m_A, 1/m_B\)</span>) and the
+rotational inertias (<span class="math inline">\(1/I_A, 1/I_B\)</span>)
+relative to the contact point:</p>
+<p><span class="math display">\[m_{eff} = \frac{1}{\frac{1}{m_A} +
+\frac{1}{m_B} + \frac{(r_A \times n)^2}{I_A} + \frac{(r_B \times
+n)^2}{I_B}}\]</span></p>
+<h3 id="tangential-impulse-friction">Tangential Impulse (Friction)</h3>
+<p>The solver projects <span class="math inline">\(v_{rel}\)</span> onto
+the tangent vector perpendicular to the normal. It calculates a friction
+impulse <span class="math inline">\(J_t\)</span> to halt lateral
+sliding. To satisfy Coulomb's law of friction, the tangential impulse is
+clamped so that <span class="math inline">\(|J_t| \le \mu J_n\)</span>,
+where <span class="math inline">\(\mu\)</span> is the combined friction
+coefficient of the two surfaces. For resting contacts with low lateral
+forces, this clamping prevents sliding entirely (static friction).</p>
+<h2 id="4-applying-impulses-to-linear-and-angular-speeds">4. Applying
+Impulses to Linear and Angular Speeds</h2>
+<p>Once the total impulse vector <span class="math inline">\(J = J_n n +
+J_t t\)</span> is established, it is applied directly to alter the
+velocities of the participating bodies:</p>
+<h3 id="linear-velocity-adjustment">Linear Velocity Adjustment</h3>
+<p>Linear momentum changes inversely proportional to mass:</p>
+<ul>
+<li>For Body A: <span class="math inline">\(v_A \leftarrow v_A -
+\frac{J}{m_A}\)</span></li>
+<li>For Body B: <span class="math inline">\(v_B \leftarrow v_B +
+\frac{J}{m_B}\)</span></li>
+</ul>
+<h3 id="angular-velocity-adjustment">Angular Velocity Adjustment</h3>
+<p>The contact impulse generates a torque around the center of mass
+based on the cross product of the contact offset <span
+class="math inline">\(r\)</span> and the impulse vector <span
+class="math inline">\(J\)</span>:</p>
+<ul>
+<li>For Body A: <span class="math inline">\(\omega_A \leftarrow \omega_A
+- \frac{r_A \times J}{I_A}\)</span></li>
+<li>For Body B: <span class="math inline">\(\omega_B \leftarrow \omega_B
++ \frac{r_B \times J}{I_B}\)</span></li>
+</ul>
+<p>Because the cross product <span class="math inline">\(r \times
+J\)</span> accounts for both the normal impulse (which resists
+rotational tipping) and the friction impulse (which induces or counters
+spin), both angular and linear speeds are adjusted simultaneously in a
+physically consistent manner.</p>
+<h2 id="iteration-and-convergence">Iteration and Convergence</h2>
+<p>In complex scenes with resting stacks or multiple simultaneous
+contacts, resolving one contact point may alter the velocities at an
+adjacent contact. Matter.js addresses this by running
+<code>solveVelocity</code> over multiple iterations, governed by the
+<code>engine.velocityIterations</code> configuration. Through repeated
+passes, velocity adjustments converge toward a balanced state where
+normal velocities approach zero and friction holds resting bodies
+stable.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/matter.js'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/matter.js/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/matter.js/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

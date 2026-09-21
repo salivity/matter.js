@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How to Simulate Handbrake Slides in Matter.js - matter.js</title>
+    <meta name="description" content="This guide explains how to simulate realistic handbrake slides in a top-down Matter.js vehicle by dynamically lowering the lateral friction of the rear wheels. By decomposing the vehicle’s velocity vectors and reducing the counter-force applied against">
+    <link rel="canonical" href="https://salivity.github.io/matter.js/article/how-to-simulate-handbrake-slides-in-matter-js">
+    <link rel="search" type="application/opensearchdescription+xml" title="matter.js" href="/matter.js/opensearch.xml">
+    <link rel="icon" href="/matter.js/favicon.ico">
+    <link rel="stylesheet" href="/matter.js/css/style.css">
+    <link media="print" rel="stylesheet" href="/matter.js/css/print.css">
+    <script src="/matter.js/js/fuse.min.js"></script>
+    <script src="/matter.js/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How to Simulate Handbrake Slides in Matter.js - matter.js" />
+    <meta property="og:url" content="https://salivity.github.io/matter.js/article/how-to-simulate-handbrake-slides-in-matter-js" />
+    <meta property="og:image" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This guide explains how to simulate realistic handbrake slides in a top-down Matter.js vehicle by dynamically lowering the lateral friction of the rear wheels. By decomposing the vehicle’s velocity vectors and reducing the counter-force applied against" />
+    <link rel="manifest" href="/matter.js/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/matter.js/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>matter.js</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/matter.js/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="how-to-simulate-handbrake-slides-in-matterjs">How to Simulate
+Handbrake Slides in Matter.js</h1>
+<p>This guide explains how to simulate realistic handbrake slides in a
+top-down Matter.js vehicle by dynamically lowering the lateral friction
+of the rear wheels. By decomposing the vehicle’s velocity vectors and
+reducing the counter-force applied against sideways sliding when the
+handbrake input is engaged, you allow the vehicle's rear end to break
+traction and swing out under rotational inertia.</p>
+<h3 id="understanding-top-down-tire-friction">Understanding Top-Down
+Tire Friction</h3>
+<p>Matter.js is a rigid body physics engine that calculates collisions,
+but it does not natively simulate tire dynamics on a flat surface. To
+achieve realistic car movement, tire forces are manually calculated each
+frame inside the engine's <code>beforeUpdate</code> event.</p>
+<p>A tire generates two distinct frictional forces:</p>
+<ol type="1">
+<li><strong>Longitudinal Friction:</strong> Resistance or drive force
+along the direction the wheel is pointing (forward/backward).</li>
+<li><strong>Lateral Friction:</strong> Resistance perpendicular to the
+wheel direction, preventing the vehicle from sliding sideways.</li>
+</ol>
+<p>A handbrake slide occurs when the lateral grip on the rear wheels
+drops significantly, allowing centrifugal force to slide the rear axle
+sideways while the front wheels maintain directional control.</p>
+<h3 id="step-1-decomposing-wheel-velocity">Step 1: Decomposing Wheel
+Velocity</h3>
+<p>To control lateral friction independently from forward movement,
+project the wheel's linear velocity onto its local coordinate axes:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Get wheel directional vectors</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> forwardVector <span class="op">=</span> {</span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>    <span class="dt">x</span><span class="op">:</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">cos</span>(wheel<span class="op">.</span><span class="at">angle</span>)<span class="op">,</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>    <span class="dt">y</span><span class="op">:</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">sin</span>(wheel<span class="op">.</span><span class="at">angle</span>)</span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>}<span class="op">;</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> rightVector <span class="op">=</span> {</span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>    <span class="dt">x</span><span class="op">:</span> <span class="op">-</span><span class="bu">Math</span><span class="op">.</span><span class="fu">sin</span>(wheel<span class="op">.</span><span class="at">angle</span>)<span class="op">,</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>    <span class="dt">y</span><span class="op">:</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">cos</span>(wheel<span class="op">.</span><span class="at">angle</span>)</span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>}<span class="op">;</span></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a><span class="co">// Calculate lateral speed (perpendicular to wheel heading)</span></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> lateralVelocity <span class="op">=</span> (wheel<span class="op">.</span><span class="at">velocity</span><span class="op">.</span><span class="at">x</span> <span class="op">*</span> rightVector<span class="op">.</span><span class="at">x</span>) <span class="op">+</span> (wheel<span class="op">.</span><span class="at">velocity</span><span class="op">.</span><span class="at">y</span> <span class="op">*</span> rightVector<span class="op">.</span><span class="at">y</span>)<span class="op">;</span></span></code></pre></div>
+<h3 id="step-2-applying-variable-lateral-resistance">Step 2: Applying
+Variable Lateral Resistance</h3>
+<p>Under normal driving conditions, you cancel out almost all lateral
+velocity by applying an opposing force. When the handbrake is triggered,
+reduce this damping factor on the rear wheels:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Grip coefficients (between 0 and 1)</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> normalRearGrip <span class="op">=</span> <span class="fl">0.95</span><span class="op">;</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> handbrakeRearGrip <span class="op">=</span> <span class="fl">0.15</span><span class="op">;</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a><span class="co">// Select grip based on handbrake state</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> currentGrip <span class="op">=</span> isHandbrakeActive <span class="op">?</span> handbrakeRearGrip <span class="op">:</span> normalRearGrip<span class="op">;</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a><span class="co">// Calculate counteracting force to eliminate sideways slide</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> lateralImpulse <span class="op">=</span> <span class="op">-</span>lateralVelocity <span class="op">*</span> currentGrip<span class="op">;</span></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> lateralForce <span class="op">=</span> {</span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>    <span class="dt">x</span><span class="op">:</span> rightVector<span class="op">.</span><span class="at">x</span> <span class="op">*</span> lateralImpulse <span class="op">*</span> wheel<span class="op">.</span><span class="at">mass</span> <span class="op">*</span> <span class="fl">0.1</span><span class="op">,</span></span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>    <span class="dt">y</span><span class="op">:</span> rightVector<span class="op">.</span><span class="at">y</span> <span class="op">*</span> lateralImpulse <span class="op">*</span> wheel<span class="op">.</span><span class="at">mass</span> <span class="op">*</span> <span class="fl">0.1</span></span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a>}<span class="op">;</span></span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a><span class="co">// Apply force directly to the rear wheel body</span></span>
+<span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a>Matter<span class="op">.</span><span class="at">Body</span><span class="op">.</span><span class="fu">applyForce</span>(rearWheel<span class="op">,</span> rearWheel<span class="op">.</span><span class="at">position</span><span class="op">,</span> lateralForce)<span class="op">;</span></span></code></pre></div>
+<h3 id="step-3-managing-longitudinal-drag">Step 3: Managing Longitudinal
+Drag</h3>
+<p>When applying a handbrake, rear wheels do not just lose lateral grip;
+they lock up. This introduces forward sliding drag rather than free
+rolling.</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> (isHandbrakeActive) {</span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Calculate forward speed</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> forwardVelocity <span class="op">=</span> (wheel<span class="op">.</span><span class="at">velocity</span><span class="op">.</span><span class="at">x</span> <span class="op">*</span> forwardVector<span class="op">.</span><span class="at">x</span>) <span class="op">+</span> (wheel<span class="op">.</span><span class="at">velocity</span><span class="op">.</span><span class="at">y</span> <span class="op">*</span> forwardVector<span class="op">.</span><span class="at">y</span>)<span class="op">;</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Apply braking drag along the forward axis</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> brakeDrag <span class="op">=</span> <span class="op">-</span>forwardVelocity <span class="op">*</span> <span class="fl">0.05</span> <span class="op">*</span> wheel<span class="op">.</span><span class="at">mass</span><span class="op">;</span></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> forwardForce <span class="op">=</span> {</span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>        <span class="dt">x</span><span class="op">:</span> forwardVector<span class="op">.</span><span class="at">x</span> <span class="op">*</span> brakeDrag<span class="op">,</span></span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a>        <span class="dt">y</span><span class="op">:</span> forwardVector<span class="op">.</span><span class="at">y</span> <span class="op">*</span> brakeDrag</span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a>    }<span class="op">;</span></span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a>    Matter<span class="op">.</span><span class="at">Body</span><span class="op">.</span><span class="fu">applyForce</span>(rearWheel<span class="op">,</span> rearWheel<span class="op">.</span><span class="at">position</span><span class="op">,</span> forwardForce)<span class="op">;</span></span>
+<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<h3 id="step-4-stabilizing-the-slide">Step 4: Stabilizing the Slide</h3>
+<p>When entering a slide, weight transfer and angular velocity impact
+how the vehicle behaves. To fine-tune the slide feel:</p>
+<ul>
+<li><strong>Front Wheel Grip:</strong> Keep front wheel lateral grip
+high (<code>0.9</code> to <code>1.0</code>) during the slide so steering
+input dictates the pivot point.</li>
+<li><strong>Angular Damping:</strong> Slightly lower the chassis's
+<code>torque</code> or <code>angularDamping</code> property when the
+handbrake is engaged to let the vehicle rotate smoothly without snapping
+back immediately.</li>
+<li><strong>Tire Grip Recovery:</strong> Smoothly interpolate the
+transition from <code>handbrakeRearGrip</code> back to
+<code>normalRearGrip</code> (using linear interpolation) once the
+handbrake is released to simulate tires regaining traction smoothly
+rather than jarring the vehicle straight.</li>
+</ul></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/matter.js'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/matter.js/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/matter.js/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

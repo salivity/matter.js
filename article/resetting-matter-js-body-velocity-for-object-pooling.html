@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Resetting Matter.js Body Velocity for Object Pooling - matter.js</title>
+    <meta name="description" content="Object pooling in Matter.js optimizes performance by reusing existing rigid bodies instead of repeatedly allocating and garbage-collecting them. However, reusing a body requires completely clearing residual forces, linear velocities, angular velocities,">
+    <link rel="canonical" href="https://salivity.github.io/matter.js/article/resetting-matter-js-body-velocity-for-object-pooling">
+    <link rel="search" type="application/opensearchdescription+xml" title="matter.js" href="/matter.js/opensearch.xml">
+    <link rel="icon" href="/matter.js/favicon.ico">
+    <link rel="stylesheet" href="/matter.js/css/style.css">
+    <link media="print" rel="stylesheet" href="/matter.js/css/print.css">
+    <script src="/matter.js/js/fuse.min.js"></script>
+    <script src="/matter.js/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Resetting Matter.js Body Velocity for Object Pooling - matter.js" />
+    <meta property="og:url" content="https://salivity.github.io/matter.js/article/resetting-matter-js-body-velocity-for-object-pooling" />
+    <meta property="og:image" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Object pooling in Matter.js optimizes performance by reusing existing rigid bodies instead of repeatedly allocating and garbage-collecting them. However, reusing a body requires completely clearing residual forces, linear velocities, angular velocities," />
+    <link rel="manifest" href="/matter.js/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/matter.js/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>matter.js</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/matter.js/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="resetting-matterjs-body-velocity-for-object-pooling">Resetting
+Matter.js Body Velocity for Object Pooling</h1>
+<p>Object pooling in Matter.js optimizes performance by reusing existing
+rigid bodies instead of repeatedly allocating and garbage-collecting
+them. However, reusing a body requires completely clearing residual
+forces, linear velocities, angular velocities, and internal momentum
+trackers to prevent erratic movement upon re-entry into the simulation.
+This guide details the essential properties and methods required to
+sanitize a Matter.js body before recycling it.</p>
+<h3 id="why-resetting-is-necessary">Why Resetting Is Necessary</h3>
+<p>Matter.js calculates motion using a Verlet integration scheme that
+relies on both the current position and the previous position
+(<code>positionPrev</code>), alongside accumulated force vectors. Simply
+moving a body to a new position using
+<code>body.position.x = newX</code> without resetting its internal
+velocity vectors or force buffers will cause the engine to interpret the
+teleportation as massive instantaneous velocity, launching the object
+unexpectedly.</p>
+<h3 id="key-properties-to-clear">Key Properties to Clear</h3>
+<p>To return a dynamic body to a neutral resting state, you must
+clear:</p>
+<ol type="1">
+<li><strong>Linear Velocity:</strong> Set current linear movement in
+both the X and Y axes to zero.</li>
+<li><strong>Angular Velocity:</strong> Set rotational speed to
+zero.</li>
+<li><strong>Forces:</strong> Clear direct force accumulators applied
+during the previous lifecycle.</li>
+<li><strong>Torque:</strong> Clear accumulated rotational force.</li>
+<li><strong>Position History:</strong> Synchronize previous positions to
+prevent velocity calculation artifacts.</li>
+</ol>
+<h3 id="the-reset-function">The Reset Function</h3>
+<p>Use the built-in <code>Matter.Body</code> methods combined with
+manual force clearance to ensure all state variables are fully
+purged:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">resetBody</span>(body<span class="op">,</span> x<span class="op">,</span> y<span class="op">,</span> angle <span class="op">=</span> <span class="dv">0</span>) {</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>    <span class="co">// 1. Clear linear and angular velocity</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>    Matter<span class="op">.</span><span class="at">Body</span><span class="op">.</span><span class="fu">setVelocity</span>(body<span class="op">,</span> { <span class="dt">x</span><span class="op">:</span> <span class="dv">0</span><span class="op">,</span> <span class="dt">y</span><span class="op">:</span> <span class="dv">0</span> })<span class="op">;</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>    Matter<span class="op">.</span><span class="at">Body</span><span class="op">.</span><span class="fu">setAngularVelocity</span>(body<span class="op">,</span> <span class="dv">0</span>)<span class="op">;</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>    <span class="co">// 2. Clear accumulated forces and torques</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>    body<span class="op">.</span><span class="at">force</span><span class="op">.</span><span class="at">x</span> <span class="op">=</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>    body<span class="op">.</span><span class="at">force</span><span class="op">.</span><span class="at">y</span> <span class="op">=</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>    body<span class="op">.</span><span class="at">torque</span> <span class="op">=</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>    <span class="co">// 3. Update position and angle</span></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>    Matter<span class="op">.</span><span class="at">Body</span><span class="op">.</span><span class="fu">setPosition</span>(body<span class="op">,</span> { <span class="dt">x</span><span class="op">:</span> x<span class="op">,</span> <span class="dt">y</span><span class="op">:</span> y })<span class="op">;</span></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>    Matter<span class="op">.</span><span class="at">Body</span><span class="op">.</span><span class="fu">setAngle</span>(body<span class="op">,</span> angle)<span class="op">;</span></span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a>    <span class="co">// 4. Synchronize previous positions to eliminate Verlet artifacts</span></span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a>    body<span class="op">.</span><span class="at">positionPrev</span><span class="op">.</span><span class="at">x</span> <span class="op">=</span> x<span class="op">;</span></span>
+<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a>    body<span class="op">.</span><span class="at">positionPrev</span><span class="op">.</span><span class="at">y</span> <span class="op">=</span> y<span class="op">;</span></span>
+<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a>    body<span class="op">.</span><span class="at">anglePrev</span> <span class="op">=</span> angle<span class="op">;</span></span>
+<span id="cb1-19"><a href="#cb1-19" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-20"><a href="#cb1-20" aria-hidden="true" tabindex="-1"></a>    <span class="co">// 5. Wake the body if sleep management is enabled</span></span>
+<span id="cb1-21"><a href="#cb1-21" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (body<span class="op">.</span><span class="at">isSleeping</span>) {</span>
+<span id="cb1-22"><a href="#cb1-22" aria-hidden="true" tabindex="-1"></a>        Matter<span class="op">.</span><span class="at">Sleeping</span><span class="op">.</span><span class="fu">set</span>(body<span class="op">,</span> <span class="kw">false</span>)<span class="op">;</span></span>
+<span id="cb1-23"><a href="#cb1-23" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb1-24"><a href="#cb1-24" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<h3 id="deactivating-and-re-inserting-bodies">Deactivating and
+Re-inserting Bodies</h3>
+<p>When moving a body into the inactive pool:</p>
+<ul>
+<li>Remove it from the active <code>Composite</code> or
+<code>World</code> using
+<code>Matter.Composite.remove(engine.world, body)</code>.</li>
+<li>Alternatively, set <code>body.isSensor = true</code>,
+<code>body.render.visible = false</code>, and
+<code>body.collisionFilter.mask = 0</code> if retaining the body in the
+world hierarchy without physical interactions.</li>
+</ul>
+<p>When pulling the body out of the pool:</p>
+<ul>
+<li>Execute the <code>resetBody()</code> function with the target spawn
+coordinates.</li>
+<li>Re-add the body to <code>engine.world</code> via
+<code>Matter.Composite.add(engine.world, body)</code> (if removed
+earlier) or restore its collision masks and rendering flags.</li>
+</ul></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/matter.js'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/matter.js/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/matter.js/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simulating Sand Dune Migration in Matter.js - matter.js</title>
+    <meta name="description" content="This guide explains how to simulate aerodynamic sand dune migration within the Matter.js 2D physics engine. By combining granular particle physics, realistic angle-of-repose friction, and customized wind vector forces mimicking saltation and creep, you c">
+    <link rel="canonical" href="https://salivity.github.io/matter.js/article/simulating-sand-dune-migration-in-matter-js">
+    <link rel="search" type="application/opensearchdescription+xml" title="matter.js" href="/matter.js/opensearch.xml">
+    <link rel="icon" href="/matter.js/favicon.ico">
+    <link rel="stylesheet" href="/matter.js/css/style.css">
+    <link media="print" rel="stylesheet" href="/matter.js/css/print.css">
+    <script src="/matter.js/js/fuse.min.js"></script>
+    <script src="/matter.js/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Simulating Sand Dune Migration in Matter.js - matter.js" />
+    <meta property="og:url" content="https://salivity.github.io/matter.js/article/simulating-sand-dune-migration-in-matter-js" />
+    <meta property="og:image" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This guide explains how to simulate aerodynamic sand dune migration within the Matter.js 2D physics engine. By combining granular particle physics, realistic angle-of-repose friction, and customized wind vector forces mimicking saltation and creep, you c" />
+    <link rel="manifest" href="/matter.js/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/matter.js/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>matter.js</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/matter.js/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="simulating-sand-dune-migration-in-matterjs">Simulating Sand Dune
+Migration in Matter.js</h1>
+<p>This guide explains how to simulate aerodynamic sand dune migration
+within the Matter.js 2D physics engine. By combining granular particle
+physics, realistic angle-of-repose friction, and customized wind vector
+forces mimicking saltation and creep, you can model emergent barchan and
+transverse dune behavior in a real-time browser environment.</p>
+<h2 id="physical-principles-of-dune-movement">Physical Principles of
+Dune Movement</h2>
+<p>Aeolian (wind-driven) sand transport relies on three primary
+mechanisms:</p>
+<ol type="1">
+<li><strong>Creep:</strong> Heavy grains rolling along the surface due
+to wind and particle impacts.</li>
+<li><strong>Saltation:</strong> Grains lifted into the air by wind
+shear, traveling downwind, and impacting other grains upon landing.</li>
+<li><strong>Avalanching:</strong> Grain accumulation exceeding the
+natural angle of repose (typically 30° to 34° for dry sand), causing
+structural collapse on the slip face.</li>
+</ol>
+<p>Matter.js handles rigid-body collisions natively, making it
+well-suited for modeling granular pile mechanics and avalanches through
+circular rigid bodies. However, aerodynamic forces are not built into
+the engine and must be applied programmatically each simulation
+tick.</p>
+<h2 id="configuring-granular-sand-bodies">Configuring Granular Sand
+Bodies</h2>
+<p>To simulate cohesive yet granular behavior, configure individual sand
+particles as small circular bodies with high friction and minimal
+restitution (bounciness). High friction ensures that grains interlock to
+form stable slopes up to the angle of repose.</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> sandRadius <span class="op">=</span> <span class="dv">3</span><span class="op">;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> sandOptions <span class="op">=</span> {</span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>    <span class="dt">friction</span><span class="op">:</span> <span class="fl">0.8</span><span class="op">,</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>    <span class="dt">frictionStatic</span><span class="op">:</span> <span class="fl">0.9</span><span class="op">,</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>    <span class="dt">restitution</span><span class="op">:</span> <span class="fl">0.05</span><span class="op">,</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>    <span class="dt">density</span><span class="op">:</span> <span class="fl">0.002</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>}<span class="op">;</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">createSandGrain</span>(x<span class="op">,</span> y) {</span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> Matter<span class="op">.</span><span class="at">Bodies</span><span class="op">.</span><span class="fu">circle</span>(x<span class="op">,</span> y<span class="op">,</span> sandRadius<span class="op">,</span> sandOptions)<span class="op">;</span></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<h2 id="modeling-aerodynamic-wind-and-saltation">Modeling Aerodynamic
+Wind and Saltation</h2>
+<p>Wind force acts predominantly along the horizontal axis, but
+saltation requires an aerodynamic lift component caused by air
+turbulence and surface shear stress.</p>
+<p>To apply wind, hook into the <code>beforeUpdate</code> event of the
+Matter.js engine:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> prevailingWindVector <span class="op">=</span> { <span class="dt">x</span><span class="op">:</span> <span class="fl">0.00015</span><span class="op">,</span> <span class="dt">y</span><span class="op">:</span> <span class="op">-</span><span class="fl">0.00003</span> }<span class="op">;</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>Matter<span class="op">.</span><span class="at">Events</span><span class="op">.</span><span class="fu">on</span>(engine<span class="op">,</span> <span class="st">&#39;beforeUpdate&#39;</span><span class="op">,</span> () <span class="kw">=&gt;</span> {</span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> bodies <span class="op">=</span> Matter<span class="op">.</span><span class="at">Composite</span><span class="op">.</span><span class="fu">allBodies</span>(engine<span class="op">.</span><span class="at">world</span>)<span class="op">;</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>    bodies<span class="op">.</span><span class="fu">forEach</span>(body <span class="kw">=&gt;</span> {</span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>        <span class="co">// Only affect sand particles, ignoring boundaries</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> (body<span class="op">.</span><span class="at">isStatic</span>) <span class="cf">return</span><span class="op">;</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>        <span class="co">// Apply aerodynamic drag based on position</span></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>        <span class="fu">applyWindForces</span>(body<span class="op">,</span> prevailingWindVector)<span class="op">;</span></span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>    })<span class="op">;</span></span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div>
+<h2 id="surface-detection-and-force-application">Surface Detection and
+Force Application</h2>
+<p>In nature, wind only acts upon the surface layer of sand. If you
+apply wind forces globally to all bodies, the entire dune will slide
+uniformly as a block instead of migrating organically.</p>
+<p>You can restrict wind forces to surface grains using one of two
+methods:</p>
+<h3 id="method-1-grid-based-height-map-check">Method 1: Grid-Based
+Height Map Check</h3>
+<p>Calculate the highest active particle in vertical vertical slices
+(columns) along the x-axis:</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">applyWindForces</span>(body<span class="op">,</span> wind) {</span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Only apply forces to exposed grains near the surface</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> surfaceThresholdY <span class="op">=</span> <span class="fu">getSurfaceYAt</span>(body<span class="op">.</span><span class="at">position</span><span class="op">.</span><span class="at">x</span>)<span class="op">;</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (body<span class="op">.</span><span class="at">position</span><span class="op">.</span><span class="at">y</span> <span class="op">&lt;=</span> surfaceThresholdY <span class="op">+</span> sandRadius <span class="op">*</span> <span class="dv">2</span>) {</span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>        <span class="co">// Add pseudo-random turbulence to simulate saltation lift</span></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>        <span class="kw">const</span> turbulence <span class="op">=</span> (<span class="bu">Math</span><span class="op">.</span><span class="fu">random</span>() <span class="op">-</span> <span class="fl">0.5</span>) <span class="op">*</span> <span class="fl">0.00005</span><span class="op">;</span></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>        </span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a>        Matter<span class="op">.</span><span class="at">Body</span><span class="op">.</span><span class="fu">applyForce</span>(body<span class="op">,</span> body<span class="op">.</span><span class="at">position</span><span class="op">,</span> {</span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a>            <span class="dt">x</span><span class="op">:</span> wind<span class="op">.</span><span class="at">x</span> <span class="op">*</span> body<span class="op">.</span><span class="at">mass</span><span class="op">,</span></span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a>            <span class="dt">y</span><span class="op">:</span> (wind<span class="op">.</span><span class="at">y</span> <span class="op">+</span> turbulence) <span class="op">*</span> body<span class="op">.</span><span class="at">mass</span></span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a>        })<span class="op">;</span></span>
+<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb3-14"><a href="#cb3-14" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<h3 id="method-2-neighbor-density-checks">Method 2: Neighbor Density
+Checks</h3>
+<p>Count how many neighboring bodies surround a given grain using
+<code>Matter.Query.point</code> or spatial hashes. Bodies surrounded on
+all sides are subterranean and should receive zero wind force, while
+bodies with few neighbors above them receive full wind shear.</p>
+<h2 id="emergent-dune-dynamics">Emergent Dune Dynamics</h2>
+<p>Once tuned, the simulation produces realistic self-organizing dune
+morphologies:</p>
+<ol type="1">
+<li><strong>Windward Slope (Stoss):</strong> Wind pushes surface grains
+up the gentle windward slope via saltation and creep.</li>
+<li><strong>Crest and Separation:</strong> As sand reaches the crest, it
+drops into the aerodynamic shelter (wake zone) on the leeward side where
+wind shear drops to zero.</li>
+<li><strong>Leeward Slope (Slip Face):</strong> Sand accumulates at the
+crest until the slope angle exceeds the angle of repose. The
+inter-particle friction in Matter.js fails under gravity, triggering a
+localized avalanche down the slip face.</li>
+<li><strong>Forward Migration:</strong> This continuous transfer of sand
+from the upwind side to the downwind slope causes the entire dune
+structure to migrate in the direction of the prevailing wind.</li>
+</ol>
+<h2 id="optimization-strategies">Optimization Strategies</h2>
+<p>Because granular simulations require hundreds or thousands of bodies,
+maintain 60 FPS performance with these optimizations:</p>
+<ul>
+<li><strong>Particle Sleep:</strong> Enable
+<code>enableSleeping: true</code> on the Matter.js engine so that
+subterranean particles within the dune enter a low-overhead rest state
+until disturbed by surface avalanches.</li>
+<li><strong>Hybrid Modeling:</strong> For large-scale simulations,
+represent the interior core of the dune as a static or deformable
+polygon, and use Matter.js circular bodies exclusively for the migrating
+active surface layer.</li>
+</ul></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/matter.js'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/matter.js/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/matter.js/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

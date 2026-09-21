@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How to Serialize Matter.js Bodies for Web Workers - matter.js</title>
+    <meta name="description" content="Running physics simulations in a Web Worker prevents the main thread from stuttering, but Matter.js body objects cannot be sent directly via postMessage due to circular references, methods, and heavy internal properties. This article outlines how to extr">
+    <link rel="canonical" href="https://salivity.github.io/matter.js/article/how-to-serialize-matter-js-bodies-for-web-workers">
+    <link rel="search" type="application/opensearchdescription+xml" title="matter.js" href="/matter.js/opensearch.xml">
+    <link rel="icon" href="/matter.js/favicon.ico">
+    <link rel="stylesheet" href="/matter.js/css/style.css">
+    <link media="print" rel="stylesheet" href="/matter.js/css/print.css">
+    <script src="/matter.js/js/fuse.min.js"></script>
+    <script src="/matter.js/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How to Serialize Matter.js Bodies for Web Workers - matter.js" />
+    <meta property="og:url" content="https://salivity.github.io/matter.js/article/how-to-serialize-matter-js-bodies-for-web-workers" />
+    <meta property="og:image" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Running physics simulations in a Web Worker prevents the main thread from stuttering, but Matter.js body objects cannot be sent directly via postMessage due to circular references, methods, and heavy internal properties. This article outlines how to extr" />
+    <link rel="manifest" href="/matter.js/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/matter.js/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>matter.js</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/matter.js/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="how-to-serialize-matterjs-bodies-for-web-workers">How to
+Serialize Matter.js Bodies for Web Workers</h1>
+<p>Running physics simulations in a Web Worker prevents the main thread
+from stuttering, but Matter.js body objects cannot be sent directly via
+<code>postMessage</code> due to circular references, methods, and heavy
+internal properties. This article outlines how to extract and serialize
+only the essential transform states—such as position and rotation—using
+minimal data payloads and high-performance <code>Float32Array</code>
+buffers with zero-copy memory transfers.</p>
+<h3 id="the-challenge-with-matterjs-bodies">The Challenge with Matter.js
+Bodies</h3>
+<p>Matter.js <code>Body</code> objects are deeply nested structures
+containing references to parent bodies, composite parts, constraint
+arrays, and internal helper functions. Standard serialization tools like
+<code>JSON.stringify()</code> throw
+<code>TypeError: Converting circular structure to JSON</code>, and the
+browser's structured clone algorithm (<code>postMessage</code>) will
+either fail or introduce severe garbage collection pauses due to copying
+unnecessary metadata.</p>
+<p>For visual rendering, the main thread does not need collision
+vertices, mass matrices, or velocity vectors. It only needs the
+identifier, spatial coordinates, and rotation angle for each active
+body.</p>
+<h3 id="strategy-decouple-geometry-from-dynamic-state">Strategy:
+Decouple Geometry from Dynamic State</h3>
+<p>To maximize efficiency, separate static setup data from dynamic frame
+data:</p>
+<ol type="1">
+<li><strong>Initialization:</strong> When the simulation starts, send
+the static geometry (width, height, vertex lists, shape type, and a
+unique <code>id</code>) to the main thread once to instantiate the
+visual meshes or sprites.</li>
+<li><strong>Per-Frame Update:</strong> In the physics step loop inside
+the Web Worker, extract only the updated transform data for each dynamic
+body and transmit it to the main thread.</li>
+</ol>
+<hr />
+<h3
+id="implementation-using-typed-arrays-and-transferables">Implementation:
+Using Typed Arrays and Transferables</h3>
+<p>The most efficient serialization format in web browsers is a flat
+<code>Float32Array</code>. Typed arrays can be transferred rather than
+cloned, eliminating serialization overhead and memory duplication.</p>
+<h4 id="1-worker-thread-serialization-and-transfer">1. Worker Thread:
+Serialization and Transfer</h4>
+<p>Define a fixed stride for your data. For basic 2D rendering, allocate
+four floats per body:</p>
+<ul>
+<li>Index 0: Body ID</li>
+<li>Index 1: Position X</li>
+<li>Index 2: Position Y</li>
+<li>Index 3: Angle (radians)</li>
+</ul>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="co">// worker.js</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> Matter <span class="im">from</span> <span class="st">&#39;matter-js&#39;</span><span class="op">;</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> { Engine<span class="op">,</span> Bodies<span class="op">,</span> Composite } <span class="op">=</span> Matter<span class="op">;</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> engine <span class="op">=</span> Engine<span class="op">.</span><span class="fu">create</span>()<span class="op">;</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a><span class="co">// Array of dynamic bodies</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> dynamicBodies <span class="op">=</span> Composite<span class="op">.</span><span class="fu">allBodies</span>(engine<span class="op">.</span><span class="at">world</span>)<span class="op">.</span><span class="fu">filter</span>(body <span class="kw">=&gt;</span> <span class="op">!</span>body<span class="op">.</span><span class="at">isStatic</span>)<span class="op">;</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a><span class="co">// Stride length: [id, x, y, angle]</span></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> STRIDE <span class="op">=</span> <span class="dv">4</span><span class="op">;</span></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">tick</span>() {</span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>  Matter<span class="op">.</span><span class="at">Engine</span><span class="op">.</span><span class="fu">update</span>(engine<span class="op">,</span> <span class="dv">1000</span> <span class="op">/</span> <span class="dv">60</span>)<span class="op">;</span></span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> buffer <span class="op">=</span> <span class="kw">new</span> <span class="bu">Float32Array</span>(dynamicBodies<span class="op">.</span><span class="at">length</span> <span class="op">*</span> STRIDE)<span class="op">;</span></span>
+<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a>  <span class="cf">for</span> (<span class="kw">let</span> i <span class="op">=</span> <span class="dv">0</span><span class="op">;</span> i <span class="op">&lt;</span> dynamicBodies<span class="op">.</span><span class="at">length</span><span class="op">;</span> i<span class="op">++</span>) {</span>
+<span id="cb1-19"><a href="#cb1-19" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> body <span class="op">=</span> dynamicBodies[i]<span class="op">;</span></span>
+<span id="cb1-20"><a href="#cb1-20" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> offset <span class="op">=</span> i <span class="op">*</span> STRIDE<span class="op">;</span></span>
+<span id="cb1-21"><a href="#cb1-21" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-22"><a href="#cb1-22" aria-hidden="true" tabindex="-1"></a>    buffer[offset] <span class="op">=</span> body<span class="op">.</span><span class="at">id</span><span class="op">;</span></span>
+<span id="cb1-23"><a href="#cb1-23" aria-hidden="true" tabindex="-1"></a>    buffer[offset <span class="op">+</span> <span class="dv">1</span>] <span class="op">=</span> body<span class="op">.</span><span class="at">position</span><span class="op">.</span><span class="at">x</span><span class="op">;</span></span>
+<span id="cb1-24"><a href="#cb1-24" aria-hidden="true" tabindex="-1"></a>    buffer[offset <span class="op">+</span> <span class="dv">2</span>] <span class="op">=</span> body<span class="op">.</span><span class="at">position</span><span class="op">.</span><span class="at">y</span><span class="op">;</span></span>
+<span id="cb1-25"><a href="#cb1-25" aria-hidden="true" tabindex="-1"></a>    buffer[offset <span class="op">+</span> <span class="dv">3</span>] <span class="op">=</span> body<span class="op">.</span><span class="at">angle</span><span class="op">;</span></span>
+<span id="cb1-26"><a href="#cb1-26" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb1-27"><a href="#cb1-27" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-28"><a href="#cb1-28" aria-hidden="true" tabindex="-1"></a>  <span class="co">// Transfer the underlying ArrayBuffer with zero-copy transfer</span></span>
+<span id="cb1-29"><a href="#cb1-29" aria-hidden="true" tabindex="-1"></a>  self<span class="op">.</span><span class="fu">postMessage</span>(buffer<span class="op">,</span> [buffer<span class="op">.</span><span class="at">buffer</span>])<span class="op">;</span></span>
+<span id="cb1-30"><a href="#cb1-30" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-31"><a href="#cb1-31" aria-hidden="true" tabindex="-1"></a>  <span class="fu">requestAnimationFrame</span>(tick)<span class="op">;</span></span>
+<span id="cb1-32"><a href="#cb1-32" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb1-33"><a href="#cb1-33" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-34"><a href="#cb1-34" aria-hidden="true" tabindex="-1"></a><span class="fu">tick</span>()<span class="op">;</span></span></code></pre></div>
+<h4 id="2-main-thread-deserialization-and-rendering">2. Main Thread:
+Deserialization and Rendering</h4>
+<p>On the main thread, read the values from the transferred
+<code>Float32Array</code> directly and update your renderer (such as
+HTML5 Canvas, PixiJS, or Three.js).</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="co">// main.js</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> worker <span class="op">=</span> <span class="kw">new</span> <span class="bu">Worker</span>(<span class="st">&#39;worker.js&#39;</span><span class="op">,</span> { <span class="dt">type</span><span class="op">:</span> <span class="st">&#39;module&#39;</span> })<span class="op">;</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a><span class="co">// Map of visual objects mapped by body.id</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> visualObjects <span class="op">=</span> <span class="kw">new</span> <span class="bu">Map</span>()<span class="op">;</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> STRIDE <span class="op">=</span> <span class="dv">4</span><span class="op">;</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>worker<span class="op">.</span><span class="at">onmessage</span> <span class="op">=</span> (<span class="bu">event</span>) <span class="kw">=&gt;</span> {</span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> data <span class="op">=</span> <span class="bu">event</span><span class="op">.</span><span class="at">data</span><span class="op">;</span> <span class="co">// Float32Array</span></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> count <span class="op">=</span> data<span class="op">.</span><span class="at">length</span> <span class="op">/</span> STRIDE<span class="op">;</span></span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>  <span class="cf">for</span> (<span class="kw">let</span> i <span class="op">=</span> <span class="dv">0</span><span class="op">;</span> i <span class="op">&lt;</span> count<span class="op">;</span> i<span class="op">++</span>) {</span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> offset <span class="op">=</span> i <span class="op">*</span> STRIDE<span class="op">;</span></span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> id <span class="op">=</span> data[offset]<span class="op">;</span></span>
+<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> x <span class="op">=</span> data[offset <span class="op">+</span> <span class="dv">1</span>]<span class="op">;</span></span>
+<span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> y <span class="op">=</span> data[offset <span class="op">+</span> <span class="dv">2</span>]<span class="op">;</span></span>
+<span id="cb2-18"><a href="#cb2-18" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> angle <span class="op">=</span> data[offset <span class="op">+</span> <span class="dv">3</span>]<span class="op">;</span></span>
+<span id="cb2-19"><a href="#cb2-19" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-20"><a href="#cb2-20" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> visual <span class="op">=</span> visualObjects<span class="op">.</span><span class="fu">get</span>(id)<span class="op">;</span></span>
+<span id="cb2-21"><a href="#cb2-21" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (visual) {</span>
+<span id="cb2-22"><a href="#cb2-22" aria-hidden="true" tabindex="-1"></a>      visual<span class="op">.</span><span class="at">x</span> <span class="op">=</span> x<span class="op">;</span></span>
+<span id="cb2-23"><a href="#cb2-23" aria-hidden="true" tabindex="-1"></a>      visual<span class="op">.</span><span class="at">y</span> <span class="op">=</span> y<span class="op">;</span></span>
+<span id="cb2-24"><a href="#cb2-24" aria-hidden="true" tabindex="-1"></a>      visual<span class="op">.</span><span class="at">rotation</span> <span class="op">=</span> angle<span class="op">;</span></span>
+<span id="cb2-25"><a href="#cb2-25" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb2-26"><a href="#cb2-26" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb2-27"><a href="#cb2-27" aria-hidden="true" tabindex="-1"></a>}<span class="op">;</span></span></code></pre></div>
+<hr />
+<h3 id="best-practices-for-low-latency-physics">Best Practices for
+Low-Latency Physics</h3>
+<ul>
+<li><strong>Avoid Memory Allocation in the Loop:</strong> Recreating a
+<code>Float32Array</code> every frame creates garbage collector
+pressure. Instead, maintain a pool of two <code>ArrayBuffer</code>
+instances and alternate between them (ping-pong buffering), transferring
+one buffer while writing to the other.</li>
+<li><strong>Filter Out Sleeping Bodies:</strong> Check
+<code>body.isSleeping</code>. If a body is inactive, omit its state from
+the buffer or mark it with a skip flag to reduce loop cycles on both
+threads.</li>
+<li><strong>Synchronize Physics and Render Rates:</strong> Use a fixed
+time-step inside the worker for deterministic physics calculations, and
+interpolate positions on the main thread if render refresh rates differ
+from the physics update rate.</li>
+</ul></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/matter.js'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/matter.js/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/matter.js/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

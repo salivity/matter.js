@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Matter.Composite.allConstraints in Matter.js - matter.js</title>
+    <meta name="description" content="This article explains how the Matter.Composite.allConstraints function works within Matter.js to recursively traverse nested scene graphs and extract every constraint. In physics simulations involving complex ragdolls, ropes, or mechanisms, bodies and jo">
+    <link rel="canonical" href="https://salivity.github.io/matter.js/article/matter-composite-all-constraints-in-matter-js">
+    <link rel="search" type="application/opensearchdescription+xml" title="matter.js" href="/matter.js/opensearch.xml">
+    <link rel="icon" href="/matter.js/favicon.ico">
+    <link rel="stylesheet" href="/matter.js/css/style.css">
+    <link media="print" rel="stylesheet" href="/matter.js/css/print.css">
+    <script src="/matter.js/js/fuse.min.js"></script>
+    <script src="/matter.js/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Matter.Composite.allConstraints in Matter.js - matter.js" />
+    <meta property="og:url" content="https://salivity.github.io/matter.js/article/matter-composite-all-constraints-in-matter-js" />
+    <meta property="og:image" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article explains how the Matter.Composite.allConstraints function works within Matter.js to recursively traverse nested scene graphs and extract every constraint. In physics simulations involving complex ragdolls, ropes, or mechanisms, bodies and jo" />
+    <link rel="manifest" href="/matter.js/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/matter.js/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>matter.js</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/matter.js/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1
+id="mattercompositeallconstraints-in-matterjs">Matter.Composite.allConstraints
+in Matter.js</h1>
+<p>This article explains how the
+<code>Matter.Composite.allConstraints</code> function works within
+Matter.js to recursively traverse nested scene graphs and extract every
+constraint. In physics simulations involving complex ragdolls, ropes, or
+mechanisms, bodies and joints are often nested within multiple
+sub-composites. <code>Matter.Composite.allConstraints</code> traverses
+this entire tree structure to flatten and return a single unified array
+containing every joint, spring, and pin.</p>
+<h3 id="the-composite-tree-hierarchy">The Composite Tree Hierarchy</h3>
+<p>In Matter.js, a <code>Composite</code> acts as a container capable of
+holding bodies, constraints, and other child composites. This
+architecture forms a directed tree structure where a top-level composite
+(such as the main <code>engine.world</code>) can contain intermediate
+composites representing individual multi-part objects, which in turn can
+contain their own sub-assemblies.</p>
+<p>Because individual <code>composite.constraints</code> arrays only
+store constraints directly attached to that specific container level,
+accessing constraints scattered across a deeply nested hierarchy
+manually would require custom recursive iteration.</p>
+<h3 id="how-the-traversal-works">How the Traversal Works</h3>
+<p>When <code>Matter.Composite.allConstraints(composite)</code> is
+invoked, it follows a recursive collection algorithm:</p>
+<ol type="1">
+<li><strong>Local Collection:</strong> The function initializes an
+internal array and copies all constraints present in the target
+composite's immediate <code>constraints</code> list.</li>
+<li><strong>Child Iteration:</strong> It inspects the
+<code>composite.composites</code> array to determine if any child
+composites exist.</li>
+<li><strong>Recursive Aggregation:</strong> For each child composite
+found, the function recursively calls
+<code>Matter.Composite.allConstraints</code> on that child.</li>
+<li><strong>Array Flattening:</strong> The results returned from child
+composites are concatenated into the parent collection.</li>
+<li><strong>Return Flat List:</strong> Once the entire subtree is
+traversed, a single, flattened array containing references to all
+constraints across every branch is returned.</li>
+</ol>
+<h3 id="practical-implications-and-performance">Practical Implications
+and Performance</h3>
+<p><code>Matter.Composite.allConstraints</code> ensures that constraint
+solvers and debug renderers can access every active linkage in the
+simulation without needing prior knowledge of how deeply nested the
+objects are.</p>
+<p>Because this function creates and concatenates new arrays at every
+level of the hierarchy during recursion, calling it repeatedly inside
+high-frequency update loops (such as <code>beforeUpdate</code> or the
+render loop) can trigger excessive garbage collection. For optimal
+performance in dynamic scenes, query the constraints once and maintain
+references, or only invoke <code>allConstraints</code> when the
+hierarchy is modified.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/matter.js'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/matter.js/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/matter.js/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

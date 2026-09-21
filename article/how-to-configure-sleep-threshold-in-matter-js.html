@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How to Configure Sleep Threshold in Matter.js - matter.js</title>
+    <meta name="description" content="This article explains how to configure the sleepThreshold property in Matter.js to make resting bodies enter a sleeping state more quickly. By default, Matter.js keeps bodies awake for a set number of frames after motion stops, which consumes computation">
+    <link rel="canonical" href="https://salivity.github.io/matter.js/article/how-to-configure-sleep-threshold-in-matter-js">
+    <link rel="search" type="application/opensearchdescription+xml" title="matter.js" href="/matter.js/opensearch.xml">
+    <link rel="icon" href="/matter.js/favicon.ico">
+    <link rel="stylesheet" href="/matter.js/css/style.css">
+    <link media="print" rel="stylesheet" href="/matter.js/css/print.css">
+    <script src="/matter.js/js/fuse.min.js"></script>
+    <script src="/matter.js/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How to Configure Sleep Threshold in Matter.js - matter.js" />
+    <meta property="og:url" content="https://salivity.github.io/matter.js/article/how-to-configure-sleep-threshold-in-matter-js" />
+    <meta property="og:image" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article explains how to configure the sleepThreshold property in Matter.js to make resting bodies enter a sleeping state more quickly. By default, Matter.js keeps bodies awake for a set number of frames after motion stops, which consumes computation" />
+    <link rel="manifest" href="/matter.js/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/matter.js/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>matter.js</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/matter.js/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="how-to-configure-sleep-threshold-in-matterjs">How to Configure
+Sleep Threshold in Matter.js</h1>
+<p>This article explains how to configure the
+<code>sleepThreshold</code> property in Matter.js to make resting bodies
+enter a sleeping state more quickly. By default, Matter.js keeps bodies
+awake for a set number of frames after motion stops, which consumes
+computational resources. Lowering this threshold reduces the delay
+before inactive bodies sleep, improving physics simulation performance
+and frame rates in complex scenes.</p>
+<h3 id="enabling-the-sleeping-module">Enabling the Sleeping Module</h3>
+<p>Before configuring individual body thresholds, sleeping must be
+explicitly enabled on the physics engine. By default, Matter.js leaves
+sleeping disabled.</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> engine <span class="op">=</span> Matter<span class="op">.</span><span class="at">Engine</span><span class="op">.</span><span class="fu">create</span>({</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>  <span class="dt">enableSleeping</span><span class="op">:</span> <span class="kw">true</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div>
+<p>If <code>enableSleeping</code> is <code>false</code>, any
+modifications to <code>sleepThreshold</code> will be ignored, and bodies
+will remain awake continuously.</p>
+<h3 id="understanding-sleepthreshold">Understanding
+<code>sleepThreshold</code></h3>
+<p>The <code>sleepThreshold</code> property represents the number of
+consecutive simulation updates (frames) a body's motion must remain
+below a minimum energy threshold before it transitions into a sleeping
+state (<code>body.isSleeping = true</code>).</p>
+<ul>
+<li><strong>Default Value:</strong> <code>60</code> (approximately 1
+second of inactivity at 60 FPS).</li>
+<li><strong>Lower Values:</strong> The body requires fewer idle frames
+to sleep, allowing it to rest sooner.</li>
+<li><strong>Higher Values:</strong> The body requires extended
+inactivity before sleeping, reducing the risk of premature
+freezing.</li>
+</ul>
+<h3 id="configuring-sleepthreshold-on-body-creation">Configuring
+<code>sleepThreshold</code> on Body Creation</h3>
+<p>To make a body sleep sooner, assign a lower integer to
+<code>sleepThreshold</code> when instantiating the body via
+<code>Matter.Bodies</code>.</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> box <span class="op">=</span> Matter<span class="op">.</span><span class="at">Bodies</span><span class="op">.</span><span class="fu">rectangle</span>(<span class="dv">400</span><span class="op">,</span> <span class="dv">200</span><span class="op">,</span> <span class="dv">80</span><span class="op">,</span> <span class="dv">80</span><span class="op">,</span> {</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>  <span class="dt">sleepThreshold</span><span class="op">:</span> <span class="dv">15</span> <span class="co">// Enters sleep mode after 15 idle frames (~0.25 seconds)</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>Matter<span class="op">.</span><span class="at">Composite</span><span class="op">.</span><span class="fu">add</span>(engine<span class="op">.</span><span class="at">world</span><span class="op">,</span> box)<span class="op">;</span></span></code></pre></div>
+<h3 id="updating-sleepthreshold-on-existing-bodies">Updating
+<code>sleepThreshold</code> on Existing Bodies</h3>
+<p>You can adjust the value at runtime by setting the property directly
+on the target body instance:</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Target a specific body</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>box<span class="op">.</span><span class="at">sleepThreshold</span> <span class="op">=</span> <span class="dv">20</span><span class="op">;</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a><span class="co">// Apply to all bodies in a composite</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> bodies <span class="op">=</span> Matter<span class="op">.</span><span class="at">Composite</span><span class="op">.</span><span class="fu">allBodies</span>(engine<span class="op">.</span><span class="at">world</span>)<span class="op">;</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>bodies<span class="op">.</span><span class="fu">forEach</span>(body <span class="kw">=&gt;</span> {</span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>  body<span class="op">.</span><span class="at">sleepThreshold</span> <span class="op">=</span> <span class="dv">20</span><span class="op">;</span></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div>
+<h3 id="best-practices-for-tuning">Best Practices for Tuning</h3>
+<ol type="1">
+<li><strong>Avoid Setting Too Low:</strong> Setting
+<code>sleepThreshold</code> below <code>10</code>–<code>15</code> can
+cause bodies to freeze mid-air or halt unnaturally while still
+undergoing slow, subtle movements.</li>
+<li><strong>Dynamic Waking:</strong> Sleeping bodies automatically wake
+when another awake body collides with them or when force/velocity is
+applied directly via code.</li>
+<li><strong>Manual Sleep Control:</strong> If you need an object to
+sleep immediately without waiting for any threshold counter, set
+<code>Matter.Sleeping.set(body, true)</code>.</li>
+</ol></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/matter.js'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/matter.js/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/matter.js/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

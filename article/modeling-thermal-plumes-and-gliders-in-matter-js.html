@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Modeling Thermal Plumes and Gliders in Matter.js - matter.js</title>
+    <meta name="description" content="This article explains how to simulate atmospheric thermal air plumes and glider thermalling behavior inside the Matter.js 2D physics engine. By combining a mathematical force field representing a rising column of heated air with custom aerodynamic equati">
+    <link rel="canonical" href="https://salivity.github.io/matter.js/article/modeling-thermal-plumes-and-gliders-in-matter-js">
+    <link rel="search" type="application/opensearchdescription+xml" title="matter.js" href="/matter.js/opensearch.xml">
+    <link rel="icon" href="/matter.js/favicon.ico">
+    <link rel="stylesheet" href="/matter.js/css/style.css">
+    <link media="print" rel="stylesheet" href="/matter.js/css/print.css">
+    <script src="/matter.js/js/fuse.min.js"></script>
+    <script src="/matter.js/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Modeling Thermal Plumes and Gliders in Matter.js - matter.js" />
+    <meta property="og:url" content="https://salivity.github.io/matter.js/article/modeling-thermal-plumes-and-gliders-in-matter-js" />
+    <meta property="og:image" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article explains how to simulate atmospheric thermal air plumes and glider thermalling behavior inside the Matter.js 2D physics engine. By combining a mathematical force field representing a rising column of heated air with custom aerodynamic equati" />
+    <link rel="manifest" href="/matter.js/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/matter.js/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>matter.js</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/matter.js/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="modeling-thermal-plumes-and-gliders-in-matterjs">Modeling
+Thermal Plumes and Gliders in Matter.js</h1>
+<p>This article explains how to simulate atmospheric thermal air plumes
+and glider thermalling behavior inside the Matter.js 2D physics engine.
+By combining a mathematical force field representing a rising column of
+heated air with custom aerodynamic equations for glider lift, drag, and
+sink rates, you can realistically model how unpowered aircraft locate,
+enter, and circle within updrafts to gain altitude.</p>
+<h3 id="core-architecture">Core Architecture</h3>
+<p>Matter.js is a rigid-body physics engine that does not natively
+calculate fluid dynamics or continuous aerodynamics. To model
+thermalling, you must decouple the simulation into two custom force
+layers executed inside the <code>beforeUpdate</code> engine event:</p>
+<ol type="1">
+<li><strong>Thermal Plume Field:</strong> A spatial region that imparts
+vertical velocity and buoyancy to the surrounding air mass.</li>
+<li><strong>Glider Aerodynamics Engine:</strong> A custom physics
+resolution that computes lift and induced drag relative to the glider's
+airspeed and angle of attack.</li>
+</ol>
+<h3 id="1-modeling-the-thermal-air-plume">1. Modeling the Thermal Air
+Plume</h3>
+<p>A thermal plume rises due to buoyancy and typically follows a
+bell-curve velocity distribution (Gaussian profile) across its
+horizontal cross-section, with the strongest lift at the core and sink
+(downdraft) along the exterior edges.</p>
+<p>Define the thermal as an abstract spatial region rather than a rigid
+body:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> thermal <span class="op">=</span> {</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>  <span class="dt">x</span><span class="op">:</span> <span class="dv">400</span><span class="op">,</span>            <span class="co">// Center of thermal</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>  <span class="dt">yBottom</span><span class="op">:</span> <span class="dv">800</span><span class="op">,</span>      <span class="co">// Ground release point</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>  <span class="dt">yTop</span><span class="op">:</span> <span class="dv">50</span><span class="op">,</span>          <span class="co">// Inversion layer/cloud base</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>  <span class="dt">radius</span><span class="op">:</span> <span class="dv">120</span><span class="op">,</span>       <span class="co">// Core radius</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>  <span class="dt">maxUpdraft</span><span class="op">:</span> <span class="fl">0.005</span><span class="op">,</span> <span class="co">// Maximum upward force</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>  <span class="dt">verticalSpeed</span><span class="op">:</span> <span class="fl">1.5</span> <span class="co">// Rate at which the thermal bubble ascends</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>}<span class="op">;</span></span></code></pre></div>
+<p>During each engine tick, calculate the horizontal distance from the
+glider to the thermal core to determine the local upward force:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">applyThermalForces</span>(glider<span class="op">,</span> thermal) {</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> dx <span class="op">=</span> glider<span class="op">.</span><span class="at">position</span><span class="op">.</span><span class="at">x</span> <span class="op">-</span> thermal<span class="op">.</span><span class="at">x</span><span class="op">;</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> dy <span class="op">=</span> glider<span class="op">.</span><span class="at">position</span><span class="op">.</span><span class="at">y</span><span class="op">;</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>  <span class="co">// Check if glider is within vertical and horizontal bounds</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (dy <span class="op">&lt;=</span> thermal<span class="op">.</span><span class="at">yBottom</span> <span class="op">&amp;&amp;</span> dy <span class="op">&gt;=</span> thermal<span class="op">.</span><span class="at">yTop</span> <span class="op">&amp;&amp;</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">abs</span>(dx) <span class="op">&lt;</span> thermal<span class="op">.</span><span class="at">radius</span> <span class="op">*</span> <span class="fl">1.5</span>) {</span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Gaussian distribution of vertical lift</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> factor <span class="op">=</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">exp</span>(<span class="op">-</span><span class="bu">Math</span><span class="op">.</span><span class="fu">pow</span>(dx <span class="op">/</span> thermal<span class="op">.</span><span class="at">radius</span><span class="op">,</span> <span class="dv">2</span>))<span class="op">;</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Core produces upward lift; outer edges produce slight sink</span></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> updraft <span class="op">=</span> (factor <span class="op">&gt;</span> <span class="fl">0.1</span>) </span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>      <span class="op">?</span> <span class="op">-</span>thermal<span class="op">.</span><span class="at">maxUpdraft</span> <span class="op">*</span> factor </span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>      <span class="op">:</span> thermal<span class="op">.</span><span class="at">maxUpdraft</span> <span class="op">*</span> <span class="fl">0.1</span><span class="op">;</span></span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a>    Matter<span class="op">.</span><span class="at">Body</span><span class="op">.</span><span class="fu">applyForce</span>(glider<span class="op">,</span> glider<span class="op">.</span><span class="at">position</span><span class="op">,</span> { <span class="dt">x</span><span class="op">:</span> <span class="dv">0</span><span class="op">,</span> <span class="dt">y</span><span class="op">:</span> updraft })<span class="op">;</span></span>
+<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<h3 id="2-modeling-glider-aerodynamics">2. Modeling Glider
+Aerodynamics</h3>
+<p>A glider in Matter.js requires accurate aerodynamic forces (Lift and
+Drag) to convert forward kinetic energy into vertical support. Without
+this, applying a thermal force merely pushes a generic object upward
+without the dynamics of flying.</p>
+<p>Set the glider’s native <code>frictionAir</code> to <code>0</code> to
+handle drag manually using aerodynamic equations:</p>
+<ul>
+<li><strong>Lift Force:</strong> Perpendicular to the relative
+wind.</li>
+<li><strong>Drag Force:</strong> Parallel and opposite to the relative
+wind.</li>
+</ul>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">applyGliderAerodynamics</span>(glider) {</span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> velocity <span class="op">=</span> glider<span class="op">.</span><span class="at">velocity</span><span class="op">;</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> speedSq <span class="op">=</span> velocity<span class="op">.</span><span class="at">x</span> <span class="op">*</span> velocity<span class="op">.</span><span class="at">x</span> <span class="op">+</span> velocity<span class="op">.</span><span class="at">y</span> <span class="op">*</span> velocity<span class="op">.</span><span class="at">y</span><span class="op">;</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (speedSq <span class="op">&lt;</span> <span class="fl">0.01</span>) <span class="cf">return</span><span class="op">;</span> <span class="co">// Ignore at near-zero velocity</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> speed <span class="op">=</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">sqrt</span>(speedSq)<span class="op">;</span></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> velocityAngle <span class="op">=</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">atan2</span>(velocity<span class="op">.</span><span class="at">y</span><span class="op">,</span> velocity<span class="op">.</span><span class="at">x</span>)<span class="op">;</span></span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> chordAngle <span class="op">=</span> glider<span class="op">.</span><span class="at">angle</span><span class="op">;</span></span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a>  <span class="co">// Angle of Attack (alpha)</span></span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> alpha <span class="op">=</span> chordAngle <span class="op">-</span> velocityAngle<span class="op">;</span></span>
+<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-14"><a href="#cb3-14" aria-hidden="true" tabindex="-1"></a>  <span class="co">// Aerodynamic coefficients (simplified linear range)</span></span>
+<span id="cb3-15"><a href="#cb3-15" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> cL <span class="op">=</span> <span class="dv">2</span> <span class="op">*</span> <span class="bu">Math</span><span class="op">.</span><span class="cn">PI</span> <span class="op">*</span> alpha<span class="op">;</span> <span class="co">// Lift coefficient</span></span>
+<span id="cb3-16"><a href="#cb3-16" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> cD <span class="op">=</span> <span class="fl">0.04</span> <span class="op">+</span> (cL <span class="op">*</span> cL) <span class="op">/</span> (<span class="bu">Math</span><span class="op">.</span><span class="cn">PI</span> <span class="op">*</span> <span class="fl">8.0</span>)<span class="op">;</span> <span class="co">// Parasitic + induced drag</span></span>
+<span id="cb3-17"><a href="#cb3-17" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-18"><a href="#cb3-18" aria-hidden="true" tabindex="-1"></a>  <span class="co">// Calculate magnitudes: Force = 0.5 * rho * v^2 * Area * C</span></span>
+<span id="cb3-19"><a href="#cb3-19" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> airDensity <span class="op">=</span> <span class="fl">0.001</span><span class="op">;</span></span>
+<span id="cb3-20"><a href="#cb3-20" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> wingArea <span class="op">=</span> <span class="dv">20</span><span class="op">;</span></span>
+<span id="cb3-21"><a href="#cb3-21" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> liftMag <span class="op">=</span> <span class="fl">0.5</span> <span class="op">*</span> airDensity <span class="op">*</span> speedSq <span class="op">*</span> wingArea <span class="op">*</span> cL<span class="op">;</span></span>
+<span id="cb3-22"><a href="#cb3-22" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> dragMag <span class="op">=</span> <span class="fl">0.5</span> <span class="op">*</span> airDensity <span class="op">*</span> speedSq <span class="op">*</span> wingArea <span class="op">*</span> cD<span class="op">;</span></span>
+<span id="cb3-23"><a href="#cb3-23" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-24"><a href="#cb3-24" aria-hidden="true" tabindex="-1"></a>  <span class="co">// Resolve vectors</span></span>
+<span id="cb3-25"><a href="#cb3-25" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> liftAngle <span class="op">=</span> velocityAngle <span class="op">-</span> <span class="bu">Math</span><span class="op">.</span><span class="cn">PI</span> <span class="op">/</span> <span class="dv">2</span><span class="op">;</span></span>
+<span id="cb3-26"><a href="#cb3-26" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> dragAngle <span class="op">=</span> velocityAngle <span class="op">+</span> <span class="bu">Math</span><span class="op">.</span><span class="cn">PI</span><span class="op">;</span></span>
+<span id="cb3-27"><a href="#cb3-27" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-28"><a href="#cb3-28" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> totalForce <span class="op">=</span> {</span>
+<span id="cb3-29"><a href="#cb3-29" aria-hidden="true" tabindex="-1"></a>    <span class="dt">x</span><span class="op">:</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">cos</span>(liftAngle) <span class="op">*</span> liftMag <span class="op">+</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">cos</span>(dragAngle) <span class="op">*</span> dragMag<span class="op">,</span></span>
+<span id="cb3-30"><a href="#cb3-30" aria-hidden="true" tabindex="-1"></a>    <span class="dt">y</span><span class="op">:</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">sin</span>(liftAngle) <span class="op">*</span> liftMag <span class="op">+</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">sin</span>(dragAngle) <span class="op">*</span> dragMag</span>
+<span id="cb3-31"><a href="#cb3-31" aria-hidden="true" tabindex="-1"></a>  }<span class="op">;</span></span>
+<span id="cb3-32"><a href="#cb3-32" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-33"><a href="#cb3-33" aria-hidden="true" tabindex="-1"></a>  Matter<span class="op">.</span><span class="at">Body</span><span class="op">.</span><span class="fu">applyForce</span>(glider<span class="op">,</span> glider<span class="op">.</span><span class="at">position</span><span class="op">,</span> totalForce)<span class="op">;</span></span>
+<span id="cb3-34"><a href="#cb3-34" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<h3 id="3-implementing-thermalling-and-circling">3. Implementing
+Thermalling and Circling</h3>
+<p>To simulate "thermalling" (circling within an updraft) in a 2D
+environment, the glider must continuously alter its attitude
+(pitch/bank) to stay inside the thermal's radius:</p>
+<ol type="1">
+<li><strong>Sink Rate vs. Updraft:</strong> In still air, the glider
+maintains a polar sink rate determined by its drag. To climb, the
+thermal updraft must exceed this sink rate.</li>
+<li><strong>Turn Mechanics:</strong> In a 2D side-view simulation,
+cycling through turn states can be represented by varying the glider's
+effective wing area or periodically reversing its horizontal velocity
+while increasing drag to simulate bank-angle lift loss.</li>
+<li><strong>Top-Down Implementation Alternative:</strong> In a top-down
+view (X/Y plane represents ground coordinates), thermalling is achieved
+by applying continuous torque to pitch the glider in a circle:</li>
+</ol>
+<div class="sourceCode" id="cb4"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Continuous turn input to core the thermal</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> bankTorque <span class="op">=</span> <span class="fl">0.0002</span><span class="op">;</span></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>Matter<span class="op">.</span><span class="at">Body</span><span class="op">.</span><span class="fu">setAngularVelocity</span>(glider<span class="op">,</span> glider<span class="op">.</span><span class="at">angularVelocity</span> <span class="op">+</span> bankTorque)<span class="op">;</span></span></code></pre></div>
+<h3 id="integration-loop">Integration Loop</h3>
+<p>Tie the system together using the Matter.js engine loop:</p>
+<div class="sourceCode" id="cb5"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a>Matter<span class="op">.</span><span class="at">Events</span><span class="op">.</span><span class="fu">on</span>(engine<span class="op">,</span> <span class="st">&#39;beforeUpdate&#39;</span><span class="op">,</span> () <span class="kw">=&gt;</span> {</span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">applyGliderAerodynamics</span>(glider)<span class="op">;</span></span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">applyThermalForces</span>(glider<span class="op">,</span> thermal)<span class="op">;</span></span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a>  <span class="co">// Slowly drift thermal upward or downwind</span></span>
+<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a>  thermal<span class="op">.</span><span class="at">x</span> <span class="op">+=</span> <span class="fl">0.1</span><span class="op">;</span> <span class="co">// Wind drift</span></span>
+<span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a>  thermal<span class="op">.</span><span class="at">yBottom</span> <span class="op">-=</span> thermal<span class="op">.</span><span class="at">verticalSpeed</span><span class="op">;</span></span>
+<span id="cb5-8"><a href="#cb5-8" aria-hidden="true" tabindex="-1"></a>  thermal<span class="op">.</span><span class="at">yTop</span> <span class="op">-=</span> thermal<span class="op">.</span><span class="at">verticalSpeed</span><span class="op">;</span></span>
+<span id="cb5-9"><a href="#cb5-9" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div>
+<p>This combination creates an equilibrium where the glider continuously
+trades altitude for airspeed, while the external energy injected by the
+thermal field offsets drag losses, allowing the aircraft to climb.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/matter.js'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/matter.js/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/matter.js/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>What Is Sweep and Prune and Does Matter.js Support It? - matter.js</title>
+    <meta name="description" content="This article explores the sweep-and-prune algorithm, a widely used broadphase collision detection technique in physics engines, and clarifies whether the popular 2D JavaScript physics engine, Matter.js, supports it natively. You will learn the fundamenta">
+    <link rel="canonical" href="https://salivity.github.io/matter.js/article/what-is-sweep-and-prune-and-does-matter-js-support-it">
+    <link rel="search" type="application/opensearchdescription+xml" title="matter.js" href="/matter.js/opensearch.xml">
+    <link rel="icon" href="/matter.js/favicon.ico">
+    <link rel="stylesheet" href="/matter.js/css/style.css">
+    <link media="print" rel="stylesheet" href="/matter.js/css/print.css">
+    <script src="/matter.js/js/fuse.min.js"></script>
+    <script src="/matter.js/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="What Is Sweep and Prune and Does Matter.js Support It? - matter.js" />
+    <meta property="og:url" content="https://salivity.github.io/matter.js/article/what-is-sweep-and-prune-and-does-matter-js-support-it" />
+    <meta property="og:image" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article explores the sweep-and-prune algorithm, a widely used broadphase collision detection technique in physics engines, and clarifies whether the popular 2D JavaScript physics engine, Matter.js, supports it natively. You will learn the fundamenta" />
+    <link rel="manifest" href="/matter.js/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/matter.js/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>matter.js</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/matter.js/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="what-is-sweep-and-prune-and-does-matterjs-support-it">What Is
+Sweep and Prune and Does Matter.js Support It?</h1>
+<p>This article explores the sweep-and-prune algorithm, a widely used
+broadphase collision detection technique in physics engines, and
+clarifies whether the popular 2D JavaScript physics engine, Matter.js,
+supports it natively. You will learn the fundamental mechanics of how
+sweep and prune optimizes collision checks, how Matter.js handles
+broadphase collision detection instead, and what alternatives exist for
+developers seeking to use sweep and prune with Matter.js.</p>
+<h2 id="what-is-the-sweep-and-prune-algorithm">What Is the
+Sweep-and-Prune Algorithm?</h2>
+<p>Sweep and prune (also known as sort and sweep) is an optimization
+algorithm used during the broadphase stage of collision detection. In
+real-time physics simulations, checking every single object against
+every other object results in an <span
+class="math inline">\(O(n^2)\)</span> time complexity, which quickly
+degrades performance as object counts grow. Broadphase algorithms
+eliminate distant pairs before expensive narrowphase algorithms—such as
+the Separating Axis Theorem (SAT)—perform exact collision geometry
+tests.</p>
+<p>The sweep-and-prune algorithm works through three primary steps:</p>
+<ol type="1">
+<li><strong>Bounding Volume Extraction:</strong> Each object in the
+simulation is wrapped in an Axis-Aligned Bounding Box (AABB).</li>
+<li><strong>Sorting (Sweep):</strong> The minimum and maximum coordinate
+values of these bounding boxes are projected onto one or more principal
+axes (usually the X or Y axis). The algorithm sorts these endpoints in
+ascending order.</li>
+<li><strong>Pruning:</strong> The algorithm traverses the sorted list.
+When an object's start marker appears, it is added to an active interval
+list. Any other active intervals encountered before this object's end
+marker are registered as potential overlapping pairs. Objects outside
+these bounds are discarded immediately.</li>
+</ol>
+<p>A major strength of sweep and prune is its exploitation of "temporal
+coherence." Because physical objects typically move small distances
+between consecutive frames, the sorted list from the previous frame is
+almost sorted in the current frame. Using algorithms like insertion
+sort, maintaining the sorted list can approach optimal <span
+class="math inline">\(O(n)\)</span> time complexity.</p>
+<h2 id="does-matterjs-support-sweep-and-prune">Does Matter.js Support
+Sweep and Prune?</h2>
+<p>Matter.js does not provide a native, built-in sweep-and-prune
+broadphase implementation out of the box.</p>
+<p>Instead of sweep and prune, Matter.js relies on two primary
+mechanisms for handling collisions:</p>
+<ul>
+<li><strong>Spatial Hashing / Grid Broadphase:</strong> Matter.js
+includes a grid-based spatial partitioning broadphase
+(<code>Matter.Grid</code>). This partitions the simulation space into
+discrete buckets or cells. Objects are assigned to cells based on their
+coordinates, and collision checks are limited to objects sharing the
+same grid cells.</li>
+<li><strong>Bounding Box Filtering in
+<code>Matter.Detector</code>:</strong> Matter.js uses a collision
+detector that performs standard AABB overlap tests before executing
+exact narrowphase geometry calculations using the Separating Axis
+Theorem (<code>Matter.SAT</code>).</li>
+</ul>
+<p>While sweep and prune is absent in the core library, the modular
+architecture of Matter.js allows developers to replace or augment
+default engine behaviors. If an application requires a sweep-and-prune
+broadphase—such as in simulations where objects are distributed unevenly
+across vast distances where grids become inefficient—developers must
+write a custom broadphase module or integrate third-party
+sweep-and-prune libraries to pre-filter collision pairs before passing
+them to Matter.js's narrowphase solver.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/matter.js'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/matter.js/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/matter.js/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

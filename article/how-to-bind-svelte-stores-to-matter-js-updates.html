@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How to Bind Svelte Stores to Matter.js Updates - matter.js</title>
+    <meta name="description" content="Integrating Matter.js with Svelte allows you to drive reactive web interfaces using real-world 2D physics. This guide demonstrates how to synchronize Matter.js engine updates directly with Svelte reactive stores using Matter.js event hooks. By bridging t">
+    <link rel="canonical" href="https://salivity.github.io/matter.js/article/how-to-bind-svelte-stores-to-matter-js-updates">
+    <link rel="search" type="application/opensearchdescription+xml" title="matter.js" href="/matter.js/opensearch.xml">
+    <link rel="icon" href="/matter.js/favicon.ico">
+    <link rel="stylesheet" href="/matter.js/css/style.css">
+    <link media="print" rel="stylesheet" href="/matter.js/css/print.css">
+    <script src="/matter.js/js/fuse.min.js"></script>
+    <script src="/matter.js/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How to Bind Svelte Stores to Matter.js Updates - matter.js" />
+    <meta property="og:url" content="https://salivity.github.io/matter.js/article/how-to-bind-svelte-stores-to-matter-js-updates" />
+    <meta property="og:image" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Integrating Matter.js with Svelte allows you to drive reactive web interfaces using real-world 2D physics. This guide demonstrates how to synchronize Matter.js engine updates directly with Svelte reactive stores using Matter.js event hooks. By bridging t" />
+    <link rel="manifest" href="/matter.js/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/matter.js/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>matter.js</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/matter.js/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="how-to-bind-svelte-stores-to-matterjs-updates">How to Bind
+Svelte Stores to Matter.js Updates</h1>
+<p>Integrating Matter.js with Svelte allows you to drive reactive web
+interfaces using real-world 2D physics. This guide demonstrates how to
+synchronize Matter.js engine updates directly with Svelte reactive
+stores using Matter.js event hooks. By bridging the physics runner's
+tick lifecycle with Svelte's <code>writable</code> stores, you can build
+declarative components that react automatically to physical movements,
+collisions, and state changes.</p>
+<h3 id="the-synchronization-architecture">The Synchronization
+Architecture</h3>
+<p>Matter.js operates on an imperative loop driven by
+<code>Matter.Runner</code> or <code>requestAnimationFrame</code>,
+continuously updating physical properties such as position, velocity,
+and rotation. Svelte operates declaratively, rendering updates when
+internal stores change.</p>
+<p>To connect the two systems efficiently:</p>
+<ol type="1">
+<li>Initialize a Svelte <code>writable</code> store containing the state
+of the physics objects you want to track.</li>
+<li>Hook into the Matter.js engine lifecycle using
+<code>Matter.Events.on(engine, 'afterUpdate', callback)</code>.</li>
+<li>Read the transformed coordinates and rotation angles from target
+<code>Matter.Body</code> instances on every frame.</li>
+<li>Push those updates into the Svelte store using
+<code>store.set()</code>, triggering fine-grained reactivity in the DOM
+or an SVG/Canvas layer.</li>
+</ol>
+<h3 id="implementation-example">Implementation Example</h3>
+<p>The following pattern demonstrates how to bind physics bodies to a
+Svelte store inside a component's lifecycle:</p>
+<pre class="svelte"><code>&lt;script&gt;
+  import { onMount } from &#39;svelte&#39;;
+  import { writable } from &#39;svelte/store&#39;;
+  import Matter from &#39;matter-js&#39;;
+
+  const { Engine, Runner, Bodies, Composite, Events } = Matter;
+
+  // Create a reactive store to hold body transformations
+  const boxState = writable({ x: 0, y: 0, angle: 0 });
+
+  onMount(() =&gt; {
+    // 1. Create engine and world
+    const engine = Engine.create();
+    const world = engine.world;
+
+    // 2. Create physics bodies
+    const box = Bodies.rectangle(200, 100, 50, 50, { restitution: 0.8 });
+    const ground = Bodies.rectangle(200, 400, 400, 40, { isStatic: true });
+    Composite.add(world, [box, ground]);
+
+    // 3. Bind engine updates to the Svelte store
+    Events.on(engine, &#39;afterUpdate&#39;, () =&gt; {
+      boxState.set({
+        x: box.position.x,
+        y: box.position.y,
+        angle: box.angle
+      });
+    });
+
+    // 4. Start the simulation
+    const runner = Runner.create();
+    Runner.run(runner, engine);
+
+    // 5. Cleanup on component destroy
+    return () =&gt; {
+      Runner.stop(runner);
+      Events.off(engine, &#39;afterUpdate&#39;);
+      Composite.clear(world, false);
+      Engine.clear(engine);
+    };
+  });
+&lt;/script&gt;
+
+&lt;!-- Render reactive element driven by the store --&gt;
+&lt;div class=&quot;viewport&quot;&gt;
+  &lt;div 
+    class=&quot;physics-box&quot;
+    style=&quot;transform: translate({$boxState.x}px, {$boxState.y}px) rotate({$boxState.angle}rad);&quot;
+  &gt;&lt;/div&gt;
+  &lt;div class=&quot;ground&quot;&gt;&lt;/div&gt;
+&lt;/div&gt;
+
+&lt;style&gt;
+  .viewport {
+    position: relative;
+    width: 400px;
+    height: 400px;
+    overflow: hidden;
+    border: 1px solid #ccc;
+  }
+
+  .physics-box {
+    position: absolute;
+    top: -25px; /* Offset center point */
+    left: -25px;
+    width: 50px;
+    height: 50px;
+    background: #ff3e00;
+    will-change: transform;
+  }
+
+  .ground {
+    position: absolute;
+    top: 380px;
+    left: 0;
+    width: 400px;
+    height: 40px;
+    background: #333;
+  }
+&lt;/style&gt;</code></pre>
+<h3 id="performance-considerations">Performance Considerations</h3>
+<p>While updating a Svelte store every frame works smoothly for a small
+number of bodies, high object counts can degrade performance due to
+frequent reactivity cycles. To optimize throughput:</p>
+<ul>
+<li><strong>Batch Store Updates:</strong> When tracking multiple bodies,
+store their coordinates inside an array or map within a single store
+update rather than emitting individual updates per object.</li>
+<li><strong>Filter Unchanged State:</strong> Check
+<code>body.isSleeping</code> or compare current values against previous
+values before calling <code>store.set()</code> to eliminate redundant
+store updates when bodies come to rest.</li>
+<li><strong>Utilize Hardware Acceleration:</strong> Use CSS
+<code>transform</code> via <code>translate3d</code> along with
+<code>will-change: transform</code> on target DOM nodes to ensure
+Svelte's reactive bindings leverage GPU rendering.</li>
+</ul></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/matter.js'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/matter.js/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/matter.js/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

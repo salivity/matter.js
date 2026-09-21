@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Matter.js Composite vs Compound Body Explained - matter.js</title>
+    <meta name="description" content="In Matter.js, both compound bodies and composites are used to group elements together, but they serve entirely different architectural and physical purposes. A compound body is a single rigid physical body constructed from multiple shapes that move toget">
+    <link rel="canonical" href="https://salivity.github.io/matter.js/article/matter-js-composite-vs-compound-body-explained">
+    <link rel="search" type="application/opensearchdescription+xml" title="matter.js" href="/matter.js/opensearch.xml">
+    <link rel="icon" href="/matter.js/favicon.ico">
+    <link rel="stylesheet" href="/matter.js/css/style.css">
+    <link media="print" rel="stylesheet" href="/matter.js/css/print.css">
+    <script src="/matter.js/js/fuse.min.js"></script>
+    <script src="/matter.js/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Matter.js Composite vs Compound Body Explained - matter.js" />
+    <meta property="og:url" content="https://salivity.github.io/matter.js/article/matter-js-composite-vs-compound-body-explained" />
+    <meta property="og:image" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="In Matter.js, both compound bodies and composites are used to group elements together, but they serve entirely different architectural and physical purposes. A compound body is a single rigid physical body constructed from multiple shapes that move toget" />
+    <link rel="manifest" href="/matter.js/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/matter.js/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>matter.js</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/matter.js/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="matterjs-composite-vs-compound-body-explained">Matter.js
+Composite vs Compound Body Explained</h1>
+<p>In Matter.js, both compound bodies and composites are used to group
+elements together, but they serve entirely different architectural and
+physical purposes. A compound body is a single rigid physical body
+constructed from multiple shapes that move together as an indivisible
+unit, whereas a composite is an organizational container used to hold
+and manage multiple independent bodies, constraints, and even other
+composites. Understanding the distinction between the two is essential
+for managing physics simulations, collision behavior, and performance in
+Matter.js.</p>
+<h3 id="what-is-a-compound-body">What Is a Compound Body?</h3>
+<p>A compound body is an instance of <code>Matter.Body</code> formed by
+combining multiple smaller body parts into one rigid object using
+<code>Matter.Body.create({ parts: [...] })</code>.</p>
+<ul>
+<li><strong>Single Rigid Entity:</strong> The individual parts lose
+their independent physical properties. They share a single center of
+mass, total mass, velocity, inertia, and angle.</li>
+<li><strong>Zero Internal Flexibility:</strong> The relative positions
+of the parts are permanently locked. They cannot bend, stretch, or
+rotate independently of each other.</li>
+<li><strong>Complex Geometry:</strong> Matter.js handles concave
+polygons poorly on their own; compound bodies solve this by allowing you
+to construct complex, concave shapes out of multiple convex shapes.</li>
+<li><strong>Collision Behavior:</strong> When any part of a compound
+body collides with an external object, the impact forces apply to the
+entire compound entity as a whole.</li>
+</ul>
+<h3 id="what-is-a-composite">What Is a Composite?</h3>
+<p>A composite (<code>Matter.Composite</code>) is a high-level data
+structure designed to group multiple simulation objects. In fact, the
+top-level simulation environment (<code>engine.world</code>) is itself a
+composite.</p>
+<ul>
+<li><strong>Collection Container:</strong> A composite does not
+represent a physical object itself. Instead, it contains arrays of
+bodies, constraints, and nested composites.</li>
+<li><strong>Independent Physics:</strong> The bodies inside a composite
+retain their own mass, velocity, collisions, and individual physical
+behaviors.</li>
+<li><strong>Flexible Connections:</strong> Bodies within a composite can
+move independently or be linked dynamically using
+<code>Matter.Constraint</code> objects (such as springs, joints, or
+elastic bands).</li>
+<li><strong>Hierarchical Structure:</strong> Composites can be nested
+inside other composites, making them ideal for managing complex,
+multi-part systems.</li>
+</ul>
+<h3 id="key-differences">Key Differences</h3>
+<h4 id="1-rigidity-vs-flexibility">1. Rigidity vs. Flexibility</h4>
+<p>A compound body is strictly rigid. If you build a vehicle as a
+compound body, the chassis and wheels are welded together permanently,
+meaning the wheels cannot rotate around an axle. In contrast, building a
+vehicle using a composite allows you to create the chassis and wheels as
+separate bodies connected by constraints, enabling wheel rotation and
+suspension movement.</p>
+<h4 id="2-collision-and-physics-processing">2. Collision and Physics
+Processing</h4>
+<p>In a compound body, internal parts do not collide with one another.
+Matter.js calculates collision vertices for all parts and treats the
+outcome as an interaction with a single body. In a composite, every body
+inside the container is treated as an individual actor in the broadphase
+and narrowphase collision pipeline, meaning they can collide with each
+other unless explicitly disabled via collision filters.</p>
+<h4 id="3-management-and-manipulation">3. Management and
+Manipulation</h4>
+<p>You apply forces, torques, and velocities directly to a compound
+body, and all constituent parts react instantly in unison. With a
+composite, you cannot directly apply a single physical force to the
+composite itself; you must apply forces to individual bodies within the
+composite or iterate over its collection.</p>
+<h3 id="when-to-use-which">When to Use Which</h3>
+<ul>
+<li><strong>Use a Compound Body when:</strong> You need a single,
+unbreakable, rigid object with a complex shape (such as an L-shaped
+block, a hollow container, or a complex concave game obstacle).</li>
+<li><strong>Use a Composite when:</strong> You need to model articulated
+systems with moving parts (such as ragdolls, ropes, cloth simulations,
+or vehicles with functional wheels), or when organizing game levels into
+modular, manageable groups.</li>
+</ul></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/matter.js'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/matter.js/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/matter.js/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

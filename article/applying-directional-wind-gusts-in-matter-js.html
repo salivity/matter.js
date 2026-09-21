@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Applying Directional Wind Gusts in Matter.js - matter.js</title>
+    <meta name="description" content="This guide explains how to simulate realistic, directional wind gusts with randomized noise parameters in Matter.js. Because Matter.js does not feature a native environmental force engine, you must calculate dynamic vector forces and apply them to target">
+    <link rel="canonical" href="https://salivity.github.io/matter.js/article/applying-directional-wind-gusts-in-matter-js">
+    <link rel="search" type="application/opensearchdescription+xml" title="matter.js" href="/matter.js/opensearch.xml">
+    <link rel="icon" href="/matter.js/favicon.ico">
+    <link rel="stylesheet" href="/matter.js/css/style.css">
+    <link media="print" rel="stylesheet" href="/matter.js/css/print.css">
+    <script src="/matter.js/js/fuse.min.js"></script>
+    <script src="/matter.js/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Applying Directional Wind Gusts in Matter.js - matter.js" />
+    <meta property="og:url" content="https://salivity.github.io/matter.js/article/applying-directional-wind-gusts-in-matter-js" />
+    <meta property="og:image" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This guide explains how to simulate realistic, directional wind gusts with randomized noise parameters in Matter.js. Because Matter.js does not feature a native environmental force engine, you must calculate dynamic vector forces and apply them to target" />
+    <link rel="manifest" href="/matter.js/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/matter.js/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>matter.js</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/matter.js/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="applying-directional-wind-gusts-in-matterjs">Applying
+Directional Wind Gusts in Matter.js</h1>
+<p>This guide explains how to simulate realistic, directional wind gusts
+with randomized noise parameters in Matter.js. Because Matter.js does
+not feature a native environmental force engine, you must calculate
+dynamic vector forces and apply them to target bodies during the physics
+update cycle. By leveraging the <code>beforeUpdate</code> event
+alongside procedural noise functions like Perlin noise or sinusoidal
+wave combinations, you can generate continuous, organic airflow with
+unpredictable bursts and turbulence.</p>
+<h3 id="1-setting-up-the-wind-loop">1. Setting Up the Wind Loop</h3>
+<p>To affect bodies consistently, wind must be computed and applied
+before every physics step. Hook into the Matter.js engine update loop
+using the <code>Events.on</code> method with the
+<code>beforeUpdate</code> event.</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> { Engine<span class="op">,</span> Events<span class="op">,</span> Body<span class="op">,</span> Vector } <span class="op">=</span> Matter<span class="op">;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> engine <span class="op">=</span> Engine<span class="op">.</span><span class="fu">create</span>()<span class="op">;</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>Events<span class="op">.</span><span class="fu">on</span>(engine<span class="op">,</span> <span class="st">&#39;beforeUpdate&#39;</span><span class="op">,</span> (<span class="bu">event</span>) <span class="kw">=&gt;</span> {</span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> time <span class="op">=</span> <span class="bu">event</span><span class="op">.</span><span class="at">timestamp</span> <span class="op">*</span> <span class="fl">0.001</span><span class="op">;</span> <span class="co">// Current simulation time in seconds</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>    <span class="fu">applyWindToBodies</span>(engine<span class="op">.</span><span class="at">world</span><span class="op">.</span><span class="at">bodies</span><span class="op">,</span> time)<span class="op">;</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div>
+<h3 id="2-generating-randomized-noise-parameters">2. Generating
+Randomized Noise Parameters</h3>
+<p>True random values (<code>Math.random()</code>) create jittery,
+unnatural motion. For realistic wind gusts, use coherent noise—such as
+Simplex noise or multi-octave sine approximations—to vary wind speed and
+direction smoothly over time.</p>
+<p>Below is an implementation using layered sine waves to approximate
+continuous 1D noise without external dependencies:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">getNoise</span>(time<span class="op">,</span> frequency<span class="op">,</span> seed <span class="op">=</span> <span class="dv">0</span>) {</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> (</span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>        <span class="bu">Math</span><span class="op">.</span><span class="fu">sin</span>(time <span class="op">*</span> frequency <span class="op">+</span> seed) <span class="op">*</span> <span class="fl">0.5</span> <span class="op">+</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>        <span class="bu">Math</span><span class="op">.</span><span class="fu">sin</span>(time <span class="op">*</span> frequency <span class="op">*</span> <span class="fl">2.3</span> <span class="op">+</span> seed <span class="op">*</span> <span class="fl">1.5</span>) <span class="op">*</span> <span class="fl">0.3</span> <span class="op">+</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>        <span class="bu">Math</span><span class="op">.</span><span class="fu">sin</span>(time <span class="op">*</span> frequency <span class="op">*</span> <span class="fl">5.1</span> <span class="op">+</span> seed <span class="op">*</span> <span class="fl">2.0</span>) <span class="op">*</span> <span class="fl">0.2</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>    )<span class="op">;</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<h3 id="3-calculating-the-directional-wind-vector">3. Calculating the
+Directional Wind Vector</h3>
+<p>Combine a base directional vector with noise-driven offsets for gust
+intensity and directional variance.</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> windConfig <span class="op">=</span> {</span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>    <span class="dt">baseDirection</span><span class="op">:</span> { <span class="dt">x</span><span class="op">:</span> <span class="dv">1</span><span class="op">,</span> <span class="dt">y</span><span class="op">:</span> <span class="op">-</span><span class="fl">0.1</span> }<span class="op">,</span> <span class="co">// Generally blowing right, slightly upward</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>    <span class="dt">baseStrength</span><span class="op">:</span> <span class="fl">0.0005</span><span class="op">,</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>    <span class="dt">gustFrequency</span><span class="op">:</span> <span class="fl">0.8</span><span class="op">,</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>    <span class="dt">gustScale</span><span class="op">:</span> <span class="fl">0.002</span><span class="op">,</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>    <span class="dt">turbulenceFrequency</span><span class="op">:</span> <span class="fl">2.5</span><span class="op">,</span></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>    <span class="dt">turbulenceScale</span><span class="op">:</span> <span class="fl">0.3</span> <span class="co">// Radians of angle variation</span></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>}<span class="op">;</span></span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">calculateWindForce</span>(time) {</span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a>    <span class="co">// 1. Calculate gust magnitude (0 to 1)</span></span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> gustNoise <span class="op">=</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">max</span>(<span class="dv">0</span><span class="op">,</span> <span class="fu">getNoise</span>(time<span class="op">,</span> windConfig<span class="op">.</span><span class="at">gustFrequency</span><span class="op">,</span> <span class="dv">42</span>))<span class="op">;</span></span>
+<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> totalStrength <span class="op">=</span> windConfig<span class="op">.</span><span class="at">baseStrength</span> <span class="op">+</span> (gustNoise <span class="op">*</span> windConfig<span class="op">.</span><span class="at">gustScale</span>)<span class="op">;</span></span>
+<span id="cb3-14"><a href="#cb3-14" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-15"><a href="#cb3-15" aria-hidden="true" tabindex="-1"></a>    <span class="co">// 2. Calculate directional turbulence (angle deviation)</span></span>
+<span id="cb3-16"><a href="#cb3-16" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> angleOffset <span class="op">=</span> <span class="fu">getNoise</span>(time<span class="op">,</span> windConfig<span class="op">.</span><span class="at">turbulenceFrequency</span><span class="op">,</span> <span class="dv">99</span>) <span class="op">*</span> windConfig<span class="op">.</span><span class="at">turbulenceScale</span><span class="op">;</span></span>
+<span id="cb3-17"><a href="#cb3-17" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> baseAngle <span class="op">=</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">atan2</span>(windConfig<span class="op">.</span><span class="at">baseDirection</span><span class="op">.</span><span class="at">y</span><span class="op">,</span> windConfig<span class="op">.</span><span class="at">baseDirection</span><span class="op">.</span><span class="at">x</span>)<span class="op">;</span></span>
+<span id="cb3-18"><a href="#cb3-18" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> finalAngle <span class="op">=</span> baseAngle <span class="op">+</span> angleOffset<span class="op">;</span></span>
+<span id="cb3-19"><a href="#cb3-19" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-20"><a href="#cb3-20" aria-hidden="true" tabindex="-1"></a>    <span class="co">// 3. Create final directional force vector</span></span>
+<span id="cb3-21"><a href="#cb3-21" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> {</span>
+<span id="cb3-22"><a href="#cb3-22" aria-hidden="true" tabindex="-1"></a>        <span class="dt">x</span><span class="op">:</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">cos</span>(finalAngle) <span class="op">*</span> totalStrength<span class="op">,</span></span>
+<span id="cb3-23"><a href="#cb3-23" aria-hidden="true" tabindex="-1"></a>        <span class="dt">y</span><span class="op">:</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">sin</span>(finalAngle) <span class="op">*</span> totalStrength</span>
+<span id="cb3-24"><a href="#cb3-24" aria-hidden="true" tabindex="-1"></a>    }<span class="op">;</span></span>
+<span id="cb3-25"><a href="#cb3-25" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<h3 id="4-applying-the-force-to-bodies">4. Applying the Force to
+Bodies</h3>
+<p>Iterate over the active bodies in the simulation, ensuring static
+bodies are ignored. Scale the force based on the surface area or mass of
+the body if you want larger objects to experience proportional drag.</p>
+<div class="sourceCode" id="cb4"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">applyWindToBodies</span>(bodies<span class="op">,</span> time) {</span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> windForce <span class="op">=</span> <span class="fu">calculateWindForce</span>(time)<span class="op">;</span></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> (<span class="kw">let</span> i <span class="op">=</span> <span class="dv">0</span><span class="op">;</span> i <span class="op">&lt;</span> bodies<span class="op">.</span><span class="at">length</span><span class="op">;</span> i<span class="op">++</span>) {</span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>        <span class="kw">const</span> body <span class="op">=</span> bodies[i]<span class="op">;</span></span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a>        <span class="co">// Skip static bodies and sleeping bodies</span></span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> (body<span class="op">.</span><span class="at">isStatic</span> <span class="op">||</span> body<span class="op">.</span><span class="at">isSleeping</span>) <span class="cf">continue</span><span class="op">;</span></span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a>        <span class="co">// Apply aerodynamic drag factor based on mass or surface area</span></span>
+<span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a>        <span class="kw">const</span> dragFactor <span class="op">=</span> body<span class="op">.</span><span class="at">mass</span><span class="op">;</span> </span>
+<span id="cb4-12"><a href="#cb4-12" aria-hidden="true" tabindex="-1"></a>        <span class="kw">const</span> scaledForce <span class="op">=</span> {</span>
+<span id="cb4-13"><a href="#cb4-13" aria-hidden="true" tabindex="-1"></a>            <span class="dt">x</span><span class="op">:</span> windForce<span class="op">.</span><span class="at">x</span> <span class="op">*</span> dragFactor<span class="op">,</span></span>
+<span id="cb4-14"><a href="#cb4-14" aria-hidden="true" tabindex="-1"></a>            <span class="dt">y</span><span class="op">:</span> windForce<span class="op">.</span><span class="at">y</span> <span class="op">*</span> dragFactor</span>
+<span id="cb4-15"><a href="#cb4-15" aria-hidden="true" tabindex="-1"></a>        }<span class="op">;</span></span>
+<span id="cb4-16"><a href="#cb4-16" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-17"><a href="#cb4-17" aria-hidden="true" tabindex="-1"></a>        <span class="co">// Apply force at the center of mass</span></span>
+<span id="cb4-18"><a href="#cb4-18" aria-hidden="true" tabindex="-1"></a>        Body<span class="op">.</span><span class="fu">applyForce</span>(body<span class="op">,</span> body<span class="op">.</span><span class="at">position</span><span class="op">,</span> scaledForce)<span class="op">;</span></span>
+<span id="cb4-19"><a href="#cb4-19" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb4-20"><a href="#cb4-20" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<h3 id="5-adding-spatial-noise-optional">5. Adding Spatial Noise
+(Optional)</h3>
+<p>If your canvas is large, wind forces should vary by location as well
+as time. Incorporate the body's coordinates into the noise function:</p>
+<div class="sourceCode" id="cb5"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">calculateSpatialWindForce</span>(time<span class="op">,</span> position) {</span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> spatialSeed <span class="op">=</span> position<span class="op">.</span><span class="at">x</span> <span class="op">*</span> <span class="fl">0.005</span> <span class="op">+</span> position<span class="op">.</span><span class="at">y</span> <span class="op">*</span> <span class="fl">0.002</span><span class="op">;</span></span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> localGust <span class="op">=</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">max</span>(<span class="dv">0</span><span class="op">,</span> <span class="fu">getNoise</span>(time <span class="op">+</span> spatialSeed<span class="op">,</span> windConfig<span class="op">.</span><span class="at">gustFrequency</span><span class="op">,</span> <span class="dv">42</span>))<span class="op">;</span></span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> strength <span class="op">=</span> windConfig<span class="op">.</span><span class="at">baseStrength</span> <span class="op">+</span> (localGust <span class="op">*</span> windConfig<span class="op">.</span><span class="at">gustScale</span>)<span class="op">;</span></span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> {</span>
+<span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a>        <span class="dt">x</span><span class="op">:</span> windConfig<span class="op">.</span><span class="at">baseDirection</span><span class="op">.</span><span class="at">x</span> <span class="op">*</span> strength<span class="op">,</span></span>
+<span id="cb5-8"><a href="#cb5-8" aria-hidden="true" tabindex="-1"></a>        <span class="dt">y</span><span class="op">:</span> windConfig<span class="op">.</span><span class="at">baseDirection</span><span class="op">.</span><span class="at">y</span> <span class="op">*</span> strength</span>
+<span id="cb5-9"><a href="#cb5-9" aria-hidden="true" tabindex="-1"></a>    }<span class="op">;</span></span>
+<span id="cb5-10"><a href="#cb5-10" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<p>Passing <code>body.position</code> into this function before invoking
+<code>Body.applyForce</code> ensures that wind gusts roll across the
+screen across different positions rather than hitting all bodies
+simultaneously.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/matter.js'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/matter.js/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/matter.js/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

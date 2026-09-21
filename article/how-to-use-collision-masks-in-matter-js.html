@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How to Use Collision Masks in Matter.js - matter.js</title>
+    <meta name="description" content="This guide explains how to control object interactions in Matter.js using collision categories and masks. By leveraging bitwise flags, you can precisely define which physics bodies collide with one another and which pass through each other harmlessly. Yo">
+    <link rel="canonical" href="https://salivity.github.io/matter.js/article/how-to-use-collision-masks-in-matter-js">
+    <link rel="search" type="application/opensearchdescription+xml" title="matter.js" href="/matter.js/opensearch.xml">
+    <link rel="icon" href="/matter.js/favicon.ico">
+    <link rel="stylesheet" href="/matter.js/css/style.css">
+    <link media="print" rel="stylesheet" href="/matter.js/css/print.css">
+    <script src="/matter.js/js/fuse.min.js"></script>
+    <script src="/matter.js/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How to Use Collision Masks in Matter.js - matter.js" />
+    <meta property="og:url" content="https://salivity.github.io/matter.js/article/how-to-use-collision-masks-in-matter-js" />
+    <meta property="og:image" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This guide explains how to control object interactions in Matter.js using collision categories and masks. By leveraging bitwise flags, you can precisely define which physics bodies collide with one another and which pass through each other harmlessly. Yo" />
+    <link rel="manifest" href="/matter.js/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/matter.js/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>matter.js</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/matter.js/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="how-to-use-collision-masks-in-matterjs">How to Use Collision
+Masks in Matter.js</h1>
+<p>This guide explains how to control object interactions in Matter.js
+using collision categories and masks. By leveraging bitwise flags, you
+can precisely define which physics bodies collide with one another and
+which pass through each other harmlessly. You will learn the mechanics
+behind the <code>collisionFilter</code> object, how to define unique
+categories, and how to write clear code to enforce these rules in your
+simulation.</p>
+<hr />
+<h3 id="understanding-the-collision-filter">Understanding the Collision
+Filter</h3>
+<p>Matter.js uses a <code>collisionFilter</code> object attached to each
+body to determine whether two bodies can physically interact. This
+object contains two primary properties relevant to masking:</p>
+<ul>
+<li><strong><code>category</code></strong>: A bit field specifying the
+group(s) the body belongs to.</li>
+<li><strong><code>mask</code></strong>: A bit field specifying all the
+categories this body is allowed to collide with.</li>
+</ul>
+<p>For two bodies, <code>bodyA</code> and <code>bodyB</code>, to
+collide, <strong>both</strong> of the following conditions must be
+met:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a>(bodyA<span class="op">.</span><span class="at">collisionFilter</span><span class="op">.</span><span class="at">mask</span> <span class="op">&amp;</span> bodyB<span class="op">.</span><span class="at">collisionFilter</span><span class="op">.</span><span class="at">category</span>) <span class="op">!==</span> <span class="dv">0</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>(bodyB<span class="op">.</span><span class="at">collisionFilter</span><span class="op">.</span><span class="at">mask</span> <span class="op">&amp;</span> bodyA<span class="op">.</span><span class="at">collisionFilter</span><span class="op">.</span><span class="at">category</span>) <span class="op">!==</span> <span class="dv">0</span></span></code></pre></div>
+<p>If either evaluation results in <code>0</code>, no collision will
+occur.</p>
+<hr />
+<h3 id="defining-categories-with-bitwise-flags">Defining Categories with
+Bitwise Flags</h3>
+<p>Categories in Matter.js must be powers of two (up to 32 unique
+categories, representing 32-bit integers). You can define these using
+hexadecimal notation or bit-shift operators:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> defaultCategory <span class="op">=</span> <span class="bn">0x0001</span><span class="op">;</span> <span class="co">// 1 &lt;&lt; 0</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> playerCategory  <span class="op">=</span> <span class="bn">0x0002</span><span class="op">;</span> <span class="co">// 1 &lt;&lt; 1</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> enemyCategory   <span class="op">=</span> <span class="bn">0x0004</span><span class="op">;</span> <span class="co">// 1 &lt;&lt; 2</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> groundCategory  <span class="op">=</span> <span class="bn">0x0008</span><span class="op">;</span> <span class="co">// 1 &lt;&lt; 3</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> bulletCategory  <span class="op">=</span> <span class="bn">0x0010</span><span class="op">;</span> <span class="co">// 1 &lt;&lt; 4</span></span></code></pre></div>
+<hr />
+<h3 id="combining-categories-for-the-mask">Combining Categories for the
+Mask</h3>
+<p>To allow a body to collide with multiple categories, combine those
+categories using the bitwise OR operator (<code>|</code>).</p>
+<h4 id="example-scenario">Example Scenario</h4>
+<ul>
+<li><strong>Ground</strong>: Collides with everything
+(<code>playerCategory | enemyCategory | bulletCategory</code>).</li>
+<li><strong>Player</strong>: Collides with ground and enemies, but
+ignores bullets.</li>
+<li><strong>Bullet</strong>: Collides with ground and enemies, but
+passes through the player.</li>
+<li><strong>Enemy</strong>: Collides with ground, player, and
+bullets.</li>
+</ul>
+<hr />
+<h3 id="implementation-example">Implementation Example</h3>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> { Bodies } <span class="op">=</span> Matter<span class="op">;</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a><span class="co">// 1. Define Categories</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> CATEGORY_GROUND <span class="op">=</span> <span class="bn">0x0001</span><span class="op">;</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> CATEGORY_PLAYER <span class="op">=</span> <span class="bn">0x0002</span><span class="op">;</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> CATEGORY_ENEMY  <span class="op">=</span> <span class="bn">0x0004</span><span class="op">;</span></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> CATEGORY_BULLET <span class="op">=</span> <span class="bn">0x0008</span><span class="op">;</span></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a><span class="co">// 2. Create the Ground</span></span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> ground <span class="op">=</span> Bodies<span class="op">.</span><span class="fu">rectangle</span>(<span class="dv">400</span><span class="op">,</span> <span class="dv">600</span><span class="op">,</span> <span class="dv">800</span><span class="op">,</span> <span class="dv">50</span><span class="op">,</span> {</span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a>  <span class="dt">isStatic</span><span class="op">:</span> <span class="kw">true</span><span class="op">,</span></span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a>  <span class="dt">collisionFilter</span><span class="op">:</span> {</span>
+<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a>    <span class="dt">category</span><span class="op">:</span> CATEGORY_GROUND<span class="op">,</span></span>
+<span id="cb3-14"><a href="#cb3-14" aria-hidden="true" tabindex="-1"></a>    <span class="dt">mask</span><span class="op">:</span> CATEGORY_PLAYER <span class="op">|</span> CATEGORY_ENEMY <span class="op">|</span> CATEGORY_BULLET</span>
+<span id="cb3-15"><a href="#cb3-15" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb3-16"><a href="#cb3-16" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span>
+<span id="cb3-17"><a href="#cb3-17" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-18"><a href="#cb3-18" aria-hidden="true" tabindex="-1"></a><span class="co">// 3. Create the Player</span></span>
+<span id="cb3-19"><a href="#cb3-19" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> player <span class="op">=</span> Bodies<span class="op">.</span><span class="fu">circle</span>(<span class="dv">200</span><span class="op">,</span> <span class="dv">200</span><span class="op">,</span> <span class="dv">30</span><span class="op">,</span> {</span>
+<span id="cb3-20"><a href="#cb3-20" aria-hidden="true" tabindex="-1"></a>  <span class="dt">collisionFilter</span><span class="op">:</span> {</span>
+<span id="cb3-21"><a href="#cb3-21" aria-hidden="true" tabindex="-1"></a>    <span class="dt">category</span><span class="op">:</span> CATEGORY_PLAYER<span class="op">,</span></span>
+<span id="cb3-22"><a href="#cb3-22" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Collides with ground and enemy, ignores bullets</span></span>
+<span id="cb3-23"><a href="#cb3-23" aria-hidden="true" tabindex="-1"></a>    <span class="dt">mask</span><span class="op">:</span> CATEGORY_GROUND <span class="op">|</span> CATEGORY_ENEMY</span>
+<span id="cb3-24"><a href="#cb3-24" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb3-25"><a href="#cb3-25" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span>
+<span id="cb3-26"><a href="#cb3-26" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-27"><a href="#cb3-27" aria-hidden="true" tabindex="-1"></a><span class="co">// 4. Create the Bullet</span></span>
+<span id="cb3-28"><a href="#cb3-28" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> bullet <span class="op">=</span> Bodies<span class="op">.</span><span class="fu">circle</span>(<span class="dv">250</span><span class="op">,</span> <span class="dv">200</span><span class="op">,</span> <span class="dv">5</span><span class="op">,</span> {</span>
+<span id="cb3-29"><a href="#cb3-29" aria-hidden="true" tabindex="-1"></a>  <span class="dt">collisionFilter</span><span class="op">:</span> {</span>
+<span id="cb3-30"><a href="#cb3-30" aria-hidden="true" tabindex="-1"></a>    <span class="dt">category</span><span class="op">:</span> CATEGORY_BULLET<span class="op">,</span></span>
+<span id="cb3-31"><a href="#cb3-31" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Collides with ground and enemy, ignores player</span></span>
+<span id="cb3-32"><a href="#cb3-32" aria-hidden="true" tabindex="-1"></a>    <span class="dt">mask</span><span class="op">:</span> CATEGORY_GROUND <span class="op">|</span> CATEGORY_ENEMY</span>
+<span id="cb3-33"><a href="#cb3-33" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb3-34"><a href="#cb3-34" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span>
+<span id="cb3-35"><a href="#cb3-35" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-36"><a href="#cb3-36" aria-hidden="true" tabindex="-1"></a><span class="co">// 5. Create an Enemy</span></span>
+<span id="cb3-37"><a href="#cb3-37" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> enemy <span class="op">=</span> Bodies<span class="op">.</span><span class="fu">rectangle</span>(<span class="dv">500</span><span class="op">,</span> <span class="dv">200</span><span class="op">,</span> <span class="dv">40</span><span class="op">,</span> <span class="dv">40</span><span class="op">,</span> {</span>
+<span id="cb3-38"><a href="#cb3-38" aria-hidden="true" tabindex="-1"></a>  <span class="dt">collisionFilter</span><span class="op">:</span> {</span>
+<span id="cb3-39"><a href="#cb3-39" aria-hidden="true" tabindex="-1"></a>    <span class="dt">category</span><span class="op">:</span> CATEGORY_ENEMY<span class="op">,</span></span>
+<span id="cb3-40"><a href="#cb3-40" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Collides with ground, player, and bullets</span></span>
+<span id="cb3-41"><a href="#cb3-41" aria-hidden="true" tabindex="-1"></a>    <span class="dt">mask</span><span class="op">:</span> CATEGORY_GROUND <span class="op">|</span> CATEGORY_PLAYER <span class="op">|</span> CATEGORY_BULLET</span>
+<span id="cb3-42"><a href="#cb3-42" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb3-43"><a href="#cb3-43" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div>
+<hr />
+<h3 id="important-considerations">Important Considerations</h3>
+<ul>
+<li><strong>Symmetry Requirement</strong>: Remember that collision is
+two-way. Even if the bullet's mask includes the player category, the
+collision will fail if the player's mask does not include the bullet
+category.</li>
+<li><strong>The <code>group</code> Property</strong>: If
+<code>collisionFilter.group</code> is set to a non-zero value, it takes
+precedence over categories and masks. Bodies with the same positive
+group value will always collide, while bodies with the same negative
+group value will never collide. To rely strictly on category and mask
+rules, keep <code>group</code> set to <code>0</code> (the default).</li>
+</ul></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/matter.js'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/matter.js/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/matter.js/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

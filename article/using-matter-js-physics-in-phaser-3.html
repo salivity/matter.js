@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Using Matter.js Physics in Phaser 3 - matter.js</title>
+    <meta name="description" content="Yes, you can use Matter.js with Phaser 3, and it is natively integrated directly into the framework. Phaser 3 includes an optimized version of the Matter.js 2D physics engine out of the box, allowing developers to implement advanced simulations with rigi">
+    <link rel="canonical" href="https://salivity.github.io/matter.js/article/using-matter-js-physics-in-phaser-3">
+    <link rel="search" type="application/opensearchdescription+xml" title="matter.js" href="/matter.js/opensearch.xml">
+    <link rel="icon" href="/matter.js/favicon.ico">
+    <link rel="stylesheet" href="/matter.js/css/style.css">
+    <link media="print" rel="stylesheet" href="/matter.js/css/print.css">
+    <script src="/matter.js/js/fuse.min.js"></script>
+    <script src="/matter.js/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Using Matter.js Physics in Phaser 3 - matter.js" />
+    <meta property="og:url" content="https://salivity.github.io/matter.js/article/using-matter-js-physics-in-phaser-3" />
+    <meta property="og:image" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Yes, you can use Matter.js with Phaser 3, and it is natively integrated directly into the framework. Phaser 3 includes an optimized version of the Matter.js 2D physics engine out of the box, allowing developers to implement advanced simulations with rigi" />
+    <link rel="manifest" href="/matter.js/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/matter.js/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>matter.js</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/matter.js/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="using-matterjs-physics-in-phaser-3">Using Matter.js Physics in
+Phaser 3</h1>
+<p>Yes, you can use Matter.js with Phaser 3, and it is natively
+integrated directly into the framework. Phaser 3 includes an optimized
+version of the Matter.js 2D physics engine out of the box, allowing
+developers to implement advanced simulations with rigid bodies,
+constraints, composite shapes, and realistic mass without installing
+external plugins. This guide explains how Phaser 3 integrates Matter.js,
+how to enable it in your configuration, and when to use it over
+alternative physics engines.</p>
+<h3 id="native-integration">Native Integration</h3>
+<p>Phaser 3 provides first-class support for Matter.js alongside its
+lightweight Arcade Physics system. You do not need to import or install
+Matter.js separately. Phaser wraps Matter.js's core functions into
+simple, game-oriented APIs exposed through scene managers and factory
+methods, making advanced physics accessible while retaining the full
+depth of Matter's native engine.</p>
+<h3 id="how-to-enable-matterjs-in-phaser-3">How to Enable Matter.js in
+Phaser 3</h3>
+<p>To use Matter.js, you specify it as the default physics engine in
+your game configuration object.</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> config <span class="op">=</span> {</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>    <span class="dt">type</span><span class="op">:</span> Phaser<span class="op">.</span><span class="at">AUTO</span><span class="op">,</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>    <span class="dt">width</span><span class="op">:</span> <span class="dv">800</span><span class="op">,</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>    <span class="dt">height</span><span class="op">:</span> <span class="dv">600</span><span class="op">,</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>    <span class="dt">physics</span><span class="op">:</span> {</span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>        <span class="cf">default</span><span class="op">:</span> <span class="st">&#39;matter&#39;</span><span class="op">,</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>        <span class="dt">matter</span><span class="op">:</span> {</span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>            <span class="dt">gravity</span><span class="op">:</span> { <span class="dt">y</span><span class="op">:</span> <span class="dv">1</span> }<span class="op">,</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>            <span class="dt">debug</span><span class="op">:</span> <span class="kw">true</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>        }</span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>    }<span class="op">,</span></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>    <span class="dt">scene</span><span class="op">:</span> [ MyScene ]</span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>}<span class="op">;</span></span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> game <span class="op">=</span> <span class="kw">new</span> Phaser<span class="op">.</span><span class="fu">Game</span>(config)<span class="op">;</span></span></code></pre></div>
+<p>Setting <code>debug: true</code> draws outlines around collision
+boundaries, vectors, and velocity lines, which is essential for
+diagnosing complex collisions during development.</p>
+<h3 id="adding-matter-objects-in-scenes">Adding Matter Objects in
+Scenes</h3>
+<p>Once enabled, Matter.js is accessible in your scenes via
+<code>this.matter</code>. You can create standard physics bodies,
+sprites, or composite objects:</p>
+<ul>
+<li><strong>Physics Sprites:</strong> Use
+<code>this.matter.add.sprite(x, y, 'texture')</code> to create a game
+object that behaves like a rigid body.</li>
+<li><strong>Static and Dynamic Bodies:</strong> You can create simple
+shapes like rectangles, circles, or polygons using
+<code>this.matter.add.rectangle()</code> or
+<code>this.matter.add.circle()</code>.</li>
+<li><strong>World Boundaries:</strong> By default, Matter creates world
+walls based on game boundaries, or you can configure custom bounds using
+<code>this.matter.world.setBounds()</code>.</li>
+</ul>
+<h3 id="key-features-of-matterjs-in-phaser-3">Key Features of Matter.js
+in Phaser 3</h3>
+<ul>
+<li><strong>Complex and Concave Polygons:</strong> Unlike Arcade
+Physics, which relies primarily on axis-aligned bounding boxes (AABB)
+and circles, Matter.js supports arbitrary polygons, multi-body convex
+decompositions, and concave shapes.</li>
+<li><strong>Physics Constraints and Springs:</strong> You can easily
+create joints, ropes, springs, and ragdoll systems using
+<code>this.matter.add.constraint()</code>.</li>
+<li><strong>Compound Bodies:</strong> Multiple fixtures can be combined
+into a single rigid body, enabling vehicles with distinct wheels or
+characters with separate hitboxes.</li>
+<li><strong>Realistic Physical Properties:</strong> Bodies support
+properties like mass, density, restitution (bounciness), static and
+dynamic friction, and inertia.</li>
+</ul>
+<h3 id="matterjs-vs-arcade-physics">Matter.js vs. Arcade Physics</h3>
+<p>Choose <strong>Arcade Physics</strong> if you are building fast-paced
+2D platformers, shoot-'em-ups, or games that require simple rectangular
+collision detection without realistic mass or momentum. Arcade Physics
+is significantly faster and uses fewer CPU resources.</p>
+<p>Choose <strong>Matter.js</strong> if your game relies on realistic
+physical interactions, such as tumbling objects, stacking puzzles,
+rolling wheels, swinging ropes, or custom polygon-based terrain.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/matter.js'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/matter.js/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/matter.js/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

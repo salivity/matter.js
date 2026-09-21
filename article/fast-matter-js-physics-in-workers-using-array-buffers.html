@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fast Matter.js Physics in Workers Using ArrayBuffers - matter.js</title>
+    <meta name="description" content="Offloading Matter.js physics calculations to a Web Worker prevents heavy simulation loops from blocking UI interactions and rendering on the main thread. By default, communication via postMessage uses structured cloning, which introduces serialization la">
+    <link rel="canonical" href="https://salivity.github.io/matter.js/article/fast-matter-js-physics-in-workers-using-array-buffers">
+    <link rel="search" type="application/opensearchdescription+xml" title="matter.js" href="/matter.js/opensearch.xml">
+    <link rel="icon" href="/matter.js/favicon.ico">
+    <link rel="stylesheet" href="/matter.js/css/style.css">
+    <link media="print" rel="stylesheet" href="/matter.js/css/print.css">
+    <script src="/matter.js/js/fuse.min.js"></script>
+    <script src="/matter.js/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Fast Matter.js Physics in Workers Using ArrayBuffers - matter.js" />
+    <meta property="og:url" content="https://salivity.github.io/matter.js/article/fast-matter-js-physics-in-workers-using-array-buffers" />
+    <meta property="og:image" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Offloading Matter.js physics calculations to a Web Worker prevents heavy simulation loops from blocking UI interactions and rendering on the main thread. By default, communication via postMessage uses structured cloning, which introduces serialization la" />
+    <link rel="manifest" href="/matter.js/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/matter.js/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>matter.js</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/matter.js/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="fast-matterjs-physics-in-workers-using-arraybuffers">Fast
+Matter.js Physics in Workers Using ArrayBuffers</h1>
+<p>Offloading Matter.js physics calculations to a Web Worker prevents
+heavy simulation loops from blocking UI interactions and rendering on
+the main thread. By default, communication via <code>postMessage</code>
+uses structured cloning, which introduces serialization latency and
+garbage collection pressure when synchronizing dozens or hundreds of
+bodies at 60 frames per second. This article explains how to pack
+Matter.js simulation coordinates into transferable
+<code>ArrayBuffer</code> objects to achieve zero-copy, high-performance
+state synchronization between a worker and the main thread.</p>
+<h3 id="the-zero-copy-concept">The Zero-Copy Concept</h3>
+<p>Standard <code>postMessage(object)</code> duplicates data in memory.
+Transferable objects, such as the underlying <code>ArrayBuffer</code> of
+a <code>Float32Array</code>, transfer memory ownership instantly from
+the worker context to the main thread without copying data. Once
+transferred, the buffer becomes inaccessible to the sender, eliminating
+memory duplication and reducing frame time overhead.</p>
+<h3 id="1-structure-the-physics-data">1. Structure the Physics Data</h3>
+<p>Determine the properties required by the renderer for each body. A
+standard 2D render typically needs:</p>
+<ul>
+<li><code>x</code> position (1 float)</li>
+<li><code>y</code> position (1 float)</li>
+<li><code>angle</code> rotation (1 float)</li>
+</ul>
+<p>Using 3 floats per entity, an array of <span
+class="math inline">\(N\)</span> bodies requires <span
+class="math inline">\(N \times 3\)</span> floats, or <span
+class="math inline">\(N \times 12\)</span> bytes.</p>
+<h3 id="2-implement-the-web-worker">2. Implement the Web Worker</h3>
+<p>In the worker, run the Matter.js engine inside a fixed loop or
+<code>requestAnimationFrame</code> polyfill. Pack the transform
+properties of each dynamic body into a <code>Float32Array</code>, then
+transfer its buffer to the main thread.</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="co">// physics.worker.js</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> Matter <span class="im">from</span> <span class="st">&#39;matter-js&#39;</span><span class="op">;</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> { Engine<span class="op">,</span> Bodies<span class="op">,</span> Composite } <span class="op">=</span> Matter<span class="op">;</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> engine <span class="op">=</span> Engine<span class="op">.</span><span class="fu">create</span>()<span class="op">;</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> bodies <span class="op">=</span> []<span class="op">;</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> BODY_COUNT <span class="op">=</span> <span class="dv">500</span><span class="op">;</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a><span class="co">// Create bodies</span></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> (<span class="kw">let</span> i <span class="op">=</span> <span class="dv">0</span><span class="op">;</span> i <span class="op">&lt;</span> BODY_COUNT<span class="op">;</span> i<span class="op">++</span>) {</span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> body <span class="op">=</span> Bodies<span class="op">.</span><span class="fu">circle</span>(<span class="bu">Math</span><span class="op">.</span><span class="fu">random</span>() <span class="op">*</span> <span class="dv">800</span><span class="op">,</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">random</span>() <span class="op">*</span> <span class="dv">600</span><span class="op">,</span> <span class="dv">10</span>)<span class="op">;</span></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>  bodies<span class="op">.</span><span class="fu">push</span>(body)<span class="op">;</span></span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>  Composite<span class="op">.</span><span class="fu">add</span>(engine<span class="op">.</span><span class="at">world</span><span class="op">,</span> body)<span class="op">;</span></span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a><span class="co">// Stride length: x, y, angle</span></span>
+<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> STRIDE <span class="op">=</span> <span class="dv">3</span><span class="op">;</span></span>
+<span id="cb1-19"><a href="#cb1-19" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-20"><a href="#cb1-20" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">updatePhysics</span>() {</span>
+<span id="cb1-21"><a href="#cb1-21" aria-hidden="true" tabindex="-1"></a>  Engine<span class="op">.</span><span class="fu">update</span>(engine<span class="op">,</span> <span class="dv">1000</span> <span class="op">/</span> <span class="dv">60</span>)<span class="op">;</span></span>
+<span id="cb1-22"><a href="#cb1-22" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-23"><a href="#cb1-23" aria-hidden="true" tabindex="-1"></a>  <span class="co">// Allocate typed array for physics data</span></span>
+<span id="cb1-24"><a href="#cb1-24" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> data <span class="op">=</span> <span class="kw">new</span> <span class="bu">Float32Array</span>(bodies<span class="op">.</span><span class="at">length</span> <span class="op">*</span> STRIDE)<span class="op">;</span></span>
+<span id="cb1-25"><a href="#cb1-25" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-26"><a href="#cb1-26" aria-hidden="true" tabindex="-1"></a>  <span class="cf">for</span> (<span class="kw">let</span> i <span class="op">=</span> <span class="dv">0</span><span class="op">;</span> i <span class="op">&lt;</span> bodies<span class="op">.</span><span class="at">length</span><span class="op">;</span> i<span class="op">++</span>) {</span>
+<span id="cb1-27"><a href="#cb1-27" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> offset <span class="op">=</span> i <span class="op">*</span> STRIDE<span class="op">;</span></span>
+<span id="cb1-28"><a href="#cb1-28" aria-hidden="true" tabindex="-1"></a>    data[offset] <span class="op">=</span> bodies[i]<span class="op">.</span><span class="at">position</span><span class="op">.</span><span class="at">x</span><span class="op">;</span></span>
+<span id="cb1-29"><a href="#cb1-29" aria-hidden="true" tabindex="-1"></a>    data[offset <span class="op">+</span> <span class="dv">1</span>] <span class="op">=</span> bodies[i]<span class="op">.</span><span class="at">position</span><span class="op">.</span><span class="at">y</span><span class="op">;</span></span>
+<span id="cb1-30"><a href="#cb1-30" aria-hidden="true" tabindex="-1"></a>    data[offset <span class="op">+</span> <span class="dv">2</span>] <span class="op">=</span> bodies[i]<span class="op">.</span><span class="at">angle</span><span class="op">;</span></span>
+<span id="cb1-31"><a href="#cb1-31" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb1-32"><a href="#cb1-32" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-33"><a href="#cb1-33" aria-hidden="true" tabindex="-1"></a>  <span class="co">// Transfer the underlying ArrayBuffer</span></span>
+<span id="cb1-34"><a href="#cb1-34" aria-hidden="true" tabindex="-1"></a>  self<span class="op">.</span><span class="fu">postMessage</span>(data<span class="op">.</span><span class="at">buffer</span><span class="op">,</span> [data<span class="op">.</span><span class="at">buffer</span>])<span class="op">;</span></span>
+<span id="cb1-35"><a href="#cb1-35" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-36"><a href="#cb1-36" aria-hidden="true" tabindex="-1"></a>  <span class="pp">setTimeout</span>(updatePhysics<span class="op">,</span> <span class="dv">1000</span> <span class="op">/</span> <span class="dv">60</span>)<span class="op">;</span></span>
+<span id="cb1-37"><a href="#cb1-37" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb1-38"><a href="#cb1-38" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-39"><a href="#cb1-39" aria-hidden="true" tabindex="-1"></a><span class="fu">updatePhysics</span>()<span class="op">;</span></span></code></pre></div>
+<h3 id="3-read-data-on-the-main-thread">3. Read Data on the Main
+Thread</h3>
+<p>On the main thread, listen for messages, construct a
+<code>Float32Array</code> view over the incoming buffer, and iterate
+through the stride offsets to update visual representations (DOM nodes,
+Canvas, Pixi.js, or Three.js objects).</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="co">// main.js</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> worker <span class="op">=</span> <span class="kw">new</span> <span class="bu">Worker</span>(<span class="st">&#39;physics.worker.js&#39;</span><span class="op">,</span> { <span class="dt">type</span><span class="op">:</span> <span class="st">&#39;module&#39;</span> })<span class="op">;</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> STRIDE <span class="op">=</span> <span class="dv">3</span><span class="op">;</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a><span class="co">// Example visual representations</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> renderNodes <span class="op">=</span> <span class="fu">initializeRenderNodes</span>()<span class="op">;</span> </span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>worker<span class="op">.</span><span class="at">onmessage</span> <span class="op">=</span> (<span class="bu">event</span>) <span class="kw">=&gt;</span> {</span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> positions <span class="op">=</span> <span class="kw">new</span> <span class="bu">Float32Array</span>(<span class="bu">event</span><span class="op">.</span><span class="at">data</span>)<span class="op">;</span></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>  <span class="cf">for</span> (<span class="kw">let</span> i <span class="op">=</span> <span class="dv">0</span><span class="op">;</span> i <span class="op">&lt;</span> renderNodes<span class="op">.</span><span class="at">length</span><span class="op">;</span> i<span class="op">++</span>) {</span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> offset <span class="op">=</span> i <span class="op">*</span> STRIDE<span class="op">;</span></span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> x <span class="op">=</span> positions[offset]<span class="op">;</span></span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> y <span class="op">=</span> positions[offset <span class="op">+</span> <span class="dv">1</span>]<span class="op">;</span></span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> angle <span class="op">=</span> positions[offset <span class="op">+</span> <span class="dv">2</span>]<span class="op">;</span></span>
+<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a>    renderNodes[i]<span class="op">.</span><span class="fu">update</span>(x<span class="op">,</span> y<span class="op">,</span> angle)<span class="op">;</span></span>
+<span id="cb2-18"><a href="#cb2-18" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb2-19"><a href="#cb2-19" aria-hidden="true" tabindex="-1"></a>}<span class="op">;</span></span></code></pre></div>
+<h3 id="4-preventing-memory-allocation-via-buffer-ping-ponging">4.
+Preventing Memory Allocation via Buffer Ping-Ponging</h3>
+<p>Creating a <code>new Float32Array</code> on every frame still
+triggers garbage collection. To eliminate allocation entirely, establish
+a buffer ping-pong architecture:</p>
+<ol type="1">
+<li>Allocate two <code>ArrayBuffer</code> instances.</li>
+<li>The worker sends Buffer A to the main thread.</li>
+<li>The main thread processes Buffer A and transfers Buffer A back to
+the worker.</li>
+<li>Meanwhile, the worker writes the next frame into Buffer B.</li>
+<li>Once the worker receives Buffer A back, it reuses it for the
+subsequent frame.</li>
+</ol>
+<p>By cycling pre-allocated buffers across the worker boundary via
+transfer lists, Matter.js simulations run at high frame rates with zero
+serialization latency and zero memory allocations during runtime.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/matter.js'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/matter.js/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/matter.js/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

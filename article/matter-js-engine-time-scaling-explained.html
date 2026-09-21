@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Matter.js Engine Time Scaling Explained - matter.js</title>
+    <meta name="description" content="This article explores how Matter.js manages simulation speed using its internal time-scaling mechanics. In physics simulations, altering the passage of time is essential for effects like slow-motion, fast-forwarding, or smooth pausing. Matter.js accompli">
+    <link rel="canonical" href="https://salivity.github.io/matter.js/article/matter-js-engine-time-scaling-explained">
+    <link rel="search" type="application/opensearchdescription+xml" title="matter.js" href="/matter.js/opensearch.xml">
+    <link rel="icon" href="/matter.js/favicon.ico">
+    <link rel="stylesheet" href="/matter.js/css/style.css">
+    <link media="print" rel="stylesheet" href="/matter.js/css/print.css">
+    <script src="/matter.js/js/fuse.min.js"></script>
+    <script src="/matter.js/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Matter.js Engine Time Scaling Explained - matter.js" />
+    <meta property="og:url" content="https://salivity.github.io/matter.js/article/matter-js-engine-time-scaling-explained" />
+    <meta property="og:image" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article explores how Matter.js manages simulation speed using its internal time-scaling mechanics. In physics simulations, altering the passage of time is essential for effects like slow-motion, fast-forwarding, or smooth pausing. Matter.js accompli" />
+    <link rel="manifest" href="/matter.js/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/matter.js/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>matter.js</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/matter.js/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="matterjs-engine-time-scaling-explained">Matter.js Engine Time
+Scaling Explained</h1>
+<p>This article explores how Matter.js manages simulation speed using
+its internal time-scaling mechanics. In physics simulations, altering
+the passage of time is essential for effects like slow-motion,
+fast-forwarding, or smooth pausing. Matter.js accomplishes this
+primarily through the <code>timeScale</code> property located on the
+engine's timing object, scaling the discrete time step applied during
+each physics calculation cycle without breaking the underlying
+integration logic.</p>
+<h2 id="the-core-mechanism-enginetimingtimescale">The Core Mechanism:
+<code>engine.timing.timeScale</code></h2>
+<p>Matter.js controls simulation speed via the
+<code>engine.timing.timeScale</code> property. By default, this value is
+set to <code>1</code>.</p>
+<p>When <code>Engine.update(engine, delta)</code> runs on every frame,
+Matter.js calculates the effective time step by multiplying the frame's
+elapsed time (<code>delta</code>) by
+<code>engine.timing.timeScale</code>. The Verlet integration steps that
+determine body velocities, accelerations, and constraint resolutions
+then execute using this scaled delta value.</p>
+<ul>
+<li><strong>Normal Speed (<code>timeScale = 1.0</code>):</strong> The
+simulation progresses in real-time according to the delta provided by
+the render loop.</li>
+<li><strong>Slow Motion (<code>timeScale &lt; 1.0</code>):</strong> A
+value such as <code>0.5</code> cuts the effective delta in half, causing
+bodies to move at 50% of their normal speed.</li>
+<li><strong>Fast Forward (<code>timeScale &gt; 1.0</code>):</strong> A
+value such as <code>2.0</code> doubles the movement speed per frame
+update.</li>
+<li><strong>Paused (<code>timeScale = 0</code>):</strong> Setting the
+value to <code>0</code> halts all physical movement and collision
+reactions, while allowing the render loop and user interaction events to
+continue functioning.</li>
+</ul>
+<h2 id="practical-implementation">Practical Implementation</h2>
+<p>Setting the time scale is directly handled through the engine
+instance:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Create an engine</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> engine <span class="op">=</span> Matter<span class="op">.</span><span class="at">Engine</span><span class="op">.</span><span class="fu">create</span>()<span class="op">;</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="co">// Slow down time by half</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>engine<span class="op">.</span><span class="at">timing</span><span class="op">.</span><span class="at">timeScale</span> <span class="op">=</span> <span class="fl">0.5</span><span class="op">;</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a><span class="co">// Speed up time</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>engine<span class="op">.</span><span class="at">timing</span><span class="op">.</span><span class="at">timeScale</span> <span class="op">=</span> <span class="fl">1.5</span><span class="op">;</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a><span class="co">// Reset to standard speed</span></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>engine<span class="op">.</span><span class="at">timing</span><span class="op">.</span><span class="at">timeScale</span> <span class="op">=</span> <span class="fl">1.0</span><span class="op">;</span></span></code></pre></div>
+<h2 id="physical-stability-and-tunneling">Physical Stability and
+Tunneling</h2>
+<p>Altering <code>timeScale</code> directly impacts the numerical
+stability of the Verlet integrator:</p>
+<ul>
+<li><strong>Decreasing <code>timeScale</code> increases
+precision:</strong> When time slows down, the distance objects travel
+between steps decreases. This results in tighter collision resolution,
+more accurate constraint behavior, and negligible risk of tunneling
+(objects passing through one another).</li>
+<li><strong>Increasing <code>timeScale</code> decreases
+precision:</strong> Accelerating time forces objects to travel larger
+distances in a single calculation step. If velocities become too high
+relative to body thickness, objects may phase through colliders. To
+maintain simulation stability at higher time scales, you must either
+increase position and velocity iterations
+(<code>engine.positionIterations</code>,
+<code>engine.velocityIterations</code>) or manually split the update
+into multiple smaller sub-steps.</li>
+</ul>
+<h2 id="time-scaling-vs-frame-rate">Time Scaling vs. Frame Rate</h2>
+<p>Matter.js separates frame delta management from the physical
+simulation rate. If you are using <code>Matter.Runner</code>, it
+automatically measures actual elapsed time and passes it into
+<code>Engine.update</code>. The <code>timeScale</code> multiplier is
+applied internally after this measurement. Consequently, fluctuating
+display refresh rates (e.g., 60Hz vs. 144Hz) are compensated for by the
+runner, ensuring that <code>engine.timing.timeScale</code> remains a
+uniform scalar independent of hardware performance.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/matter.js'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/matter.js/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/matter.js/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

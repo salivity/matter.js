@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Why Sleeping Bodies Wake Up in Matter.js - matter.js</title>
+    <meta name="description" content="In Matter.js, the sleeping mechanism optimizes physics simulations by halting updates for rigid bodies that have settled into a resting state, significantly reducing computational overhead. However, sleeping bodies can unexpectedly wake up due to subtle">
+    <link rel="canonical" href="https://salivity.github.io/matter.js/article/why-sleeping-bodies-wake-up-in-matter-js">
+    <link rel="search" type="application/opensearchdescription+xml" title="matter.js" href="/matter.js/opensearch.xml">
+    <link rel="icon" href="/matter.js/favicon.ico">
+    <link rel="stylesheet" href="/matter.js/css/style.css">
+    <link media="print" rel="stylesheet" href="/matter.js/css/print.css">
+    <script src="/matter.js/js/fuse.min.js"></script>
+    <script src="/matter.js/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Why Sleeping Bodies Wake Up in Matter.js - matter.js" />
+    <meta property="og:url" content="https://salivity.github.io/matter.js/article/why-sleeping-bodies-wake-up-in-matter-js" />
+    <meta property="og:image" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="In Matter.js, the sleeping mechanism optimizes physics simulations by halting updates for rigid bodies that have settled into a resting state, significantly reducing computational overhead. However, sleeping bodies can unexpectedly wake up due to subtle" />
+    <link rel="manifest" href="/matter.js/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/matter.js/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>matter.js</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/matter.js/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="why-sleeping-bodies-wake-up-in-matterjs">Why Sleeping Bodies
+Wake Up in Matter.js</h1>
+<p>In Matter.js, the sleeping mechanism optimizes physics simulations by
+halting updates for rigid bodies that have settled into a resting state,
+significantly reducing computational overhead. However, sleeping bodies
+can unexpectedly wake up due to subtle physics events, manual state
+manipulations, or constraint dynamics. This article outlines the primary
+causes of accidental wake-ups in Matter.js—including resting penetration
+resolution, constraint forces, manual body mutations, and engine-level
+threshold settings—and provides straightforward methods to prevent
+them.</p>
+<h3 id="collisions-and-bounding-box-overlaps">Collisions and Bounding
+Box Overlaps</h3>
+<p>The most frequent cause of an unintended wake-up is interaction with
+another body. Matter.js automatically wakes a sleeping body if an active
+(awake) body touches its collision bounds. Even if the visual overlap is
+invisible or negligible, broadphase collision detection triggers a pair
+check. If tiny micro-penetrations or continuous resting contacts are
+resolved with active forces, the sleeping body is forced awake to
+respond to the incoming impulse.</p>
+<h3 id="manual-property-changes-via-matterbody">Manual Property Changes
+via <code>Matter.Body</code></h3>
+<p>Modifying a body directly bypasses the typical sleep check and forces
+the body to wake. Using utility functions such as:</p>
+<ul>
+<li><code>Matter.Body.setPosition()</code></li>
+<li><code>Matter.Body.setVelocity()</code></li>
+<li><code>Matter.Body.setAngle()</code></li>
+<li><code>Matter.Body.applyForce()</code></li>
+</ul>
+<p>internally invokes <code>Sleeping.set(body, false)</code>. If you
+update properties on sleeping bodies inside a render loop or update
+cycle, they will wake immediately on that frame.</p>
+<h3 id="active-constraints-and-springs">Active Constraints and
+Springs</h3>
+<p>Constraints attached between a sleeping body and an active body will
+wake the sleeping entity whenever tension, compression, or movement
+occurs. If a constraint has stiffness less than 1 (behaving like an
+elastic spring), minute oscillations between linked bodies can transmit
+forces continuously, preventing the sleeping body from remaining
+inactive or triggering an immediate state change.</p>
+<h3 id="sub-threshold-velocity-and-micro-jitter">Sub-Threshold Velocity
+and Micro-Jitter</h3>
+<p>Matter.js monitors a body's kinetic energy and tracks how many
+consecutive frames it remains below a motion threshold. If ambient
+forces—such as gravity, resting friction adjustments, or collision
+sorting—introduce micro-movements exceeding the engine's motion
+threshold, the body's internal idle counter resets, waking it up before
+it can fully settle.</p>
+<h3 id="low-sleepthreshold-configurations">Low
+<code>sleepThreshold</code> Configurations</h3>
+<p>The <code>sleepThreshold</code> parameter defines how many update
+ticks a body must remain below the motion limit before it transitions to
+sleep. If the threshold on <code>engine.enableSleeping</code> is too
+low, bodies may rapidly flicker between sleeping and waking states.
+Conversely, if ambient scene vibration keeps the motion variable just
+high enough, minor external movements will cause a premature wake-up
+event.</p>
+<h3 id="modifying-the-world-structure">Modifying the World
+Structure</h3>
+<p>Adding, removing, or re-indexing composite bodies in an active
+<code>Matter.Composite</code> can force broadphase spatial
+recalculations. When spatial partitioning grids rebuild, pairs are
+re-evaluated, and connected or adjacent resting bodies may be woken up
+to verify equilibrium.</p>
+<h3 id="how-to-keep-bodies-asleep">How to Keep Bodies Asleep</h3>
+<p>To prevent sleeping bodies from waking unexpectedly:</p>
+<ul>
+<li><strong>Use Static Bodies:</strong> If a resting body does not need
+to react to physics forces, set <code>body.isStatic = true</code>
+instead of relying on the sleeping state.</li>
+<li><strong>Tune the Sleep Threshold:</strong> Increase
+<code>engine.sleepThreshold</code> (default is 60 frames) to ensure
+bodies only sleep when completely motionless.</li>
+<li><strong>Avoid Direct Mutations:</strong> Do not alter velocities or
+coordinates of sleeping bodies unless you explicitly want them
+active.</li>
+<li><strong>Isolate Constraints:</strong> Ensure bodies linked by
+<code>Matter.Constraint</code> reach resting equilibrium at the same
+time, or break the constraint when a body enters the sleep state.</li>
+</ul></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/matter.js'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/matter.js/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/matter.js/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

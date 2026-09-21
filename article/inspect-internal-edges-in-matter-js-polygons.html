@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Inspect Internal Edges in Matter.js Polygons - matter.js</title>
+    <meta name="description" content="This article explains how to visualize and inspect the internal edges of decomposed polygons using the built-in Matter.js renderer. When working with complex, concave shapes in Matter.js, the physics engine decomposes them into multiple convex parts. By">
+    <link rel="canonical" href="https://salivity.github.io/matter.js/article/inspect-internal-edges-in-matter-js-polygons">
+    <link rel="search" type="application/opensearchdescription+xml" title="matter.js" href="/matter.js/opensearch.xml">
+    <link rel="icon" href="/matter.js/favicon.ico">
+    <link rel="stylesheet" href="/matter.js/css/style.css">
+    <link media="print" rel="stylesheet" href="/matter.js/css/print.css">
+    <script src="/matter.js/js/fuse.min.js"></script>
+    <script src="/matter.js/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Inspect Internal Edges in Matter.js Polygons - matter.js" />
+    <meta property="og:url" content="https://salivity.github.io/matter.js/article/inspect-internal-edges-in-matter-js-polygons" />
+    <meta property="og:image" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article explains how to visualize and inspect the internal edges of decomposed polygons using the built-in Matter.js renderer. When working with complex, concave shapes in Matter.js, the physics engine decomposes them into multiple convex parts. By" />
+    <link rel="manifest" href="/matter.js/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/matter.js/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>matter.js</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/matter.js/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="inspect-internal-edges-in-matterjs-polygons">Inspect Internal
+Edges in Matter.js Polygons</h1>
+<p>This article explains how to visualize and inspect the internal edges
+of decomposed polygons using the built-in Matter.js renderer. When
+working with complex, concave shapes in Matter.js, the physics engine
+decomposes them into multiple convex parts. By configuring specific
+flags within the <code>Render</code> module options, developers can
+display these internal boundaries to debug decomposition artifacts,
+verify collision geometry, and optimize physics bodies.</p>
+<h2 id="understanding-polygon-decomposition-in-matterjs">Understanding
+Polygon Decomposition in Matter.js</h2>
+<p>Matter.js relies on convex polygons for its rigid body collision
+calculations. When you supply vertices that form a concave
+polygon—typically using <code>Bodies.fromVertices</code>—the engine uses
+a decomposition library (such as <code>poly-decomp</code>) to break the
+concave path into a collection of convex sub-bodies joined into a single
+compound body.</p>
+<p>By default, the standard renderer hides the seam lines between these
+sub-parts to keep the final shape visually unified. However, visualizing
+these seams is essential when troubleshooting simulation instability,
+incorrect center of mass calculations, or improper vertex winding.</p>
+<h2 id="enabling-internal-edge-visualization">Enabling Internal Edge
+Visualization</h2>
+<p>The Matter.js renderer includes a dedicated configuration property
+named <code>showInternalEdges</code> inside its rendering options.
+Enabling this property forces the canvas to draw the internal dividing
+lines between sub-parts of a decomposed body.</p>
+<h3 id="configuration-via-render-initialization">Configuration via
+Render Initialization</h3>
+<p>You can enable internal edge inspection directly when instantiating
+the renderer by setting <code>showInternalEdges: true</code> within the
+<code>options</code> object of <code>Render.create</code>:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> render <span class="op">=</span> Matter<span class="op">.</span><span class="at">Render</span><span class="op">.</span><span class="fu">create</span>({</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>    <span class="dt">element</span><span class="op">:</span> <span class="bu">document</span><span class="op">.</span><span class="at">body</span><span class="op">,</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>    <span class="dt">engine</span><span class="op">:</span> engine<span class="op">,</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>    <span class="dt">options</span><span class="op">:</span> {</span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>        <span class="dt">width</span><span class="op">:</span> <span class="dv">800</span><span class="op">,</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>        <span class="dt">height</span><span class="op">:</span> <span class="dv">600</span><span class="op">,</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>        <span class="dt">wireframes</span><span class="op">:</span> <span class="kw">true</span><span class="op">,</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>        <span class="dt">showInternalEdges</span><span class="op">:</span> <span class="kw">true</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>Matter<span class="op">.</span><span class="at">Render</span><span class="op">.</span><span class="fu">run</span>(render)<span class="op">;</span></span></code></pre></div>
+<h3 id="key-render-options-to-consider">Key Render Options to
+Consider</h3>
+<ul>
+<li><strong><code>showInternalEdges</code></strong>: Setting this to
+<code>true</code> activates the drawing of internal boundaries
+separating decomposed parts of compound bodies.</li>
+<li><strong><code>wireframes</code></strong>: Internal edges are
+primarily designed to display in wireframe mode. Ensuring
+<code>wireframes: true</code> (which is the default in Matter.js)
+guarantees high-contrast rendering of all body borders, vertex points,
+and internal seams.</li>
+</ul>
+<h2 id="toggling-internal-edges-at-runtime">Toggling Internal Edges at
+Runtime</h2>
+<p>If the simulation is already running, you do not need to recreate the
+renderer to inspect internal edges. You can toggle the property
+dynamically directly on the active renderer instance:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Enable internal edges</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>render<span class="op">.</span><span class="at">options</span><span class="op">.</span><span class="at">showInternalEdges</span> <span class="op">=</span> <span class="kw">true</span><span class="op">;</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a><span class="co">// Disable internal edges</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>render<span class="op">.</span><span class="at">options</span><span class="op">.</span><span class="at">showInternalEdges</span> <span class="op">=</span> <span class="kw">false</span><span class="op">;</span></span></code></pre></div>
+<p>When modified at runtime, the changes take effect immediately on the
+next render frame.</p>
+<h2 id="practical-debugging-tips">Practical Debugging Tips</h2>
+<ul>
+<li><strong>Identify Over-Decomposition</strong>: If
+<code>showInternalEdges</code> reveals an excessive number of tiny
+triangles or slivers, consider simplifying the input vertex set using
+<code>Matter.Svg</code> or vertex reduction algorithms prior to body
+creation.</li>
+<li><strong>Detect Inverted Faces</strong>: If internal edges cross
+outside the expected boundaries of the shape, verify that the input
+vertices are wound in a consistent direction and do not contain
+self-intersections.</li>
+</ul></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/matter.js'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/matter.js/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/matter.js/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

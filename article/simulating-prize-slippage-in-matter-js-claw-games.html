@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simulating Prize Slippage in Matter.js Claw Games - matter.js</title>
+    <meta name="description" content="Simulating realistic prize slippage in a Matter.js claw machine requires balancing physical friction parameters, constraint stiffness, and dynamic lifting forces. By properly configuring Matter.Constraint properties to represent claw grip stiffness along">
+    <link rel="canonical" href="https://salivity.github.io/matter.js/article/simulating-prize-slippage-in-matter-js-claw-games">
+    <link rel="search" type="application/opensearchdescription+xml" title="matter.js" href="/matter.js/opensearch.xml">
+    <link rel="icon" href="/matter.js/favicon.ico">
+    <link rel="stylesheet" href="/matter.js/css/style.css">
+    <link media="print" rel="stylesheet" href="/matter.js/css/print.css">
+    <script src="/matter.js/js/fuse.min.js"></script>
+    <script src="/matter.js/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Simulating Prize Slippage in Matter.js Claw Games - matter.js" />
+    <meta property="og:url" content="https://salivity.github.io/matter.js/article/simulating-prize-slippage-in-matter-js-claw-games" />
+    <meta property="og:image" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Simulating realistic prize slippage in a Matter.js claw machine requires balancing physical friction parameters, constraint stiffness, and dynamic lifting forces. By properly configuring Matter.Constraint properties to represent claw grip stiffness along" />
+    <link rel="manifest" href="/matter.js/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/matter.js/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>matter.js</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/matter.js/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="simulating-prize-slippage-in-matterjs-claw-games">Simulating
+Prize Slippage in Matter.js Claw Games</h1>
+<p>Simulating realistic prize slippage in a Matter.js claw machine
+requires balancing physical friction parameters, constraint stiffness,
+and dynamic lifting forces. By properly configuring
+<code>Matter.Constraint</code> properties to represent claw grip
+stiffness alongside the <code>friction</code> and
+<code>frictionStatic</code> attributes of interacting bodies, you can
+recreate the classic arcade mechanic where prizes slip, rotate, and fall
+under their own weight during ascent.</p>
+<h3 id="1-modeling-grip-stiffness-with-constraints">1. Modeling Grip
+Stiffness with Constraints</h3>
+<p>In Matter.js, claw prongs are typically modeled as rigid bodies
+connected to a central carriage using <code>Matter.Constraint</code>.
+The grip stiffness determines how firmly the claw holds its shape
+against the outward pressure exerted by a prize.</p>
+<p>To simulate different claw strengths, adjust the
+<code>stiffness</code> and <code>damping</code> properties of the
+constraints connecting the prongs:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> prongConstraint <span class="op">=</span> Matter<span class="op">.</span><span class="at">Constraint</span><span class="op">.</span><span class="fu">create</span>({</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>    <span class="dt">bodyA</span><span class="op">:</span> carriageBody<span class="op">,</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>    <span class="dt">pointA</span><span class="op">:</span> { <span class="dt">x</span><span class="op">:</span> <span class="op">-</span><span class="dv">20</span><span class="op">,</span> <span class="dt">y</span><span class="op">:</span> <span class="dv">0</span> }<span class="op">,</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>    <span class="dt">bodyB</span><span class="op">:</span> leftProngBody<span class="op">,</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>    <span class="dt">pointB</span><span class="op">:</span> { <span class="dt">x</span><span class="op">:</span> <span class="dv">0</span><span class="op">,</span> <span class="dt">y</span><span class="op">:</span> <span class="op">-</span><span class="dv">20</span> }<span class="op">,</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>    <span class="dt">stiffness</span><span class="op">:</span> <span class="fl">0.05</span><span class="op">,</span> <span class="co">// Lower values allow the claw to bend open under weight</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>    <span class="dt">damping</span><span class="op">:</span> <span class="fl">0.1</span><span class="op">,</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>    <span class="dt">length</span><span class="op">:</span> <span class="dv">10</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div>
+<p>A lower <code>stiffness</code> (e.g., <code>0.01</code> to
+<code>0.05</code>) causes the claw prongs to yield when grasping heavy
+or awkwardly shaped prizes, allowing the item to wedge the claw open and
+slip through. A high <code>stiffness</code> (e.g., <code>0.8</code> to
+<code>1.0</code>) maintains a rigid hold.</p>
+<h3 id="2-configuring-surface-friction-properties">2. Configuring
+Surface Friction Properties</h3>
+<p>Matter.js uses Coulomb friction, which requires configuring friction
+properties on both the claw bodies and the prize bodies. Slippage relies
+on two primary parameters:</p>
+<ul>
+<li><strong><code>frictionStatic</code></strong>: Determines the force
+threshold required to initiate movement.</li>
+<li><strong><code>friction</code></strong>: Determines dynamic kinetic
+friction once the prize begins to slide.</li>
+</ul>
+<p>Define varied surface properties for both parts to simulate
+real-world materials:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Claw tip with moderate grip</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> clawTip <span class="op">=</span> Matter<span class="op">.</span><span class="at">Bodies</span><span class="op">.</span><span class="fu">circle</span>(x<span class="op">,</span> y<span class="op">,</span> radius<span class="op">,</span> {</span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>    <span class="dt">friction</span><span class="op">:</span> <span class="fl">0.3</span><span class="op">,</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>    <span class="dt">frictionStatic</span><span class="op">:</span> <span class="fl">0.5</span><span class="op">,</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>    <span class="dt">restitution</span><span class="op">:</span> <span class="fl">0.0</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a><span class="co">// Prize body (e.g., smooth plastic or plush surface)</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> prize <span class="op">=</span> Matter<span class="op">.</span><span class="at">Bodies</span><span class="op">.</span><span class="fu">rectangle</span>(x<span class="op">,</span> y<span class="op">,</span> width<span class="op">,</span> height<span class="op">,</span> {</span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>    <span class="dt">density</span><span class="op">:</span> <span class="fl">0.002</span><span class="op">,</span> <span class="co">// Adjust mass</span></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>    <span class="dt">friction</span><span class="op">:</span> <span class="fl">0.2</span><span class="op">,</span></span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>    <span class="dt">frictionStatic</span><span class="op">:</span> <span class="fl">0.4</span><span class="op">,</span></span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>    <span class="dt">restitution</span><span class="op">:</span> <span class="fl">0.05</span></span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div>
+<p>When the downward gravitational force (<span
+class="math inline">\(F_g = \text{mass} \times \text{gravity}\)</span>)
+exceeds the maximum static friction force (<span
+class="math inline">\(F_f \le \mu_s F_n\)</span>), the prize breaks
+static hold and enters dynamic slippage.</p>
+<h3 id="3-actuating-the-grip-force">3. Actuating the Grip Force</h3>
+<p>Rather than locking constraints into fixed positions, apply active
+forces toward the center to simulate the closing motor:</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a>Matter<span class="op">.</span><span class="at">Events</span><span class="op">.</span><span class="fu">on</span>(engine<span class="op">,</span> <span class="st">&#39;beforeUpdate&#39;</span><span class="op">,</span> () <span class="kw">=&gt;</span> {</span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (isClawClosing) {</span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>        <span class="co">// Apply inward force to each prong tip</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>        Matter<span class="op">.</span><span class="at">Body</span><span class="op">.</span><span class="fu">applyForce</span>(leftProng<span class="op">,</span> leftProng<span class="op">.</span><span class="at">position</span><span class="op">,</span> { <span class="dt">x</span><span class="op">:</span> gripStrength<span class="op">,</span> <span class="dt">y</span><span class="op">:</span> <span class="dv">0</span> })<span class="op">;</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>        Matter<span class="op">.</span><span class="at">Body</span><span class="op">.</span><span class="fu">applyForce</span>(rightProng<span class="op">,</span> rightProng<span class="op">.</span><span class="at">position</span><span class="op">,</span> { <span class="dt">x</span><span class="op">:</span> <span class="op">-</span>gripStrength<span class="op">,</span> <span class="dt">y</span><span class="op">:</span> <span class="dv">0</span> })<span class="op">;</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div>
+<p>When <code>gripStrength</code> generates a normal force (<span
+class="math inline">\(F_n\)</span>) against the prize, it limits the
+maximum frictional force. If the prize's weight or angular momentum
+exceeds this threshold, the prongs are pushed outward against the
+applied force, leading to slippage.</p>
+<h3 id="4-simulating-dynamic-grip-drop-off">4. Simulating Dynamic Grip
+Drop-Off</h3>
+<p>Real arcade claw machines deliberately reduce voltage to the coil
+after lifting to trigger slippage. You can reproduce this behavior
+during the lift phase using an update loop:</p>
+<ol type="1">
+<li><strong>Grab Phase:</strong> Close the claw with maximum force
+(<code>gripStrength = 0.05</code>, constraint
+<code>stiffness = 0.1</code>).</li>
+<li><strong>Lift Phase:</strong> Begin moving the claw upward. As
+vertical velocity increases, additional inertia naturally challenges the
+grip.</li>
+<li><strong>Drop-Off Phase:</strong> At a designated height, reduce
+<code>gripStrength</code> (e.g., to <code>0.01</code>) and reduce prong
+constraint <code>stiffness</code>.</li>
+</ol>
+<p>If the prize's center of mass is not perfectly centered between the
+claw tips, the asymmetric torque combined with reduced grip stiffness
+will cause the prize to rotate, break static friction, and slip out of
+the claw back into the pit.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/matter.js'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/matter.js/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/matter.js/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

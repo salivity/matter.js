@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Matter.js timeScale and Velocity Calculations Explained - matter.js</title>
+    <meta name="description" content="This article explores how the timeScale property influences velocity calculations, displacement, and physics integration within Matter.js. It details the mathematical role of engine-level and body-level time scaling, explains how the engine's Verlet inte">
+    <link rel="canonical" href="https://salivity.github.io/matter.js/article/matter-js-time-scale-and-velocity-calculations-explained">
+    <link rel="search" type="application/opensearchdescription+xml" title="matter.js" href="/matter.js/opensearch.xml">
+    <link rel="icon" href="/matter.js/favicon.ico">
+    <link rel="stylesheet" href="/matter.js/css/style.css">
+    <link media="print" rel="stylesheet" href="/matter.js/css/print.css">
+    <script src="/matter.js/js/fuse.min.js"></script>
+    <script src="/matter.js/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Matter.js timeScale and Velocity Calculations Explained - matter.js" />
+    <meta property="og:url" content="https://salivity.github.io/matter.js/article/matter-js-time-scale-and-velocity-calculations-explained" />
+    <meta property="og:image" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/matter.js/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article explores how the timeScale property influences velocity calculations, displacement, and physics integration within Matter.js. It details the mathematical role of engine-level and body-level time scaling, explains how the engine's Verlet inte" />
+    <link rel="manifest" href="/matter.js/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/matter.js/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>matter.js</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/matter.js/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1
+id="matterjs-timescale-and-velocity-calculations-explained">Matter.js
+timeScale and Velocity Calculations Explained</h1>
+<p>This article explores how the <code>timeScale</code> property
+influences velocity calculations, displacement, and physics integration
+within Matter.js. It details the mathematical role of engine-level and
+body-level time scaling, explains how the engine's Verlet integration
+scheme derives velocity from positional changes, and covers how forces
+and damping adapt to time-step modifications.</p>
+<p>In Matter.js, <code>timeScale</code> controls the rate at which time
+passes in the physics simulation. It can be applied globally via
+<code>engine.timing.timeScale</code> or on individual objects via
+<code>body.timeScale</code>. Both properties act as scalar multipliers
+that scale the effective integration step size (<code>deltaTime</code>)
+used across physics calculations.</p>
+<p>Matter.js relies on a modified Verlet integration model rather than
+standard Euler integration. Instead of treating velocity as a fully
+decoupled variable that updates position in isolation, the engine
+inherently ties velocity to the displacement between a body's current
+position and its previous position (<code>positionPrev</code>). During
+each update tick, velocity is computed using the following
+relationship:</p>
+<p><span class="math display">\[\text{velocity} = \frac{\text{position}
+- \text{positionPrev}}{\Delta t_{\text{normalised}}}\]</span></p>
+<p>When <code>timeScale</code> is altered, it directly affects the
+normalized time delta passed into the integration phase. Specifically,
+the simulation scales the delta time:</p>
+<p><span class="math display">\[\Delta t_{\text{effective}} = \Delta t
+\times \text{timeScale}\]</span></p>
+<p>This adjustment affects velocity calculations in several specific
+ways:</p>
+<h3 id="1-positional-integration-and-effective-step-size">1. Positional
+Integration and Effective Step Size</h3>
+<p>During <code>Body.update</code>, displacement per engine cycle is
+calculated by multiplying the current velocity by the scaled time delta.
+When <code>timeScale</code> decreases (e.g., set to <code>0.5</code> for
+slow motion), the displacement added to <code>body.position</code> in
+that step is halved. Because <code>positionPrev</code> retains the
+coordinate from the prior update, subsequent velocity derivations
+accurately reflect slower movement through world space.</p>
+<h3 id="2-force-and-acceleration-integration">2. Force and Acceleration
+Integration</h3>
+<p>External forces applied to a body (<code>body.force</code>) are
+converted into acceleration and added to the velocity vector during the
+integration cycle. Matter.js scales the force application by the
+normalized time step:</p>
+<p><span class="math display">\[\Delta v_{\text{force}} =
+\left(\frac{\text{force}}{\text{mass}}\right) \times \Delta
+t_{\text{effective}}\]</span></p>
+<p>If <code>timeScale</code> is reduced, the velocity increment gained
+from active forces in that specific tick decreases proportionally. This
+ensures that continuous forces, like global gravity, accelerate bodies
+consistently in simulated time rather than real time.</p>
+<h3 id="3-damping-and-air-resistance">3. Damping and Air Resistance</h3>
+<p>Air resistance (<code>body.frictionAir</code>) is applied as a
+damping multiplier on previous displacement before computing the new
+velocity. The decay factor incorporates <code>timeScale</code>:</p>
+<p><span class="math display">\[\text{frictionFactor} = 1 -
+(\text{body.frictionAir} \times \Delta
+t_{\text{effective}})\]</span></p>
+<p>By scaling the friction factor with <code>timeScale</code>, Matter.js
+prevents drag from over-damping or under-damping bodies when the
+simulation speed changes. A object moving in slow motion retains its
+trajectory shape rather than stopping prematurely due to unscaled air
+resistance.</p>
+<h3 id="4-global-vs-body-specific-timescale">4. Global vs. Body-Specific
+<code>timeScale</code></h3>
+<p>Modifying <code>engine.timing.timeScale</code> adjusts the delta
+globally across the collision detector, constraint solver, and all rigid
+bodies. In contrast, setting <code>body.timeScale</code> on a single
+body multiplies that specific body's local integration delta without
+affecting the rest of the engine. A body with a lower
+<code>body.timeScale</code> will update its positions and derived
+velocities slower than neighboring bodies, which can result in
+asymmetric collision responses when interacting with standard-speed
+objects.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/matter.js'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/matter.js/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/matter.js/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>
